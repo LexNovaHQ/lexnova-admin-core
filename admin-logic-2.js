@@ -1124,7 +1124,16 @@ async function renderExposureMatrix() {
 
     const rows = clients.map(c => {
       const jurs  = [c.registrationJurisdiction, ...(c.operatingJurisdictions||[])].filter(Boolean);
-      const delAt = c.deliveredAt ? (c.deliveredAt.toDate ? c.deliveredAt.toDate() : new Date(c.deliveredAt)) : null;
+      
+      // FIX: Legacy Data Fallback. If they are delivered but have no timestamp, fallback to an old date so they trigger the gap.
+      let delAt = null;
+      if (c.deliveredAt) {
+          delAt = c.deliveredAt.toDate ? c.deliveredAt.toDate() : new Date(c.deliveredAt);
+      } else if (c.status === 'delivered') {
+          // If no delivery date exists on a delivered client, use createdAt or a zero-date to force the gap
+          delAt = c.createdAt ? (c.createdAt.toDate ? c.createdAt.toDate() : new Date(c.createdAt)) : new Date(0);
+      }
+
       let red = 0, yellow = 0;
 
       radarEntries.forEach(reg => {
@@ -1147,7 +1156,7 @@ async function renderExposureMatrix() {
         // THE CHRONOLOGICAL RULE
         if (!coveredByPlan) {
             isGap = true; // Plan doesn't cover this module
-        } else if (coveredByPlan && delAt && eff && eff > delAt) {
+        } else if (coveredByPlan && c.status === 'delivered' && eff && eff > delAt) {
             isGap = true; // Plan covers it, but law dropped AFTER we delivered. Docs are stale.
         }
 
