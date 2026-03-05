@@ -400,15 +400,20 @@ function renderClientsTable(list) {
   tbody.innerHTML = list.map(c => {
     const elBadge = c.elAccepted ? `<span class="badge b-delivered">✓ Yes</span>` : `<span class="badge b-ghost">—</span>`;
     
-    // THE SLA CLOCK LOGIC
+   // ── THE SLA CLOCK LOGIC (FINAL ALIGNMENT) ──
     let slaClock = '<span class="dim">—</span>';
-    if (c.status === 'intake_received' || c.status === 'in_production') {
-        const startTs = c.productionStartedAt || c.intakeSentAt;
-        if (startTs) {
-            const hRem = 48 - hoursSince(startTs);
-            const colorClass = hRem <= 0 ? 'cd-over' : hRem <= 8 ? 'cd-warn' : 'cd-ok';
-            slaClock = `<span class="countdown ${colorClass}">${hRem > 0 ? hRem + 'h left' : Math.abs(hRem) + 'h OVER'}</span>`;
-        }
+    
+    // Check the exact field from your Firebase Console
+    const startTs = c.intakeReceivedAt || c.intakeSentAt || c.productionStartedAt;
+
+    if (startTs && (c.status === 'intake_received' || c.status === 'in_production')) {
+        const hRemaining = 48 - hoursSince(startTs);
+        
+        // Visual Urgency Styling
+        const colorClass = hRemaining <= 0 ? 'cd-over' : hRemaining <= 8 ? 'cd-warn' : 'cd-ok';
+        const label = hRemaining > 0 ? `${hRemaining}h left` : `${Math.abs(hRemaining)}h OVERDUE`;
+        
+        slaClock = `<span class="countdown ${colorClass}">${label}</span>`;
     }
 
     return `<tr onclick="openDetail('${esc(c.id)}')">
