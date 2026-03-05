@@ -256,6 +256,61 @@ tbody td.dim{color:var(--marble-dim)}
 #toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;font-size:11px;border:1px solid;display:none;z-index:999;letter-spacing:.05em}
 #toast.success{background:rgba(90,138,106,.1);border-color:var(--green);color:#7ab88a}
 #toast.error{background:rgba(138,58,58,.1);border-color:var(--red);color:#d47a7a}
+
+/* ── DASHBOARD SPECIFIC ─────────────────────────────────── */
+.funnel-row{display:flex;align-items:center;gap:0;margin-bottom:2px}
+.funnel-stage{flex:1;text-align:center;padding:10px 4px;background:var(--surface);border:1px solid var(--border);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--marble-dim)}
+.funnel-stage .fnum{font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--marble);display:block;margin-bottom:2px}
+.capacity-bar{height:6px;background:var(--surface2);border:1px solid var(--border);margin:6px 0}
+.capacity-fill{height:100%;background:var(--gold);transition:width .5s}
+.ritual-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ritual-item{background:var(--surface2);border:1px solid var(--border);padding:12px 14px}
+.ritual-label{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--marble-dim);margin-bottom:6px}
+.ritual-input{width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--marble);font-size:18px;font-family:'Cormorant Garamond',serif;padding:2px 0;outline:none}
+.ritual-input:focus{border-bottom-color:var(--gold)}
+.conc-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(197,160,89,.06);font-size:11px}
+.conc-row:last-child{border-bottom:none}
+.conc-flag{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#d47a7a}
+
+/* ── OUTREACH SPECIFIC ──────────────────────────────────── */
+.pipeline-funnel{display:flex;gap:0}
+.pf-stage{flex:1;padding:12px 8px;background:var(--surface);border:1px solid var(--border);text-align:center;border-left:none}
+.pf-stage:first-child{border-left:1px solid var(--border)}
+.pf-stage .pf-num{font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--marble);display:block}
+.pf-stage .pf-label{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--marble-dim);display:block;margin-top:2px}
+.action-queue{background:var(--surface);border:1px solid var(--border)}
+.aq-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid rgba(197,160,89,.05);font-size:11px}
+.aq-row:last-child{border-bottom:none}
+.aq-count{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--gold)}
+.email-counter{display:flex;gap:16px}
+.ec-block{flex:1;background:var(--surface);border:1px solid var(--border);padding:14px}
+.ec-label{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--marble-dim);margin-bottom:6px}
+.ec-val{font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--marble)}
+.ec-limit{font-size:10px;color:var(--marble-faint)}
+.ec-over{color:#d47a7a}
+
+/* ── RADAR SPECIFIC ─────────────────────────────────────── */
+.radar-entry{background:var(--surface);border:1px solid var(--border);padding:14px 16px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.radar-title{font-size:12px;color:var(--marble);margin-bottom:3px}
+.radar-meta{font-size:9px;color:var(--marble-faint)}
+.radar-actions{display:flex;gap:6px;flex-shrink:0}
+.exposure-row{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:1px solid rgba(197,160,89,.05);font-size:11px}
+.exposure-row:last-child{border-bottom:none}
+.exp-flags{display:flex;gap:8px}
+.exp-flag-r{font-size:10px;color:#d47a7a}
+.exp-flag-y{font-size:10px;color:#c4a840}
+
+/* ── FINANCE SPECIFIC ───────────────────────────────────── */
+.conc-warn{background:rgba(138,58,58,.06);border:1px solid rgba(138,58,58,.2);padding:10px 14px;font-size:10px;color:#d47a7a;margin-bottom:12px;display:none}
+
+/* ── BATCH TABLE ────────────────────────────────────────── */
+.batch-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.batch-tbl th{padding:7px 10px;font-size:8px;letter-spacing:.15em;text-transform:uppercase;color:var(--marble-dim);text-align:left;border-bottom:1px solid var(--border)}
+.batch-tbl td{padding:8px 10px;border-bottom:1px solid rgba(197,160,89,.04);color:var(--marble)}
+
+/* ── LOADING / EMPTY ────────────────────────────────────── */
+.loading{color:var(--marble-faint);font-size:11px;padding:40px;text-align:center;letter-spacing:.1em}
+.empty{color:var(--marble-faint);font-size:11px;padding:40px;text-align:center;border:1px solid var(--border)}
 </style>
 </head>
 <body>
@@ -442,11 +497,11 @@ tbody td.dim{color:var(--marble-dim)}
         <select class="fi" id="c-status" onchange="filterClients()">
           <option value="">All Statuses</option>
          <option value="pending_payment">Pending Payment</option>
-<option value="payment_received">Payment Received</option> 
+         <option value="payment_received">Payment Received</option> 
           <option value="intake_received">Intake Received</option>
-<option value="under_review">Under Review</option>
-<option value="in_production">In Production</option>
-<option value="delivered">Delivered</option>
+          <option value="under_review">Under Review</option>
+          <option value="in_production">In Production</option>
+          <option value="delivered">Delivered</option>
         </select>
         <select class="fi" id="c-plan" onchange="filterClients()">
           <option value="">All Plans</option>
@@ -771,10 +826,11 @@ tbody td.dim{color:var(--marble-dim)}
         <label class="fl">Status</label>
         <select class="fi" id="dp-status" onchange="onStatusChange(this.value)">
           <option value="pending_payment">Pending Payment</option>
-<option value="payment_received">Payment Received</option> <option value="intake_received">Intake Received</option>
-<option value="under_review">Under Review</option>
-<option value="in_production">In Production</option>
-<option value="delivered">Delivered</option>
+          <option value="payment_received">Payment Received</option> 
+          <option value="intake_received">Intake Received</option>
+          <option value="under_review">Under Review</option>
+          <option value="in_production">In Production</option>
+          <option value="delivered">Delivered</option>
         </select>
       </div>
       <div id="dp-countdowns" style="margin-bottom:14px"></div>
@@ -945,20 +1001,13 @@ tbody td.dim{color:var(--marble-dim)}
   <div class="modal-body" id="modalBody"></div>
   <div class="modal-footer" id="modalFooter"></div>
 </div>
-
 <div id="toast"></div>
-
-
-<script src="admin-logic-1.js"></script>
-<script src="admin-logic-2.js"></script>
-
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <script>
-// ── FIREBASE INIT ──────────────────────────────────────
 firebase.initializeApp({
   apiKey:            "AIzaSyDO4s_W8_87XnsLnuAfyUqgsF8BgaHRYWA",
   authDomain:        "lexnova-hq.firebaseapp.com",
@@ -970,7 +1019,6 @@ firebase.initializeApp({
 const auth = firebase.auth();
 const db   = firebase.firestore();
 
-// ── BASIC AUTH FUNCTIONS ───────────────────────────────
 function login() {
   const email = document.getElementById('loginEmail').value.trim();
   const pass  = document.getElementById('loginPassword').value;
@@ -1006,11 +1054,9 @@ auth.onAuthStateChanged(async u => {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('adminPanel').classList.add('active');
   
-  // This function lives in admin-logic-1.js. Because logic-1 is loaded above, this works perfectly.
-  if (typeof init === 'function') init(); 
+  if (typeof init === 'function') init();
 });
 </script>
 
 </body>
 </html>
-
