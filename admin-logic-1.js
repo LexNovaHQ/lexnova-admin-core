@@ -997,26 +997,41 @@ function renderLeadsTable(list) {
     tbody.innerHTML = '<tr><td colspan="10" class="loading">No leads found</td></tr>';
     return;
   }
-  tbody.innerHTML = list.map(l => {
-    const tc = { warm_lead:'b-warm', hot_lead:'b-hot', ghost_lead:'b-ghost' }[l.leadType] || 'b-ghost';
-    const extScore = l.scannerExternalScore ?? l.scannerScore ?? '—';
-    const intScore = l.scannerInternalScore ?? '—';
-    return `<tr>
-      <td>${esc(l.name||'—')}</td>
-      <td class="dim">${esc(l.email||l.id)}</td>
-      <td class="dim">${esc(l.company||'—')}</td>
-      <td><span class="badge ${tc}">${esc(l.leadType||'—')}</span></td>
-      <td class="dim">${esc(l.status||'—')}</td>
-      <td class="dim">${esc(l.source||'—')}</td>
-      <td>${extScore}</td>
-      <td>${intScore}</td>
-      <td class="dim">${fmtDate(l.createdAt)}</td>
-      <td onclick="event.stopPropagation()">
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-primary btn-sm" onclick="convertLead('${esc(l.id)}')">Convert</button>
-          <button class="btn btn-ghost   btn-sm" onclick="archiveLead('${esc(l.id)}')">Archive</button>
-        </div>
-      </td>
+  tbody.innerHTML = list.map(c => {
+    const elBadge = c.elAccepted ? `<span class="badge b-delivered">✓ Yes</span>` : `<span class="badge b-ghost">—</span>`;
+    
+    // ── THE SLA CLOCK LOGIC ──
+    let slaClock = '<span class="dim">—</span>';
+    
+    // If status is "Intake Received", start the 48h countdown
+    if (c.status === 'intake_received' || c.status === 'in_production') {
+        // We use intakeSentAt (from the portal) or productionStartedAt (if manual)
+        const startTs = c.intakeSentAt || c.productionStartedAt;
+        
+        if (startTs) {
+            const hSince = hoursSince(startTs);
+            const hRemaining = 48 - hSince;
+            
+            // Visual Urgency
+            const colorClass = hRemaining <= 0 ? 'cd-over' : hRemaining <= 8 ? 'cd-warn' : 'cd-ok';
+            const label = hRemaining > 0 ? `${hRemaining}h left` : `${Math.abs(hRemaining)}h OVERDUE`;
+            
+            slaClock = `<span class="countdown ${colorClass}">${label}</span>`;
+        } else {
+            // Fallback if portal didn't save timestamp correctly
+            slaClock = `<span class="badge b-yellow">Pending TS</span>`;
+        }
+    }
+
+    return `<tr onclick="openDetail('${esc(c.id)}')">
+      <td>${esc(c.name||'—')}</td>
+      <td class="dim">${esc(c.company||'—')}</td>
+      <td><span class="badge ${planBadgeClass(c.plan)}">${planLabel(c.plan)}</span></td>
+      <td><span class="badge ${statusBadgeClass(c.status)}">${statusLabel(c.status)}</span></td>
+      <td>${slaClock}</td> <td>${elBadge}</td>
+      <td class="dim">${esc(c.registrationJurisdiction||'—')}</td>
+      <td><div class="radar-dots">${getClientRadarDots(c)}</div></td>
+      <td class="dim">${fmtDate(c.createdAt)}</td>
     </tr>`;
   }).join('');
 }
