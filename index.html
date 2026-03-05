@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lex Nova — Admin Console</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { void: '#050505', marble: '#F5F5F0', gold: '#D4AF37', shadow: '#1A1A1A' },
+                    fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Cormorant Garamond', 'serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #050505; color: #F5F5F0; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .nav-item.active { border-left: 2px solid #D4AF37; color: #D4AF37; }
+        /* Slide-out Panel CSS */
+        #detail-panel { transform: translateX(100%); transition: transform 0.3s ease-in-out; }
+        #detail-panel.open { transform: translateX(0); }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden font-sans">
+
+    <div id="login-overlay" class="fixed inset-0 z-50 bg-void flex items-center justify-center">
+        <div class="w-full max-w-sm p-8 border border-shadow bg-[#0a0a0a]">
+            <h1 class="text-2xl font-serif text-gold mb-6 text-center">Lex Nova Command</h1>
+            <input type="email" id="loginEmail" placeholder="Admin Email" class="w-full bg-void border border-shadow p-3 mb-4 text-marble focus:border-gold outline-none">
+            <input type="password" id="loginPassword" placeholder="Password" class="w-full bg-void border border-shadow p-3 mb-6 text-marble focus:border-gold outline-none">
+            <button id="loginBtn" class="w-full border border-gold text-gold uppercase tracking-widest text-xs py-3 hover:bg-gold hover:text-void transition-colors">Authenticate</button>
+            <p id="loginError" class="text-red-500 text-xs mt-4 text-center hidden"></p>
+        </div>
+    </div>
+
+    <aside class="w-64 border-r border-shadow flex flex-col justify-between hidden" id="sidebar">
+        <div>
+            <div class="p-6 border-b border-shadow">
+                <h2 class="font-serif text-xl text-gold">Lex Nova</h2>
+                <p class="text-[10px] uppercase tracking-widest text-marble opacity-50">Admin Console</p>
+            </div>
+            <nav class="p-4 space-y-2 text-sm">
+                <p class="text-[10px] uppercase tracking-widest text-marble opacity-30 mb-2">Operations</p>
+                <button data-target="tab-dashboard" class="nav-item active w-full text-left p-2 hover:text-gold transition-colors">Dashboard</button>
+                <button data-target="tab-clients" class="nav-item w-full text-left p-2 hover:text-gold transition-colors">Clients</button>
+                <button data-target="tab-leads" class="nav-item w-full text-left p-2 hover:text-gold transition-colors">Leads</button>
+                <button data-target="tab-outreach" class="nav-item w-full text-left p-2 hover:text-gold transition-colors">Outreach (CRM)</button>
+                
+                <p class="text-[10px] uppercase tracking-widest text-marble opacity-30 mt-6 mb-2">Pipeline</p>
+                <button data-target="tab-flagship" class="nav-item w-full text-left p-2 hover:text-gold transition-colors">Flagship</button>
+                <button data-target="tab-content" class="nav-item w-full text-left p-2 hover:text-gold transition-colors">Content</button>
+                
+                <p class="text-[10px] uppercase tracking-widest text-marble opacity-30 mt-6 mb-2">System</p>
+                <button data-target="tab-radar" class="nav-item w-full text-left p-2 hover:text-gold transition-colors">Radar</button>
+                <button data-target="tab-finance" class="nav-item w-full text-left p-2 hover:text-gold transition-colors">Finance</button>
+                <button data-target="tab-settings" class="nav-item w-full text-left p-2 hover:text-gold transition-colors">Settings</button>
+            </nav>
+        </div>
+        <div class="p-4 border-t border-shadow">
+            <p id="currentUser" class="text-xs text-marble opacity-50 mb-2 truncate"></p>
+            <button id="logoutBtn" class="text-xs text-red-500 hover:text-red-400">Sign Out</button>
+        </div>
+    </aside>
+
+    <main class="flex-1 overflow-y-auto hidden relative" id="main-content">
+        
+        <div class="p-8 max-w-7xl mx-auto">
+            <div id="tab-dashboard" class="tab-content active">
+                <h2 class="text-2xl font-serif text-gold mb-6">Command Centre</h2>
+                <div id="render-dashboard"></div>
+            </div>
+            
+            <div id="tab-clients" class="tab-content">
+                <h2 class="text-2xl font-serif text-gold mb-6">Clients</h2>
+                <div id="render-clients"></div>
+            </div>
+
+            <div id="tab-leads" class="tab-content">
+                <h2 class="text-2xl font-serif text-gold mb-6">Leads</h2>
+                <div id="render-leads"></div>
+            </div>
+
+            <div id="tab-outreach" class="tab-content">
+                <h2 class="text-2xl font-serif text-gold mb-6">Outreach CRM</h2>
+                <div id="render-outreach"></div>
+            </div>
+
+            <div id="tab-flagship" class="tab-content">
+                <h2 class="text-2xl font-serif text-gold mb-6">Flagship Pipeline</h2>
+                <div id="render-flagship"></div>
+            </div>
+
+            <div id="tab-content" class="tab-content">
+                <h2 class="text-2xl font-serif text-gold mb-6">Content Log</h2>
+                <div id="render-content-log"></div>
+            </div>
+
+            <div id="tab-radar" class="tab-content">
+                <h2 class="text-2xl font-serif text-gold mb-6">Regulatory Radar</h2>
+                <div id="render-radar"></div>
+            </div>
+
+            <div id="tab-finance" class="tab-content">
+                <h2 class="text-2xl font-serif text-gold mb-6">Finance</h2>
+                <div id="render-finance"></div>
+            </div>
+
+            <div id="tab-settings" class="tab-content">
+                <h2 class="text-2xl font-serif text-gold mb-6">Settings</h2>
+                <div id="render-settings"></div>
+            </div>
+        </div>
+
+        <div id="detail-panel" class="fixed top-0 right-0 w-[800px] h-full bg-[#0a0a0a] border-l border-shadow shadow-2xl z-40 flex flex-col">
+            <div class="p-6 border-b border-shadow flex justify-between items-center">
+                <h3 id="panel-title" class="text-xl font-serif text-gold">Loading...</h3>
+                <button id="close-panel" class="text-marble opacity-50 hover:opacity-100 text-2xl">&times;</button>
+            </div>
+            <div id="panel-nav" class="flex border-b border-shadow px-6 overflow-x-auto text-xs uppercase tracking-widest gap-6">
+                </div>
+            <div id="panel-content" class="flex-1 overflow-y-auto p-6">
+                </div>
+        </div>
+    </main>
+
+    <div id="toast" class="fixed bottom-4 right-4 bg-gold text-void px-6 py-3 font-bold text-xs uppercase tracking-widest hidden z-50 transition-opacity"></div>
+
+    <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"></script>
+    
+    <script type="module" src="./admin-logic-1.js"></script>
+    <script type="module" src="./admin-logic-2.js"></script>
+
+</body>
+</html>
