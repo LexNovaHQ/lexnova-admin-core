@@ -207,40 +207,33 @@ tbody td.dim{color:var(--marble-dim)}
 .sev-MEDIUM{color:var(--gold)}
 .sev-LOW{color:var(--marble-dim)}
 
-/* ── CLIENT DETAIL PANEL ────────────────────────────────── */
-#detailPanel{position:fixed;right:0;top:0;bottom:0;width:600px;background:var(--surface);border-left:1px solid var(--border2);display:none;z-index:300;flex-direction:column;overflow:hidden}
-#detailPanel.open{display:flex}
-.detail-header{padding:24px 24px 0;border-bottom:1px solid var(--border);flex-shrink:0;padding-bottom:16px}
-.detail-name{font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--marble)}
-.detail-meta{font-size:9px;color:var(--marble-faint);margin-top:2px}
+/* ── DETAIL PANELS ──────────────────────────────────────── */
+#detailPanel, #prospectPanel, #flagshipPanel{position:fixed;right:0;top:0;bottom:0;background:var(--surface);border-left:1px solid var(--border2);display:none;z-index:300;flex-direction:column;overflow:hidden}
+#detailPanel{width:600px;}
+#prospectPanel{width:520px;}
+#flagshipPanel{width:500px;}
+#detailPanel.open, #prospectPanel.open, #flagshipPanel.open{display:flex}
+
+.detail-header, .pp-header{padding:24px 24px 0;border-bottom:1px solid var(--border);flex-shrink:0;padding-bottom:16px}
+.detail-name, .pp-name{font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--marble)}
+.detail-meta, .pp-meta{font-size:9px;color:var(--marble-faint);margin-top:2px}
 .detail-plan-badge{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-top:6px;display:inline-block}
+
 /* sub-tabs */
 .sub-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;padding:0 24px}
 .sub-tab{padding:9px 12px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--marble-dim);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;transition:all .15s}
 .sub-tab:hover{color:var(--marble)}
 .sub-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
-.detail-body{flex:1;overflow-y:auto;padding:20px 24px}
+.detail-body, .pp-body{flex:1;overflow-y:auto;padding:20px 24px}
 .detail-section{margin-bottom:20px}
 .detail-section-title{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--marble-faint);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+
 /* EL status block */
 .el-status-block{background:var(--surface2);border:1px solid var(--border);padding:10px 14px;margin-bottom:14px}
 .el-status-row{display:flex;justify-content:space-between;font-size:10px}
 .el-status-ok{color:var(--green)}
 .el-status-miss{color:#d47a7a}
-/* engagement ref */
 .eng-ref{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--gold);margin-bottom:4px}
-
-/* ── PROSPECT PANEL ─────────────────────────────────────── */
-#prospectPanel{position:fixed;right:0;top:0;bottom:0;width:520px;background:var(--surface);border-left:1px solid var(--border2);display:none;z-index:300;flex-direction:column;overflow:hidden}
-#prospectPanel.open{display:flex}
-.pp-header{padding:20px 20px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
-.pp-name{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--marble)}
-.pp-meta{font-size:9px;color:var(--marble-faint);margin-top:2px}
-.pp-body{flex:1;overflow-y:auto;padding:18px 20px}
-
-/* ── FLAGSHIP PANEL ─────────────────────────────────────── */
-#flagshipPanel{position:fixed;right:0;top:0;bottom:0;width:500px;background:var(--surface);border-left:1px solid var(--border2);display:none;z-index:300;flex-direction:column;overflow:hidden}
-#flagshipPanel.open{display:flex}
 
 /* ── MODAL ──────────────────────────────────────────────── */
 #overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:250}
@@ -433,7 +426,8 @@ tbody td.dim{color:var(--marble-dim)}
             <div class="pf-stage"><span class="pf-num" id="pf-warm">0</span><span class="pf-label">Warm</span></div>
             <div class="pf-stage"><span class="pf-num" id="pf-hot">0</span><span class="pf-label">Hot</span></div>
             <div class="pf-stage"><span class="pf-num" id="pf-replied">0</span><span class="pf-label">Replied</span></div>
-            <div class="pf-stage"><span class="pf-num" id="pf-conv">0</span><span class="pf-label">Converted</span></div>
+            <div class="pf-stage"><span class="pf-num" id="pf-neg">0</span><span class="pf-label">Negotiating</span></div>
+            <div class="pf-stage"><span class="pf-num" id="ocf-conv">0</span><span class="pf-label">Converted</span></div>
           </div>
         </div>
         <div>
