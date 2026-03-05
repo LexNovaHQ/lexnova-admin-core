@@ -515,11 +515,12 @@ tbody td.dim{color:var(--marble-dim)}
         <input type="text" class="fi" placeholder="Search name or email…" id="c-search" oninput="filterClients()">
         <select class="fi" id="c-status" onchange="filterClients()">
           <option value="">All Statuses</option>
-          <option value="pending_payment">Pending Payment</option>
+         <option value="pending_payment">Pending Payment</option>
+<option value="payment_received">Payment Received</option> 
           <option value="intake_received">Intake Received</option>
-          <option value="under_review">Under Review</option>
-          <option value="in_production">In Production</option>
-          <option value="delivered">Delivered</option>
+<option value="under_review">Under Review</option>
+<option value="in_production">In Production</option>
+<option value="delivered">Delivered</option>
         </select>
         <select class="fi" id="c-plan" onchange="filterClients()">
           <option value="">All Plans</option>
@@ -886,10 +887,10 @@ tbody td.dim{color:var(--marble-dim)}
         <label class="fl">Status</label>
         <select class="fi" id="dp-status" onchange="onStatusChange(this.value)">
           <option value="pending_payment">Pending Payment</option>
-          <option value="intake_received">Intake Received</option>
-          <option value="under_review">Under Review</option>
-          <option value="in_production">In Production</option>
-          <option value="delivered">Delivered</option>
+<option value="payment_received">Payment Received</option> <option value="intake_received">Intake Received</option>
+<option value="under_review">Under Review</option>
+<option value="in_production">In Production</option>
+<option value="delivered">Delivered</option>
         </select>
       </div>
       <!-- Countdowns -->
