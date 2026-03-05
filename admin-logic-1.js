@@ -14,15 +14,16 @@ const PLANS = {
 };
 
 const STATUS_CHAIN = [
-  'pending_payment','intake_received','under_review','in_production','delivered'
+  'pending_payment','payment_received','intake_received','under_review','in_production','delivered'
 ];
 
 const STATUS_LABELS = {
-  pending_payment: 'Pending Payment',
-  intake_received: 'Intake Received',
-  under_review:    'Under Review',
-  in_production:   'In Production',
-  delivered:       'Delivered'
+  pending_payment:  'Pending Payment',
+  payment_received: 'Payment Received', // ADD THIS LINE
+  intake_received:  'Intake Received',
+  under_review:     'Under Review',
+  in_production:    'In Production',
+  delivered:        'Delivered'
 };
 
 const PLAN_PRICES = {
