@@ -1069,8 +1069,11 @@ async function saveRadarEntry() {
   else entries.push(entry);
 
   try {
-    // Full replace — entries array is the single source of truth
-    await db.collection('settings').doc('regulatory_radar').set({ entries });
+    // FIX: Save entries array AND push the lastUpdated timestamp to trigger Client Portal refresh
+    await db.collection('settings').doc('regulatory_radar').set({ 
+        entries: entries,
+        lastUpdated: new Date().toISOString()
+    });
     radarEntries.length = 0;
     entries.forEach(e => radarEntries.push(e));
     const badge = $('radar-badge');
@@ -1089,9 +1092,22 @@ async function deleteRadarEntry(idx) {
   if (!confirm('Delete this regulation?')) return;
   const entries = radarEntries.filter((_, i) => i !== idx);
   try {
-    await db.collection('settings').doc('regulatory_radar').set({ entries });
+    // FIX: Push timestamp to Client Portal on delete, and update array
+    await db.collection('settings').doc('regulatory_radar').set({ 
+        entries: entries,
+        lastUpdated: new Date().toISOString()
+    });
     radarEntries.length = 0;
     entries.forEach(e => radarEntries.push(e));
+    
+    // FIX: Update CRITICAL badge count when an item is deleted
+    const badge = $('radar-badge');
+    if (badge) {
+      const n = entries.filter(r => r.severity === 'CRITICAL').length;
+      badge.textContent = n;
+      badge.classList.toggle('hidden', n === 0);
+    }
+
     renderRadarList();
     toast('Deleted');
   } catch(e) { console.error(e); toast('Delete failed', 'error'); }
@@ -1113,18 +1129,28 @@ async function renderExposureMatrix() {
       let red = 0, yellow = 0;
 
       radarEntries.forEach(reg => {
-        const match = jurs.some(j => j && reg.jurisdiction && (
-          j.toLowerCase() === reg.jurisdiction.toLowerCase() ||
-          reg.jurisdiction.toUpperCase().startsWith(j.toUpperCase()) ||
-          j.toUpperCase().startsWith(reg.jurisdiction.toUpperCase())
-        ));
-        if (!match) return;
+        // FIX: Safely parse jurisdiction whether it was saved as a string or array, and check for 'global'
+        let regJurs = [];
+        if (Array.isArray(reg.jurisdiction)) regJurs = reg.jurisdiction;
+        else if (typeof reg.jurisdiction === 'string') regJurs = reg.jurisdiction.split(',').map(s=>s.trim().toLowerCase());
+
+        const isGlobalReg = regJurs.some(r => r === 'global');
+        
+        const match = isGlobalReg || jurs.some(j => 
+            j && regJurs.some(rj => 
+                rj && (j.toLowerCase() === rj || rj.startsWith(j.toLowerCase()) || j.toLowerCase().startsWith(rj))
+            )
+        );
+
+        if (!match) return; // Skip if it doesn't apply to them
+
         const eff     = reg.effectiveDate ? new Date(reg.effectiveDate) : null;
         const covered = reg.coveredByPlan?.includes(c.plan);
+        
         if (!eff || eff > today)                   { yellow++; return; }
-        if (covered && delAt && eff <= delAt)      { return; }          // COVERED — green, no count
+        if (covered && delAt && eff <= delAt)      { return; }           // COVERED — green, no count
         if (c.maintenanceActive)                   { yellow++; return; } // SCHEDULED
-        red++;                                                          // EXPOSED
+        red++;                                                           // EXPOSED
       });
 
       return { ...c, _red: red, _yellow: yellow };
@@ -1155,7 +1181,6 @@ async function renderExposureMatrix() {
     tbody.innerHTML = '<tr><td colspan="6" class="loading" style="color:#d47a7a">Load error</td></tr>';
   }
 }
-
 // ── FINANCE ───────────────────────────────────────────────────────────────────
 async function loadFinance() {
   setPageActions('');
