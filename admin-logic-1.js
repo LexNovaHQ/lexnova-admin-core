@@ -270,76 +270,156 @@ function populateDetailFinancials(c) {
 }
 
 // ── DELIVERY ENGINE ───────────────────────────────────────────────────────────
+
 function populateDetailDocuments(c) {
     const container = $('docsContainer');
     if (!container) return;
     container.innerHTML = ''; // Fresh render
+    
     (c.documents || []).forEach(d => {
         const div = document.createElement('div');
-        div.className = "doc-row border border-shadow p-3 mb-2 bg-void";
-        div.innerHTML = `<span class="text-gold text-xs font-bold uppercase">${esc(d.name)}</span>`;
+        div.className = "doc-row";
+        div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <span style="color:var(--gold); font-weight:bold; text-transform:uppercase; font-size:11px;">${esc(d.name)}</span>
+                <button onclick="this.closest('.doc-row').remove()" style="color:#d47a7a; font-size:10px; text-transform:uppercase; background:none; border:none; cursor:pointer;">Remove</button>
+            </div>
+            ${d.purpose ? `<div style="font-size:10px; color:var(--marble-dim); margin-bottom:12px;"><strong>Purpose:</strong> ${esc(d.purpose)}</div>` : ''}
+            ${d.content ? `<div style="font-size:10px; color:var(--marble-dim); margin-bottom:12px; background:var(--void); padding:8px; border:1px solid var(--border); opacity:0.8;"><strong>EL Preview:</strong> ${esc(d.content.substring(0,100))}...</div>` : ''}
+            
+            <div class="doc-grid">
+                <div class="fg" style="margin-bottom:0">
+                    <label class="fl">PDF Link</label>
+                    <input type="text" class="fi doc-pdf" value="${esc(d.pdfUrl || '')}">
+                </div>
+                <div class="fg" style="margin-bottom:0">
+                    <label class="fl">DOCX Link</label>
+                    <input type="text" class="fi doc-docx" value="${esc(d.docxUrl || '')}">
+                </div>
+            </div>
+            <input type="hidden" class="doc-name" value="${esc(d.name)}">
+            <input type="hidden" class="doc-purpose" value="${esc(d.purpose || '')}">
+            <textarea class="doc-content hidden" style="display:none;">${esc(d.content || '')}</textarea>
+        `;
         container.appendChild(div);
     });
 }
 
 window.generateELForDelivery = function() {
-    const scope = PLAN_SCOPES[currentClient.plan] || "AI Advisory Scope.";
+    if (!currentClient) { toast("No client selected.", "error"); return; }
+
+    // Async Gathering of Variables
+    const scope       = PLAN_SCOPES[currentClient.plan] || "AI Advisory Scope.";
+    const clientName  = currentClient.name || "Client Name";
+    const companyName = currentClient.company || "Company Name";
+    const planName    = planLabel(currentClient.plan);
+    const dateStr     = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    // The Pre-filled Template
+    const elTemplate = `ENGAGEMENT LETTER (STAGE 2) - FINAL SCOPE & DELIVERY\n\nDATE: ${dateStr}\nCLIENT: ${clientName} (${companyName})\nPLAN: ${planName}\n\n1. SCOPE OF SERVICES\nBased on the intake diagnostics, Lex Nova HQ will deliver the following:\n${scope}\n\n2. DELIVERY TIMELINE\nWork will commence immediately upon execution of this document and will be delivered via the secure client portal.\n\n3. FEES & MAINTENANCE\nMaintenance phase begins upon final delivery of the items scoped above.`;
+
     const div = document.createElement('div');
-    div.className = "doc-row border border-gold/30 p-4 mb-3 bg-[#0a0a0a] relative";
+    div.className = "doc-row";
+    div.style.position = "relative";
     div.innerHTML = `
-        <div class="absolute top-0 left-0 w-1 h-full bg-gold"></div>
-        <input type="text" value="Engagement Letter (Stage 2)" class="doc-name bg-transparent text-gold text-xs outline-none font-bold uppercase w-full mb-2">
-        <textarea class="doc-scope fi text-[10px] w-full h-12 mb-2 bg-void p-2 border border-shadow">${scope}</textarea>
-        <div class="grid grid-cols-2 gap-2">
-            <input type="text" placeholder="PDF URL" class="fi doc-pdf text-xs">
-            <input type="text" placeholder="DOCX URL" class="fi doc-docx text-xs">
-        </div>`;
-    $('docsContainer').prepend(div);
+        <div style="position:absolute; top:0; left:0; width:3px; height:100%; background:var(--gold);"></div>
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid rgba(197,160,89,0.3); padding-bottom:8px; padding-left:12px;">
+            <input type="text" value="Engagement Letter (Stage 2) - ${planName}" class="doc-name fi" style="background:transparent; border:none; color:var(--gold); font-weight:bold; text-transform:uppercase; font-size:12px; width:70%; padding:0;">
+            <span style="font-size:9px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; opacity:0.6;">Async Review</span>
+        </div>
+        
+        <div class="fg" style="padding-left:12px;">
+            <label class="fl" style="color:var(--gold);">Draft Review (Edit before publishing)</label>
+            <textarea class="doc-content fi" style="height:200px; line-height:1.6; font-size:11px; background:var(--void); border-color:var(--border2); color:var(--marble);">${elTemplate}</textarea>
+        </div>
+        
+        <div class="doc-grid" style="padding:12px; background:var(--void); border:1px solid var(--border); margin-left:12px;">
+            <div class="fg" style="margin-bottom:0">
+                <label class="fl" style="color:var(--gold);">Final PDF URL (Signature Link)</label>
+                <input type="text" placeholder="https://..." class="fi doc-pdf" style="border-color:rgba(197,160,89,0.4);">
+            </div>
+            <div class="fg" style="margin-bottom:0">
+                <label class="fl">DOCX URL (Optional)</label>
+                <input type="text" placeholder="https://..." class="fi doc-docx">
+            </div>
+        </div>
+    `;
+    $('docsContainer').prepend(div); // Pops up at the very top
 };
 
 window.addDocRow = function() {
     const div = document.createElement('div');
-    div.className = "doc-row border border-shadow p-4 mb-3 bg-[#0a0a0a]";
+    div.className = "doc-row";
     div.innerHTML = `
-        <div class="flex justify-between mb-2">
-            <input type="text" placeholder="Document Name" class="doc-name bg-transparent text-gold text-xs outline-none font-bold uppercase w-2/3">
-            <button onclick="this.closest('.doc-row').remove()" class="text-danger text-[10px]">Remove</button>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px;">
+            <input type="text" placeholder="DOCUMENT NAME (E.G. AI USAGE POLICY)" class="doc-name fi" style="background:transparent; border:none; color:var(--gold); font-weight:bold; text-transform:uppercase; font-size:12px; width:70%; padding:0;">
+            <button onclick="this.closest('.doc-row').remove()" style="color:#d47a7a; font-size:10px; text-transform:uppercase; background:none; border:none; cursor:pointer;">Remove</button>
         </div>
-        <div class="grid grid-cols-2 gap-2">
-            <input type="text" placeholder="PDF URL" class="fi doc-pdf text-xs">
-            <input type="text" placeholder="DOCX URL" class="fi doc-docx text-xs">
-        </div>`;
+        
+        <div class="fg">
+            <label class="fl">Purpose / Notes</label>
+            <input type="text" placeholder="Brief description of this document..." class="fi doc-purpose">
+        </div>
+        
+        <div class="doc-grid">
+            <div class="fg" style="margin-bottom:0">
+                <label class="fl">PDF Link ↗</label>
+                <input type="text" placeholder="https://..." class="fi doc-pdf">
+            </div>
+            <div class="fg" style="margin-bottom:0">
+                <label class="fl">DOCX Link ↗</label>
+                <input type="text" placeholder="https://..." class="fi doc-docx">
+            </div>
+        </div>
+    `;
     $('docsContainer').appendChild(div);
 };
 
 window.saveDocuments = async function() {
+    if (!currentClient) return;
     const docs = [];
+    
     qsa('#docsContainer .doc-row').forEach(row => {
-        const name = row.querySelector('.doc-name')?.value;
-        if (name) docs.push({
-            name,
-            scope: row.querySelector('.doc-scope')?.value || '',
-            pdfUrl: row.querySelector('.doc-pdf').value,
-            docxUrl: row.querySelector('.doc-docx').value,
-            status: 'delivered'
+        const nameInput = row.querySelector('.doc-name');
+        // Handle both input fields (new docs) and hidden fields (saved docs)
+        const name = nameInput ? nameInput.value : null; 
+        
+        if (name) { 
+            docs.push({
+                name: name,
+                purpose: row.querySelector('.doc-purpose')?.value || '',
+                content: row.querySelector('.doc-content')?.value || '',
+                pdfUrl: row.querySelector('.doc-pdf')?.value || '',
+                docxUrl: row.querySelector('.doc-docx')?.value || '',
+                status: 'delivered'
+            });
+        }
+    });
+
+    try {
+        await db.collection('clients').doc(currentClient.id).update({ 
+            documents: docs, 
+            status: 'delivered', 
+            elFullGeneratedAt: nowTs(), // Tags the overview status
+            deliveredAt: nowTs() // Kills the SLA clock
         });
-    });
-    await db.collection('clients').doc(currentClient.id).update({ 
-        documents: docs, 
-        status: 'delivered', 
-        deliveredAt: nowTs() 
-    });
-    toast("Work Delivered");
-    closeDetail();
+        toast("Work Delivered. Client Portal Updated.");
+        closeDetail();
+    } catch (e) {
+        console.error(e);
+        toast("Save Failed", "error");
+    }
 };
 
 // ── LEADS ─────────────────────────────────────────────────────────────────────
 async function loadLeads() {
     const tbody = $('l-tbody');
+    if (!tbody) return;
     const snap = await db.collection('leads').orderBy('createdAt','desc').get();
     tbody.innerHTML = '';
     snap.forEach(d => {
         const l = d.data();
-        tbody.innerHTML += `<tr><td>${esc(l.name)}</td><td>${esc(l.email)}</td><td>${fmtDate(l.createdAt)}</td></tr>`;
+        tbody.innerHTML += `<tr><td>${esc(l.name||'—')}</td><td>${esc(l.email||d.id)}</td><td class="dim">${esc(l.company||'—')}</td><td><span class="badge b-ghost">${esc(l.leadType||'—')}</span></td><td>${esc(l.status||'—')}</td><td class="dim">${esc(l.source||'—')}</td><td>${l.scannerExternalScore ?? '—'}</td><td>${l.scannerInternalScore ?? '—'}</td><td class="dim">${fmtDate(l.createdAt)}</td><td><button class="btn btn-outline btn-sm" onclick="convertLead('${esc(d.id)}')">Convert</button></td></tr>`;
     });
 }
