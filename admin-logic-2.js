@@ -37,14 +37,30 @@ function setPageActions(html) {
 }
 
 // ── OUTREACH ──────────────────────────────────────────────────────────────────
-async function loadOutreach() {
+let outreachListener = null;
+
+function loadOutreach() {
   setPageActions('');
-  try {
-    const snap = await db.collection('prospects').get();
+  // Kill any old listener before starting a new one to prevent memory leaks
+  if (outreachListener) outreachListener(); 
+
+  // REAL-TIME LISTENER: This stays "awake" for your 50 VP leads
+  outreachListener = db.collection('prospects').onSnapshot((snap) => {
     allProspects = [];
     snap.forEach(d => allProspects.push({ id: d.id, ...d.data() }));
+    
+    // Auto-refresh the active view
     populateCommandCenter();
-  } catch(e) { console.error(e); toast('Outreach load failed', 'error'); }
+    
+    // Detect which sub-tab is open and refresh its table
+    const activeView = qsa('#tab-outreach .view-btn.active')[0]?.textContent?.toLowerCase();
+    if (activeView?.includes('pipeline')) filterProspects();
+    if (activeView?.includes('hot')) renderHot();
+    if (activeView?.includes('follow-up')) renderFollowup();
+  }, (e) => {
+    console.error(e);
+    toast('Outreach Sync Failed', 'error');
+  });
 }
 
 function setOutreachView(view, el) {
