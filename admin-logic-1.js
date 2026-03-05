@@ -240,7 +240,7 @@ function planBadgeClass(plan) {
            complete_stack:'b-production', flagship:'b-hot' }[plan] || 'b-ghost';
 }
 function statusBadgeClass(status) {
-  return { pending_payment:'b-pending', intake_received:'b-intake',
+  return { pending_payment:'b-pending', payment_received: 'b-delivered', intake_received:'b-intake',
            under_review:'b-review', in_production:'b-production',
            delivered:'b-delivered' }[status] || 'b-ghost';
 }
