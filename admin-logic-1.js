@@ -373,38 +373,50 @@ async function saveRitual() {
 }
 
 // ── CLIENTS TABLE ─────────────────────────────────────────────────────────────
-async function loadClients() {
+function loadClients() {
   const tbody = $('c-tbody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="loading">Loading…</td></tr>';
-  try {
+  // Update colspan to 9 because we added the SLA Clock column to the HTML
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="loading">Loading…</td></tr>';
+  
+  // REAL-TIME LISTENER: This stays "awake" and refreshes the table automatically
+  db.collection('clients').orderBy('createdAt','desc').onSnapshot(async (snap) => {
     await loadRadarCache();
-    const snap = await db.collection('clients').orderBy('createdAt','desc').get();
     allClients = [];
     snap.forEach(d => allClients.push({ id: d.id, ...d.data() }));
     renderClientsTable(allClients);
-  } catch (e) {
+  }, (e) => {
     console.error(e);
-    const tb = $('c-tbody');
-    if (tb) tb.innerHTML = '<tr><td colspan="8" class="loading" style="color:#d47a7a">Failed to load</td></tr>';
-  }
+    if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="loading" style="color:#d47a7a">Failed to load</td></tr>';
+  });
 }
 
 function renderClientsTable(list) {
   const tbody = $('c-tbody');
   if (!tbody) return;
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="loading">No clients found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="loading">No clients found</td></tr>';
     return;
   }
   tbody.innerHTML = list.map(c => {
-    const elBadge = c.elAccepted
-      ? `<span class="badge b-delivered">✓ Yes</span>`
-      : `<span class="badge b-ghost">—</span>`;
+    const elBadge = c.elAccepted ? `<span class="badge b-delivered">✓ Yes</span>` : `<span class="badge b-ghost">—</span>`;
+    
+    // THE SLA CLOCK LOGIC
+    let slaClock = '<span class="dim">—</span>';
+    if (c.status === 'intake_received' || c.status === 'in_production') {
+        const startTs = c.productionStartedAt || c.intakeSentAt;
+        if (startTs) {
+            const hRem = 48 - hoursSince(startTs);
+            const colorClass = hRem <= 0 ? 'cd-over' : hRem <= 8 ? 'cd-warn' : 'cd-ok';
+            slaClock = `<span class="countdown ${colorClass}">${hRem > 0 ? hRem + 'h left' : Math.abs(hRem) + 'h OVER'}</span>`;
+        }
+    }
+
     return `<tr onclick="openDetail('${esc(c.id)}')">
       <td>${esc(c.name||'—')}</td>
       <td class="dim">${esc(c.company||'—')}</td>
       <td><span class="badge ${planBadgeClass(c.plan)}">${planLabel(c.plan)}</span></td>
       <td><span class="badge ${statusBadgeClass(c.status)}">${statusLabel(c.status)}</span></td>
+      <td>${slaClock}</td> 
       <td>${elBadge}</td>
       <td class="dim">${esc(c.registrationJurisdiction||'—')}</td>
       <td><div class="radar-dots">${getClientRadarDots(c)}</div></td>
