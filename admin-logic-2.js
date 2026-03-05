@@ -190,13 +190,12 @@ function renderPipeline(list) {
       ? '<span class="badge b-warm">Clicked</span>'
       : '<span class="badge b-ghost">—</span>';
     return `<tr onclick="openPP('${esc(p.id)}')">
-      <td>${esc(p.founderName||p.name||'—')}${fire ? ` <span class="hot-flag">${fire}</span>` : ''}</td>
+      <td>${esc(p.founderName||p.name||'—')}</td>
       <td class="dim">${esc(p.company||'—')}</td>
       <td class="dim">${esc(p.batchNumber||'—')}</td>
       <td><span class="badge ${sClass[p.status]||'b-ghost'}">${esc(p.status||'—')}</span></td>
       <td class="dim">${esc(p.followUpBranch||'—')}</td>
-      <td>${scan}</td>
-      <td class="dim">${esc(p.linkedinStatus||'—')}</td>
+      <td>${scan} <span class="hot-flag">${fire}</span></td> <td class="dim">${esc(p.linkedinStatus||'—')}</td>
       <td class="dim">${esc(p.nextActionDate||'—')}</td>
       <td class="dim">${p.emailsSent||0}</td>
     </tr>`;
