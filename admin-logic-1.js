@@ -1000,18 +1000,21 @@ function renderLeadsTable(list) {
   tbody.innerHTML = list.map(c => {
     const elBadge = c.elAccepted ? `<span class="badge b-delivered">✓ Yes</span>` : `<span class="badge b-ghost">—</span>`;
     
-    // ── THE SLA CLOCK LOGIC ──
+   // ── THE SLA CLOCK LOGIC (UNIFIED) ──
     let slaClock = '<span class="dim">—</span>';
     
-    // If status is "Intake Received", start the 48h countdown
-    if (c.status === 'intake_received' || c.status === 'in_production') {
-        // We use intakeSentAt (from the portal) or productionStartedAt (if manual)
-        const startTs = c.intakeSentAt || c.productionStartedAt;
+    // Check for both possible portal fields and the manual production field
+    const startTs = c.intakeReceivedAt || c.intakeSentAt || c.productionStartedAt;
+
+    if ((c.status === 'intake_received' || c.status === 'in_production') && startTs) {
+        const hRemaining = 48 - hoursSince(startTs);
         
-        if (startTs) {
-            const hSince = hoursSince(startTs);
-            const hRemaining = 48 - hSince;
-            
+        // Visual Urgency Classes
+        const colorClass = hRemaining <= 0 ? 'cd-over' : hRemaining <= 8 ? 'cd-warn' : 'cd-ok';
+        const label = hRemaining > 0 ? `${hRemaining}h left` : `${Math.abs(hRemaining)}h OVERDUE`;
+        
+        slaClock = `<span class="countdown ${colorClass}">${label}</span>`;
+    }
             // Visual Urgency
             const colorClass = hRemaining <= 0 ? 'cd-over' : hRemaining <= 8 ? 'cd-warn' : 'cd-ok';
             const label = hRemaining > 0 ? `${hRemaining}h left` : `${Math.abs(hRemaining)}h OVERDUE`;
