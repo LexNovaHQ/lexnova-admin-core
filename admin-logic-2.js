@@ -1121,7 +1121,6 @@ async function renderExposureMatrix() {
     const snap = await db.collection('clients').get();
     const clients = [];
     snap.forEach(d => clients.push({ id: d.id, ...d.data() }));
-    const today = new Date();
 
     const rows = clients.map(c => {
       const jurs  = [c.registrationJurisdiction, ...(c.operatingJurisdictions||[])].filter(Boolean);
@@ -1129,28 +1128,34 @@ async function renderExposureMatrix() {
       let red = 0, yellow = 0;
 
       radarEntries.forEach(reg => {
-        // FIX: Safely parse jurisdiction whether it was saved as a string or array, and check for 'global'
         let regJurs = [];
         if (Array.isArray(reg.jurisdiction)) regJurs = reg.jurisdiction;
         else if (typeof reg.jurisdiction === 'string') regJurs = reg.jurisdiction.split(',').map(s=>s.trim().toLowerCase());
 
         const isGlobalReg = regJurs.some(r => r === 'global');
-        
         const match = isGlobalReg || jurs.some(j => 
-            j && regJurs.some(rj => 
-                rj && (j.toLowerCase() === rj || rj.startsWith(j.toLowerCase()) || j.toLowerCase().startsWith(rj))
-            )
+            j && regJurs.some(rj => rj && (j.toLowerCase() === rj || rj.startsWith(j.toLowerCase()) || j.toLowerCase().startsWith(rj)))
         );
 
-        if (!match) return; // Skip if it doesn't apply to them
+        if (!match) return; // Skip if jurisdiction doesn't apply
 
-        const eff     = reg.effectiveDate ? new Date(reg.effectiveDate) : null;
-        const covered = reg.coveredByPlan?.includes(c.plan);
+        const eff = reg.effectiveDate ? new Date(reg.effectiveDate) : null;
+        const coveredByPlan = reg.coveredByPlan?.includes(c.plan);
         
-        if (!eff || eff > today)                   { yellow++; return; }
-        if (covered && delAt && eff <= delAt)      { return; }           // COVERED — green, no count
-        if (c.maintenanceActive)                   { yellow++; return; } // SCHEDULED
-        red++;                                                           // EXPOSED
+        let isGap = false;
+
+        // THE CHRONOLOGICAL RULE
+        if (!coveredByPlan) {
+            isGap = true; // Plan doesn't cover this module
+        } else if (coveredByPlan && delAt && eff && eff > delAt) {
+            isGap = true; // Plan covers it, but law dropped AFTER we delivered. Docs are stale.
+        }
+
+        // TALLY EXPOSURES BASED ON VIP STATUS
+        if (isGap) {
+            if (c.maintenanceActive) yellow++; // Under Review
+            else red++; // Exposed
+        }
       });
 
       return { ...c, _red: red, _yellow: yellow };
