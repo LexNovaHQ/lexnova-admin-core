@@ -36,6 +36,36 @@ function setPageActions(html) {
   if (el) el.innerHTML = html;
 }
 
+// ── SUNDAY RITUAL ─────────────────────────────────────────────────────────────
+window.loadRitual = async function() {
+  try {
+    const snap = await db.collection('settings').doc('ritual').get();
+    if (snap.exists) {
+      const d = snap.data();
+      if ($('r-outreach')) $('r-outreach').value = d.outreach || '';
+      if ($('r-replies')) $('r-replies').value = d.replies || '';
+      if ($('r-tally')) $('r-tally').value = d.tally || '';
+      if ($('r-deals')) $('r-deals').value = d.deals || '';
+      if ($('r-pipeline')) $('r-pipeline').value = d.pipeline || '';
+    }
+  } catch(e) { console.error('Ritual load failed', e); }
+};
+
+window.saveRitual = async function() {
+  const data = {
+    outreach: parseInt($('r-outreach')?.value) || 0,
+    replies: parseInt($('r-replies')?.value) || 0,
+    tally: parseInt($('r-tally')?.value) || 0,
+    deals: parseInt($('r-deals')?.value) || 0,
+    pipeline: parseInt($('r-pipeline')?.value) || 0,
+    updatedAt: new Date().toISOString()
+  };
+  try {
+    await db.collection('settings').doc('ritual').set(data, { merge: true });
+    toast('Ritual metrics updated');
+  } catch(e) { toast('Error saving ritual', 'error'); }
+};
+
 // ── OUTREACH ──────────────────────────────────────────────────────────────────
 let outreachListener = null;
 
@@ -306,6 +336,49 @@ function renderDead() {
       <td class="dim">${fmtDate(p.archivedAt||p.updatedAt)}</td>
     </tr>`).join('');
 }
+
+// ── LEAD CONVERSION ───────────────────────────────────────────────────────────
+window.convertLead = async function(leadId) {
+  if (!confirm('Convert this Lead into a Pipeline Prospect?')) return;
+  try {
+    const leadDoc = await db.collection('leads').doc(leadId).get();
+    if (!leadDoc.exists) { toast('Lead not found', 'error'); return; }
+    const l = leadDoc.data();
+    
+    const pid  = await genProspectId();
+    const email = l.email || leadId;
+    const prospectData = {
+      founderName:          l.name || '',
+      email:                email,
+      company:              l.company || '',
+      linkedinUrl:          l.linkedin || '',
+      website:              '',
+      fundingStage:         '',
+      location:             '',
+      source:               l.source || 'scanner',
+      batchNumber:          'Inbound',
+      intendedPlan:         'agentic_shield',
+      notes:                'Converted from Lead ID: ' + leadId,
+      status:               'Replied', // Inbound starts as Replied/Warm
+      prospectId:           pid,
+      emailsSent:           0,
+      emailLog:             [],
+      scannerClicked:       true,
+      scannerCompleted:     !!l.scannerScore || !!l.scannerExternalScore,
+      scannerExternalScore: l.scannerExternalScore || l.scannerScore || null,
+      scannerInternalScore: l.scannerInternalScore || null,
+      addedAt:              new Date().toISOString(),
+      updatedAt:            new Date().toISOString()
+    };
+    
+    await db.collection('prospects').doc(email).set(prospectData, { merge: true });
+    await db.collection('leads').doc(leadId).update({ status: 'converted', convertedAt: new Date().toISOString() });
+    
+    toast(`Lead converted to ${pid}`);
+    if (typeof loadOutreach === 'function') loadOutreach(); 
+    if (typeof loadLeads === 'function') loadLeads(); 
+  } catch(e) { console.error(e); toast('Conversion failed', 'error'); }
+};
 
 // ── PROSPECT PANEL ────────────────────────────────────────────────────────────
 function openPP(id) {
@@ -753,7 +826,7 @@ async function saveFSP() {
     status:           $('fsp-status')?.value         || currentFlagship.status,
     preCallNotes:     $('fsp-precall')?.value?.trim() || '',
     postCallGap:      $('fsp-postcall')?.value?.trim()|| '',
-    prescribedPlan:   $('fsp-plan')?.value            || '',
+    prescribedPlan:   $('fsp-plan')?.value             || '',
     priceQuoted:      parseFloat($('fsp-price')?.value) || null,
     proposalSentDate: propDate,
     nextStep:         $('fsp-next')?.value?.trim()    || '',
@@ -882,6 +955,12 @@ async function deleteContent(id) {
 }
 
 // ── RADAR ─────────────────────────────────────────────────────────────────────
+
+// The hook for the Add Regulation button in the HTML
+window.openAddRegulation = function() {
+  openRadarModal(-1);
+};
+
 async function loadRadar() {
   setPageActions('');
   await loadRadarCache();
@@ -911,11 +990,8 @@ function setRadarView(view, el) {
 function renderRadarList() {
   const el = $('rv-list');
   if (!el) return;
-  const addBtn = `<div style="margin-bottom:16px;text-align:right">
-    <button class="btn btn-primary btn-sm" onclick="openRadarModal(-1)">+ Add Regulation</button>
-  </div>`;
   if (!radarEntries.length) {
-    el.innerHTML = addBtn + '<div class="tbl-empty">No regulations in radar yet</div>';
+    el.innerHTML = '<div class="tbl-empty">No regulations in radar yet</div>';
     return;
   }
   const sevOrder = { CRITICAL:0, HIGH:1, MEDIUM:2, LOW:3 };
@@ -923,7 +999,7 @@ function renderRadarList() {
     .sort((a,b) => (sevOrder[a.severity]??4) - (sevOrder[b.severity]??4));
   const sevClass = { CRITICAL:'b-red', HIGH:'b-yellow', MEDIUM:'b-warm', LOW:'b-ghost' };
 
-  el.innerHTML = addBtn + sorted.map(reg => {
+  el.innerHTML = sorted.map(reg => {
     const plans = (reg.coveredByPlan||[])
       .map(p => `<span class="badge b-intake" style="margin-right:3px">${planLabel(p)}</span>`).join('');
     return `<div class="radar-entry">
@@ -981,9 +1057,9 @@ async function saveRadarEntry() {
   const entry = {
     title:         $('reg-title')?.value?.trim() || '',
     description:   $('reg-desc')?.value?.trim()  || '',
-    jurisdiction:  $('reg-jur')?.value            || '',
-    severity:      $('reg-sev')?.value            || 'MEDIUM',
-    effectiveDate: $('reg-date')?.value           || '',
+    jurisdiction:  $('reg-jur')?.value           || '',
+    severity:      $('reg-sev')?.value           || 'MEDIUM',
+    effectiveDate: $('reg-date')?.value          || '',
     coveredByPlan: qsa('.reg-plan-chk:checked').map(el => el.value)
   };
   if (!entry.title) { toast('Title is required', 'error'); return; }
@@ -1048,7 +1124,7 @@ async function renderExposureMatrix() {
         if (!eff || eff > today)                   { yellow++; return; }
         if (covered && delAt && eff <= delAt)      { return; }          // COVERED — green, no count
         if (c.maintenanceActive)                   { yellow++; return; } // SCHEDULED
-        red++;                                                            // EXPOSED
+        red++;                                                          // EXPOSED
       });
 
       return { ...c, _red: red, _yellow: yellow };
@@ -1161,8 +1237,8 @@ async function loadSettings() {
 async function saveSettings() {
   const data = {
     webhookS2:   $('wh-s2')?.value?.trim()       || '',
-    webhookS3:   $('wh-s3')?.value?.trim()        || '',
-    webhookS4:   $('wh-s4')?.value?.trim()        || '',
+    webhookS3:   $('wh-s3')?.value?.trim()       || '',
+    webhookS4:   $('wh-s4')?.value?.trim()       || '',
     capacityCap: parseInt($('s-capacity')?.value) || 10,
     updatedAt:   new Date().toISOString()
   };
@@ -1211,3 +1287,7 @@ async function removeAdmin(email) {
     toast(`${email} removed`);
   } catch(e) { console.error(e); toast('Remove failed', 'error'); }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof loadRitual === 'function') loadRitual();
+});
