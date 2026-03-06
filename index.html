@@ -388,28 +388,29 @@ tbody td.dim{color:var(--marble-dim)}
       </div>
     </div>
 
-    <div id="tab-dashboard" class="tab-content active">
+   <div id="tab-dashboard" class="tab-content active">
 
       <div class="card-grid card-grid-4" style="margin-bottom:20px">
         <div class="card card-gold">
-          <div class="card-label">Monthly Recurring Revenue</div>
+          <div class="card-label">Monthly Recurring Rev</div>
           <div class="card-value" id="d-mrr">$0</div>
           <div class="card-sub" id="d-mrr-sub">0 active maintenance</div>
         </div>
         <div class="card">
-          <div class="card-label">Total Revenue (All Time)</div>
-          <div class="card-value" id="d-total">$0</div>
-          <div class="card-sub" id="d-clients-count">0 total clients</div>
+          <div class="card-label">Capacity / Bandwidth</div>
+          <div class="card-value" id="d-cap-current">0</div>
+          <div class="capacity-bar"><div class="capacity-fill" id="d-cap-bar" style="width:0%"></div></div>
+          <div style="font-size:9px;color:var(--marble-dim)" id="d-cap-label">0 / 0 slots</div>
         </div>
-        <div class="card">
-          <div class="card-label">Active in Production</div>
-          <div class="card-value" id="d-active">0</div>
-          <div class="card-sub">In build queue</div>
+        <div class="card card-gold" style="border-color:rgba(212,122,122,0.4); background:rgba(212,122,122,0.05);">
+          <div class="card-label" style="color:#d47a7a;">Actionable Gaps</div>
+          <div class="card-value" id="d-gaps" style="color:#d47a7a;">0</div>
+          <div class="card-sub" style="color:rgba(212,122,122,0.7);" id="d-gaps-sub">$0 Upsell Pipeline</div>
         </div>
-        <div class="card">
-          <div class="card-label">Tally Forms (This Week)</div>
-          <div class="card-value" id="d-forms">—</div>
-          <div class="card-sub">North Star metric</div>
+        <div class="card" style="border-color:rgba(212,122,122,0.4);">
+          <div class="card-label" style="color:#d47a7a;">SLA Critical</div>
+          <div class="card-value" id="d-sla-crit" style="color:#d47a7a;">0</div>
+          <div class="card-sub" style="color:rgba(212,122,122,0.7);">Builds < 12h remaining</div>
         </div>
       </div>
 
@@ -419,68 +420,81 @@ tbody td.dim{color:var(--marble-dim)}
 
       <div class="card-grid card-grid-2" style="margin-bottom:20px">
         <div>
-          <div class="section-title">Prospect Pipeline</div>
-          <div class="section-sub">Outreach funnel</div>
-          <div class="pipeline-funnel" id="d-funnel">
-            <div class="pf-stage"><span class="pf-num" id="pf-cold">0</span><span class="pf-label">Cold</span></div>
-            <div class="pf-stage"><span class="pf-num" id="pf-warm">0</span><span class="pf-label">Warm</span></div>
-            <div class="pf-stage"><span class="pf-num" id="pf-hot">0</span><span class="pf-label">Hot</span></div>
-            <div class="pf-stage"><span class="pf-num" id="pf-replied">0</span><span class="pf-label">Replied</span></div>
-            <div class="pf-stage"><span class="pf-num" id="pf-neg">0</span><span class="pf-label">Negotiating</span></div>
-            <div class="pf-stage"><span class="pf-num" id="ocf-conv">0</span><span class="pf-label">Converted</span></div>
+          <div class="section-title" style="margin-top:0">The Scanner Funnel (Inbound)</div>
+          <div class="pipeline-funnel">
+            <div class="pf-stage"><span class="pf-num" id="sf-clicks">0</span><span class="pf-label">Clicked</span></div>
+            <div class="pf-stage"><span class="pf-num" id="sf-comps">0</span><span class="pf-label">Completed</span></div>
+            <div class="pf-stage" style="background:var(--gold-dim); border-color:var(--gold);"><span class="pf-num" style="color:var(--gold);" id="sf-paid">0</span><span class="pf-label" style="color:var(--gold);">Paid</span></div>
           </div>
+          <div style="text-align:right; font-size:10px; color:var(--marble-dim); margin-top:4px;" id="sf-rate">— Conversion</div>
         </div>
         <div>
-          <div class="section-title">Capacity</div>
-          <div class="section-sub">Build queue vs max</div>
-          <div class="card">
-            <div class="card-label">Active Clients in Production</div>
-            <div class="card-value" id="d-cap-current">0</div>
-            <div class="capacity-bar"><div class="capacity-fill" id="d-cap-bar" style="width:0%"></div></div>
-            <div style="font-size:9px;color:var(--marble-dim)" id="d-cap-label">0 / 0 slots</div>
+          <div class="section-title" style="margin-top:0">Outreach Pipeline (Outbound)</div>
+          <div class="pipeline-funnel" id="d-funnel">
+            <div class="pf-stage"><span class="pf-num" id="of-cold">0</span><span class="pf-label">Cold</span></div>
+            <div class="pf-stage"><span class="pf-num" id="of-warm">0</span><span class="pf-label">Warm</span></div>
+            <div class="pf-stage"><span class="pf-num" id="of-hot">0</span><span class="pf-label">Hot</span></div>
+            <div class="pf-stage"><span class="pf-num" id="of-replied">0</span><span class="pf-label">Replied</span></div>
+            <div class="pf-stage"><span class="pf-num" id="of-neg">0</span><span class="pf-label">Negotiating</span></div>
           </div>
         </div>
       </div>
 
-      <div>
-        <div class="section-title">Recent Clients</div>
-        <div class="section-sub">Last 5 engagements</div>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th>Client</th><th>Plan</th><th>Status</th><th>Submitted</th></tr></thead>
-            <tbody id="d-recent-clients"><tr><td colspan="4" class="loading">Loading...</td></tr></tbody>
-          </table>
+      <div class="card-grid card-grid-2" style="margin-bottom:20px">
+        <div>
+          <div class="section-title" style="margin-top:0; color:#d47a7a;">SLA Danger Zone</div>
+          <div class="section-sub">Active builds nearing 48h deadline</div>
+          <div class="tbl-wrap" style="border-color:rgba(212,122,122,0.3);">
+            <table>
+              <thead><tr><th>Client</th><th>Status</th><th>Time Left</th></tr></thead>
+              <tbody id="d-sla-table"><tr><td colspan="3" class="loading">Calculating...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <div class="section-title" style="margin-top:0">Recent Engagements</div>
+          <div class="section-sub">Last 5 clients onboarded</div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Client</th><th>Plan</th><th>Status</th></tr></thead>
+              <tbody id="d-recent-clients"><tr><td colspan="3" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
       <div style="margin-top:24px">
         <div class="section-title">Sunday Ritual</div>
-        <div class="section-sub">Weekly operating metrics — update every Sunday</div>
-        <div class="ritual-grid">
-          <div class="ritual-item">
-            <div class="ritual-label">Outreach Volume Sent</div>
-            <input class="ritual-input" id="r-outreach" type="number" placeholder="0" onchange="saveRitual()">
-            <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Target: 250+/week</div>
+        <div class="section-sub">Weekly operating metrics — Input the manual data, the engine does the rest.</div>
+        <div class="card-grid card-grid-2">
+          <div class="ritual-grid">
+            <div class="ritual-item">
+              <div class="ritual-label" style="color:var(--gold);">Outreach Volume Sent</div>
+              <input class="ritual-input" id="r-outreach" type="number" placeholder="0" onchange="saveRitual()">
+              <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Manual: Check Instantly/Lemlist</div>
+            </div>
+            <div class="ritual-item">
+              <div class="ritual-label" style="color:var(--gold);">Replies Received</div>
+              <input class="ritual-input" id="r-replies" type="number" placeholder="0" onchange="saveRitual()">
+              <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Manual: Total valid responses</div>
+            </div>
           </div>
-          <div class="ritual-item">
-            <div class="ritual-label">Replies Received</div>
-            <input class="ritual-input" id="r-replies" type="number" placeholder="0" onchange="saveRitual()">
-            <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Benchmark: 5-8% of volume</div>
-          </div>
-          <div class="ritual-item">
-            <div class="ritual-label">Tally Forms Submitted</div>
-            <input class="ritual-input" id="r-tally" type="number" placeholder="0" onchange="saveRitual()">
-            <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">North Star: 2+/week</div>
-          </div>
-          <div class="ritual-item">
-            <div class="ritual-label">Deals Closed</div>
-            <input class="ritual-input" id="r-deals" type="number" placeholder="0" onchange="saveRitual()">
-            <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Kits + Bundles + Flagships</div>
-          </div>
-          <div class="ritual-item" style="grid-column:span 2">
-            <div class="ritual-label">Pipeline Value ($)</div>
-            <input class="ritual-input" id="r-pipeline" type="number" placeholder="0" onchange="saveRitual()">
-            <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Total dollar value of active prospects</div>
+          <div class="ritual-grid">
+            <div class="ritual-item" style="background:transparent; border-style:dashed;">
+              <div class="ritual-label">Scanner Forms (Week)</div>
+              <div class="card-value" id="r-auto-forms" style="font-size:24px;">0</div>
+              <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Auto-calculated</div>
+            </div>
+            <div class="ritual-item" style="background:transparent; border-style:dashed;">
+              <div class="ritual-label">Deals Closed (Week)</div>
+              <div class="card-value" id="r-auto-deals" style="font-size:24px;">0</div>
+              <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Auto-calculated</div>
+            </div>
+            <div class="ritual-item" style="background:transparent; border-style:dashed; grid-column:span 2;">
+              <div class="ritual-label">Pipeline Value</div>
+              <div class="card-value" id="r-auto-pipe" style="font-size:24px; color:var(--gold);">$0</div>
+              <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Total active outreach + flagship value</div>
+            </div>
           </div>
         </div>
       </div>
