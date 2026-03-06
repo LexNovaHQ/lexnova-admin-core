@@ -265,25 +265,37 @@ async function openDetail(email) {
     setText('dp-name', currentClient.name || currentClient.id);
     setText('dp-email', currentClient.id);
     setText('dp-plan', planLabel(currentClient.plan));
+    
+    // Explicitly call population functions so data loads before you even click the tab
+    populateDetailOverview(currentClient);
+    populateDetailIntake(currentClient);
+    populateDetailChecklist(currentClient);
+    populateDetailDocuments(currentClient);
+    populateDetailRadar(currentClient);
+    populateDetailGap(currentClient);
+    populateDetailFinancials(currentClient);
+    populateDetailActivity(currentClient);
+    populateDetailReferrals(currentClient);
+    populateDetailDebrief(currentClient);
+    
     detailTab('overview');
 }
 
 function closeDetail() { $('detailPanel').classList.remove('open'); }
 
-function detailTab(key) {
-    qsa('.sub-tab').forEach(b => b.classList.remove('active'));
-    qsa(`.sub-tab[onclick*="'${key}'"]`).forEach(b => b.classList.add('active'));
-    ['overview','intake','checklist','documents','radar','gap','financials','activity','referrals'].forEach(s => $('dt-' + s)?.classList.toggle('hidden', s !== key));
-    
-    if (key === 'overview') populateDetailOverview(currentClient);
-    if (key === 'intake') populateDetailIntake(currentClient);
-    if (key === 'checklist') populateDetailChecklist(currentClient);
-    if (key === 'documents') populateDetailDocuments(currentClient);
-    if (key === 'radar') populateDetailRadar(currentClient);
-    if (key === 'gap') populateDetailGap(currentClient);
-    if (key === 'financials') populateDetailFinancials(currentClient);
-    if (key === 'activity') populateDetailActivity(currentClient);
-    if (key === 'referrals') populateDetailReferrals(currentClient);
+function detailTab(key, el) {
+    const tabs = ['overview','intake','checklist','documents','radar','gap','financials','activity','referrals','debrief'];
+    tabs.forEach(t => {
+        const section = $('dt-'+t);
+        if(section) section.classList.add('hidden');
+    });
+    const act = $('dt-'+key);
+    if(act) act.classList.remove('hidden');
+
+    if(el) {
+        document.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
+        el.classList.add('active');
+    }
 }
 
 // ── 1. OVERVIEW TAB ───────────────────────────────────────────────────────────
@@ -315,6 +327,7 @@ window.onStatusChange = function(val) {}; // Placeholder for manual trigger if n
 // ── 2. INTAKE TAB ─────────────────────────────────────────────────────────────
 function populateDetailIntake(c) {
     const el = $('dp-intake-content');
+    if (!el) return;
     const intake = c.intakeData || {};
     if (Object.keys(intake).length === 0) {
         el.innerHTML = '<div class="loading">No intake data submitted yet</div>';
@@ -488,6 +501,7 @@ window.saveDocuments = async function() {
 // ── 5. RADAR TAB ──────────────────────────────────────────────────────────────
 function populateDetailRadar(c) {
     const el = $('dp-radar-list');
+    if (!el) return;
     el.innerHTML = '<div class="loading" style="padding:40px; text-align:center; color:var(--marble-faint); font-size:11px; letter-spacing:0.1em;">Radar matching happens in the Client Portal based on Vault Intake parameters.</div>';
 }
 
@@ -587,12 +601,29 @@ window.addActivityNote = async function() {
     openDetail(currentClient.id); // refresh
 };
 
-// ── 9. REFERRALS TAB ──────────────────────────────────────────────────────────
+// ── 9. REFERRALS TAB (THE SYNDICATE) ──────────────────────────────────────────
 function populateDetailReferrals(c) {
-    const el = $('dp-referrals-list');
-    if (!el) return;
-    const refs = c.referrals || [];
-    el.innerHTML = refs.length ? refs.map(r => `<div style="display:flex;gap:20px;padding:9px 0;border-bottom:1px solid rgba(197,160,89,.06);font-size:11px"><span style="flex:1">${esc(r.company||'—')}</span><span style="flex:1;color:var(--marble-dim)">${esc(r.email||'—')}</span><span style="color:var(--marble-faint)">${esc(r.date||'—')}</span></div>`).join('') : '<div class="loading">No referrals logged</div>';
+    const wrap = $('dp-ref-list');
+    if (!wrap) return;
+    if (!c.referrals || c.referrals.length === 0) {
+        wrap.innerHTML = '<div class="loading" style="padding:20px 0;">No network targets registered yet.</div>';
+        return;
+    }
+    
+    wrap.innerHTML = c.referrals.map((r, idx) => `
+        <div style="background:rgba(255,255,255,0.02); border:1px solid var(--shadow); padding:16px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <div style="font-size:14px; color:var(--marble); font-weight:600; margin-bottom:4px;">${esc(r.company)}</div>
+                <div style="font-size:11px; color:var(--marble-dim);">Founder: ${esc(r.name)} &bull; Email: ${esc(r.email)} &bull; Submitted: ${r.date}</div>
+            </div>
+            <div>
+                ${r.credited 
+                    ? `<span class="badge b-delivered">Reward Credited</span>`
+                    : `<button class="btn btn-primary btn-sm" onclick="creditReferral('${esc(c.id)}', ${idx})">Mark Credited</button>`
+                }
+            </div>
+        </div>
+    `).join('');
 }
 
 window.addReferral = async function() {
@@ -601,9 +632,69 @@ window.addReferral = async function() {
     const email = $('dp-ref-email')?.value?.trim();
     const date = $('dp-ref-date')?.value;
     if (!company && !email) { toast('Enter company or email', 'error'); return; }
-    const entry = { company, email, date, addedAt: new Date().toISOString() };
+    const entry = { company, email, date, addedAt: new Date().toISOString(), credited: false };
     await db.collection('clients').doc(currentClient.id).update({ referrals: firebase.firestore.FieldValue.arrayUnion(entry) });
     $('dp-ref-co').value = ''; $('dp-ref-email').value = ''; $('dp-ref-date').value = '';
     toast('Referral added');
     openDetail(currentClient.id); // refresh
 };
+
+window.creditReferral = async function(clientId, refIdx) {
+    if (!confirm('Mark this referral as credited? Ensure you have manually granted their reward (e.g., pushed their maintenance billing date).')) return;
+    try {
+        const clientRef = db.collection('clients').doc(clientId);
+        const doc = await clientRef.get();
+        if (!doc.exists) return;
+        const data = doc.data();
+        data.referrals[refIdx].credited = true;
+        await clientRef.update({ referrals: data.referrals });
+        
+        currentClient.referrals = data.referrals;
+        populateDetailReferrals(currentClient);
+        toast('Referral reward marked as credited.');
+    } catch(err) {
+        console.error(err);
+        toast('Error crediting referral.', 'error');
+    }
+};
+
+// ── 10. DEPLOYMENT DEBRIEF (TESTIMONIALS) ─────────────────────────────────────
+function populateDetailDebrief(c) {
+    const wrap = $('dp-debrief-content');
+    if (!wrap) return;
+    if (!c.debrief) {
+        wrap.innerHTML = '<div class="loading" style="padding:20px 0;">Client has not submitted a deployment debrief yet.</div>';
+        return;
+    }
+    
+    const d = c.debrief;
+    const consentColor = d.consent ? '#7ab88a' : '#d47a7a';
+    const consentText = d.consent ? 'Client authorized public use of this testimonial.' : 'Client DID NOT authorize public use.';
+    
+    wrap.innerHTML = `
+        <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:24px; margin-bottom:16px;">
+            <div style="margin-bottom:20px;">
+                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px;">1. The Anxiety (Before)</div>
+                <div style="font-size:13px; color:var(--marble); line-height:1.6; font-style:italic;">"${esc(d.before)}"</div>
+            </div>
+            <div style="margin-bottom:20px;">
+                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px;">2. The Experience (During)</div>
+                <div style="font-size:13px; color:var(--marble); line-height:1.6; font-style:italic;">"${esc(d.during)}"</div>
+            </div>
+            <div style="margin-bottom:20px;">
+                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px;">3. The Result (After)</div>
+                <div style="font-size:13px; color:var(--marble); line-height:1.6; font-style:italic;">"${esc(d.after)}"</div>
+            </div>
+            <div style="padding-top:16px; border-top:1px solid var(--border); display:flex; align-items:center; gap:8px;">
+                <div style="width:8px; height:8px; border-radius:50%; background:${consentColor};"></div>
+                <div style="font-size:11px; color:var(--marble-dim);">${consentText}</div>
+            </div>
+        </div>
+        
+        <div>
+            <div style="font-size:10px; color:var(--marble-dim); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">Generated Landing Page Copy</div>
+            <textarea readonly style="width:100%; height:100px; background:var(--void); border:1px solid var(--border); color:var(--marble); padding:16px; font-family:sans-serif; font-size:13px; line-height:1.5; resize:none;">"Before Lex Nova, my biggest concern was ${esc(d.before.toLowerCase())}. The experience working with The Architect was ${esc(d.during.toLowerCase())}. Now, ${esc(d.after.toLowerCase())}."</textarea>
+            <p style="font-size:9px; color:var(--marble-dim); margin-top:6px;">Copy and paste this stitched testimonial directly to your landing page.</p>
+        </div>
+    `;
+}
