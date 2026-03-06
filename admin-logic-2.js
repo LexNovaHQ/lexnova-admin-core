@@ -1,9 +1,6 @@
 // admin-logic-2.js — Lex Nova HQ Admin Console (Part 2)
 // Covers: Nav patch · Outreach CRM · Flagship · Content · Radar · Finance · Settings
-// Requires: admin-logic-1.js loaded first (globals: $, qsa, esc, fmtDate, fmtMoney,
-//           fmtDate, setText, setVal, toast, openModal, closeModal, planLabel,
-//           planBadgeClass, statusBadgeClass, PLANS, PLAN_PRICES, nowTs, auth, db,
-//           firebase, radarEntries, loadRadarCache, openDetail, convertLead)
+// Requires: admin-logic-1.js loaded first
 
 'use strict';
 
@@ -16,7 +13,6 @@ let currentFlagship = null;
 let editingRegIdx   = -1;
 
 // ── NAV PATCH — wire logic-2 tabs into nav() from logic-1 ────────────────────
-// Runs immediately; by this point nav() from logic-1 is already in scope.
 (function patchNav() {
   const _nav = nav;
   window.nav = function(tab) {
@@ -68,18 +64,14 @@ let outreachListener = null;
 
 function loadOutreach() {
   setPageActions('');
-  // Kill any old listener before starting a new one to prevent memory leaks
   if (outreachListener) outreachListener(); 
 
-  // REAL-TIME LISTENER: This stays "awake" for your 50 VP leads
   outreachListener = db.collection('prospects').onSnapshot((snap) => {
     allProspects = [];
     snap.forEach(d => allProspects.push({ id: d.id, ...d.data() }));
     
-    // Auto-refresh the active view
     populateCommandCenter();
     
-    // Detect which sub-tab is open and refresh its table
     const activeView = qsa('#tab-outreach .view-btn.active')[0]?.textContent?.toLowerCase();
     if (activeView?.includes('pipeline')) filterProspects();
     if (activeView?.includes('hot')) renderHot();
@@ -168,6 +160,7 @@ function renderBatchPerformance() {
     </tr>`;
   }).join('');
 }
+
 // ── PIPELINE TABLE ────────────────────────────────────────────────────────────
 function populateBatchFilter() {
   const sel = $('op-batch');
@@ -238,13 +231,13 @@ function filterProspects() {
 function renderHot() {
   const tbody = $('oh-tbody');
   if (!tbody) return;
-  const hot = allProspects.filter(p => (p.scannerClicked||p.scannerCompleted) && p.status !== 'Converted');
+  const hot = allProspects.filter(p => (p.scannerClicked||p.scannerCompleted||p.hotFlag) && p.status !== 'Converted');
   if (!hot.length) { tbody.innerHTML = '<tr><td colspan="6" class="loading">No hot signals yet</td></tr>'; return; }
   tbody.innerHTML = hot.map(p => `
     <tr onclick="openPP('${esc(p.id)}')">
-      <td>${esc(p.founderName||p.name||'—')} ${p.scannerCompleted?'🔥🔥':'🔥'}</td>
+      <td>${esc(p.founderName||p.name||'—')} ${p.scannerCompleted?'🔥🔥':(p.scannerClicked||p.hotFlag?'🔥':'')}</td>
       <td class="dim">${esc(p.company||'—')}</td>
-      <td>${p.scannerCompleted ? 'Scanner Completed' : 'Scanner Clicked'}</td>
+      <td>${p.scannerCompleted ? 'Scanner Completed' : (p.scannerClicked ? 'Scanner Clicked' : 'Intelligence Match')}</td>
       <td>${p.scannerExternalScore ?? '—'}</td>
       <td><span class="badge b-${(p.status||'cold').toLowerCase()}">${esc(p.status||'—')}</span></td>
       <td class="dim">${esc(p.nextActionDate||'—')}</td>
@@ -332,7 +325,7 @@ window.convertLead = async function(leadId) {
       batchNumber:          'Inbound',
       intendedPlan:         'agentic_shield',
       notes:                'Converted from Lead ID: ' + leadId,
-      status:               'Replied', // Inbound starts as Replied/Warm
+      status:               'Replied',
       prospectId:           pid,
       emailsSent:           0,
       emailLog:             [],
@@ -341,7 +334,10 @@ window.convertLead = async function(leadId) {
       scannerExternalScore: l.scannerExternalScore || l.scannerScore || null,
       scannerInternalScore: l.scannerInternalScore || null,
       addedAt:              new Date().toISOString(),
-      updatedAt:            new Date().toISOString()
+      updatedAt:            new Date().toISOString(),
+      // Gate Defaults for Inbound
+      legalGapStatus:       'generic',
+      personalizedHook:     'Submitted via scanner.'
     };
     
     await db.collection('prospects').doc(email).set(prospectData, { merge: true });
@@ -385,12 +381,43 @@ function renderPPBody(p) {
 
   body.innerHTML = `
     <div style="margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border)">
-      <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--marble-faint);margin-bottom:8px">Contact</div>
+      <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--marble-faint);margin-bottom:8px">Contact Identity</div>
       <div style="font-size:11px;color:var(--marble-dim);line-height:1.9">
         Email: <span style="color:var(--marble)">${esc(p.email||'—')}</span><br>
-        Location: <span style="color:var(--marble)">${esc(p.location||'—')}</span><br>
+        Website: <span style="color:var(--marble)">${esc(p.website||'—')}</span><br>
         LinkedIn: <a href="${esc(p.linkedinUrl||'#')}" target="_blank" style="color:var(--gold)">${esc(p.linkedinUrl||'—')}</a><br>
         Prospect ID: <span style="color:var(--gold);font-family:'Cormorant Garamond',serif;font-size:14px">${esc(p.prospectId||'—')}</span>
+      </div>
+    </div>
+
+    <div style="margin-bottom:18px; padding:12px; background:var(--surface2); border:1px solid var(--border)">
+      <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:12px">Gate Intelligence</div>
+      <div class="fi-row" style="margin-bottom:10px">
+         <div class="fg"><label class="fl">Gap Status</label>
+           <select class="fi" id="pp-gap-status">
+             <option value="exposure" ${p.legalGapStatus==='exposure'?'selected':''}>🔴 No Legal Page</option>
+             <option value="generic" ${p.legalGapStatus==='generic'?'selected':''}>🟡 Generic SaaS</option>
+             <option value="ai-lite" ${p.legalGapStatus==='ai-lite'?'selected':''}>🔵 AI-Lite</option>
+             <option value="protected" ${p.legalGapStatus==='protected'?'selected':''}>⚪ Protected</option>
+           </select>
+         </div>
+         <div class="fg"><label class="fl">Job Title</label>
+            <input type="text" class="fi" id="pp-title" value="${esc(p.jobTitle||'')}">
+         </div>
+      </div>
+      <div class="fg"><label class="fl">Legal Gap Analysis</label>
+         <textarea class="fi" id="pp-gap-text" rows="2">${esc(p.legalGapAnalysis||'')}</textarea>
+      </div>
+      <div class="fg"><label class="fl" style="color:var(--gold)">Personalized Hook (The Spear)</label>
+         <textarea class="fi" id="pp-hook" rows="3" style="border-color:var(--gold-mid)">${esc(p.personalizedHook||'')}</textarea>
+      </div>
+      <div style="display:flex; gap:15px">
+        <label style="font-size:10px; display:flex; align-items:center; gap:5px">
+          <input type="checkbox" id="pp-chk-native" ${p.aiNative?'checked':''}> AI-Native
+        </label>
+        <label style="font-size:10px; display:flex; align-items:center; gap:5px">
+          <input type="checkbox" id="pp-chk-ext" ${p.externalAI?'checked':''}> External AI
+        </label>
       </div>
     </div>
 
@@ -505,8 +532,17 @@ async function saveProspect() {
     nextActionDate:       $('pp-next-date')?.value          || '',
     nextAction:           $('pp-next-note')?.value?.trim()  || '',
     notes:                $('pp-notes')?.value?.trim()      || '',
+    // Gate Updates
+    jobTitle:             $('pp-title')?.value?.trim()      || '',
+    legalGapStatus:       $('pp-gap-status')?.value         || 'generic',
+    legalGapAnalysis:     $('pp-gap-text')?.value?.trim()   || '',
+    personalizedHook:     $('pp-hook')?.value?.trim()       || '',
+    aiNative:             $('pp-chk-native')?.checked       || false,
+    externalAI:           $('pp-chk-ext')?.checked          || false,
     updatedAt:            new Date().toISOString()
   };
+  
+  if (updates.legalGapStatus === 'exposure') updates.hotFlag = true;
   if (updates.status === 'Dead' && currentProspect.status !== 'Dead')
     updates.archivedAt = new Date().toISOString();
 
@@ -537,7 +573,6 @@ async function logEmail() {
     currentProspect.emailsSent = newCount;
     if ($('pp-emails')) $('pp-emails').value = newCount;
     if ($('pp-log-notes')) $('pp-log-notes').value = '';
-    // Refresh log in panel
     const logEl = $('pp-email-log');
     if (logEl) {
       logEl.innerHTML = currentProspect.emailLog.slice().reverse().map(e =>
@@ -565,81 +600,149 @@ async function genProspectId() {
 
 function openAddProspect() {
   const planOpts = Object.entries(PLANS).map(([k,v]) => `<option value="${k}">${v}</option>`).join('');
-  openModal('Add Prospect', `
-    <div class="fi-row">
-      <div class="fg"><label class="fl">Founder Name</label>
-        <input type="text" class="fi" id="ap-name" placeholder="Jane Smith"></div>
-      <div class="fg"><label class="fl">Company</label>
-        <input type="text" class="fi" id="ap-company" placeholder="Acme AI"></div>
-    </div>
-    <div class="fg"><label class="fl">Email *</label>
-      <input type="email" class="fi" id="ap-email" placeholder="jane@acme.ai"></div>
-    <div class="fi-row">
-      <div class="fg"><label class="fl">LinkedIn URL</label>
-        <input type="text" class="fi" id="ap-li" placeholder="https://linkedin.com/in/…"></div>
-      <div class="fg"><label class="fl">Website</label>
-        <input type="text" class="fi" id="ap-web" placeholder="https://acme.ai"></div>
-    </div>
-    <div class="fi-row">
-      <div class="fg"><label class="fl">Funding Stage</label>
-        <select class="fi" id="ap-fund">
-          <option>Pre-seed</option><option>Seed</option>
-          <option>Series A</option><option>Series B+</option><option>Bootstrapped</option>
-        </select></div>
-      <div class="fg"><label class="fl">Location</label>
-        <input type="text" class="fi" id="ap-loc" placeholder="San Francisco, CA"></div>
-    </div>
-    <div class="fi-row">
-      <div class="fg"><label class="fl">Source</label>
-        <select class="fi" id="ap-source">
-          <option value="yc">YC Directory</option><option value="product_hunt">Product Hunt</option>
-          <option value="indiehackers">IndieHackers</option><option value="wellfound">Wellfound</option>
-          <option value="linkedin">LinkedIn</option><option value="direct">Direct</option>
-          <option value="other">Other</option>
-        </select></div>
-      <div class="fg"><label class="fl">Batch #</label>
-        <input type="text" class="fi" id="ap-batch" placeholder="B001"></div>
-    </div>
-    <div class="fg"><label class="fl">Intended Plan</label>
-      <select class="fi" id="ap-plan">${planOpts}</select></div>
-    <div class="fg"><label class="fl">Notes</label>
-      <textarea class="fi" id="ap-notes" rows="2"></textarea></div>
+  
+  openModal('Initialize Target Acquisition', `
+  <div class="modal-grid">
+      <div>
+          <div class="section-sub">Gate 0: Identity</div>
+          <div class="fi-row">
+              <div class="fg"><label class="fl">Founder Name</label>
+                  <input type="text" class="fi" id="ap-name" placeholder="Jane Smith"></div>
+              <div class="fg"><label class="fl">Company</label>
+                  <input type="text" class="fi" id="ap-company" placeholder="Acme AI"></div>
+          </div>
+          <div class="fg"><label class="fl">Email *</label>
+              <input type="email" class="fi" id="ap-email" placeholder="jane@acme.ai"></div>
+          <div class="fi-row">
+              <div class="fg"><label class="fl">LinkedIn URL</label>
+                  <input type="text" class="fi" id="ap-li" placeholder="https://linkedin.com/in/…"></div>
+              <div class="fg"><label class="fl">Website</label>
+                  <input type="text" class="fi" id="ap-web" placeholder="https://acme.ai"></div>
+          </div>
+
+          <div class="section-sub" style="margin-top:20px">Gate 1: Apollo Pre-Reveal</div>
+          <div class="fi-row">
+              <div class="fg"><label class="fl">Job Title</label>
+                  <input type="text" class="fi" id="ap-title" placeholder="Founder / CEO"></div>
+              <div class="fg"><label class="fl">Geography</label>
+                  <select class="fi" id="ap-geo">
+                      <option value="US">United States (P1)</option>
+                      <option value="UK">United Kingdom (P2)</option>
+                      <option value="CAN_AUS">CAN/AUS (P3)</option>
+                      <option value="Other">Other</option>
+                  </select></div>
+          </div>
+          <div class="fi-row">
+              <div class="fg"><label class="fl">Headcount</label>
+                  <select class="fi" id="ap-size">
+                      <option value="1-10">1-10 (Sweet Spot)</option>
+                      <option value="11-50">11-50 (Valid)</option>
+                      <option value="51+">51+ (Risk)</option>
+                  </select></div>
+              <div class="fg"><label class="fl">Funding</label>
+                  <select class="fi" id="ap-fund">
+                      <option>Pre-seed</option><option>Seed</option>
+                      <option>Series A</option><option>Series B+</option><option>Bootstrapped</option>
+                  </select></div>
+          </div>
+      </div>
+
+      <div>
+          <div class="section-sub">Gate 2: 60s Audit & Legal Gap</div>
+          <div style="display:flex; gap:20px; margin-bottom:15px">
+              <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
+                  <input type="checkbox" id="ap-chk-native"> AI-Native
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
+                  <input type="checkbox" id="ap-chk-ext"> External AI
+              </label>
+          </div>
+          <div class="fg"><label class="fl">Legal Gap Status</label>
+              <select class="fi" id="ap-gap-status">
+                  <option value="exposure">🔴 Highest Priority: No Legal Page</option>
+                  <option value="generic" selected>🟡 Generic SaaS (Total Exposure)</option>
+                  <option value="ai-lite">🔵 AI-Lite (Missing Waivers)</option>
+                  <option value="protected">⚪ Protected (Low Priority)</option>
+              </select></div>
+          <div class="fg"><label class="fl">Legal Gap Analysis (The "Why")</label>
+              <textarea class="fi" id="ap-gap-text" rows="2" placeholder="e.g. Missing §14 agent liability waiver..."></textarea></div>
+          
+          <div class="fg"><label class="fl" style="color:var(--gold)">Personalized Hook (The Spear) *</label>
+              <textarea class="fi" id="ap-hook" rows="3" style="border-color:var(--gold-mid)" placeholder="Saw that your agents execute [X]..."></textarea></div>
+
+          <div class="section-sub" style="margin-top:20px">Gate 3: Post-Reveal & Logistics</div>
+          <div class="fi-row">
+              <div class="fg"><label class="fl">Batch ID</label>
+                  <input type="text" class="fi" id="ap-batch" value="Batch_01_Tuesday"></div>
+              <div class="fg"><label class="fl">Intended Plan</label>
+                  <select class="fi" id="ap-plan">${planOpts}</select></div>
+          </div>
+          <div style="display:flex; gap:20px;">
+              <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
+                  <input type="checkbox" id="ap-chk-verify"> Email Verified
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
+                  <input type="checkbox" id="ap-chk-direct"> Direct Email
+              </label>
+          </div>
+      </div>
+  </div>
   `, `
-    <button class="btn btn-outline btn-sm" onclick="closeModal()">Cancel</button>
-    <button class="btn btn-primary btn-sm" onclick="saveNewProspect()">Add Prospect</button>
+      <button class="btn btn-outline btn-sm" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveNewProspect()">Commence Outreach</button>
   `);
 }
 
 async function saveNewProspect() {
   const email = $('ap-email')?.value?.trim().toLowerCase();
+  const hook  = $('ap-hook')?.value?.trim();
+
   if (!email) { toast('Email is required', 'error'); return; }
+  if (!hook) { toast('Personalized Hook (The Spear) is mandatory.', 'error'); return; }
+
   try {
     const pid  = await genProspectId();
     const data = {
-      founderName:          $('ap-name')?.value?.trim()    || '',
+      founderName:      $('ap-name')?.value?.trim()    || '',
       email,
-      company:              $('ap-company')?.value?.trim() || '',
-      linkedinUrl:          $('ap-li')?.value?.trim()      || '',
-      website:              $('ap-web')?.value?.trim()     || '',
-      fundingStage:         $('ap-fund')?.value            || '',
-      location:             $('ap-loc')?.value?.trim()     || '',
-      source:               $('ap-source')?.value          || '',
-      batchNumber:          $('ap-batch')?.value?.trim()   || '',
-      intendedPlan:         $('ap-plan')?.value            || 'agentic_shield',
-      notes:                $('ap-notes')?.value?.trim()   || '',
-      status:               'Cold',
-      prospectId:           pid,
-      emailsSent:           0,
-      emailLog:             [],
-      scannerClicked:       false,
-      scannerCompleted:     false,
-      addedAt:              new Date().toISOString(),
-      updatedAt:            new Date().toISOString()
+      company:          $('ap-company')?.value?.trim() || '',
+      linkedinUrl:      $('ap-li')?.value?.trim()      || '',
+      website:          $('ap-web')?.value?.trim()     || '',
+      jobTitle:         $('ap-title')?.value?.trim()   || '',
+      geography:        $('ap-geo')?.value             || 'US',
+      headcount:        $('ap-size')?.value            || '1-10',
+      fundingStage:     $('ap-fund')?.value            || 'Seed',
+      
+      aiNative:         $('ap-chk-native')?.checked    || false,
+      externalAI:       $('ap-chk-ext')?.checked       || false,
+      legalGapStatus:   $('ap-gap-status')?.value      || 'generic',
+      legalGapAnalysis: $('ap-gap-text')?.value?.trim() || '',
+      personalizedHook: hook,
+      
+      emailVerified:    $('ap-chk-verify')?.checked    || false,
+      directEmail:      $('ap-chk-direct')?.checked    || false,
+
+      batchNumber:      $('ap-batch')?.value?.trim()   || 'Batch_01_Tuesday',
+      intendedPlan:     $('ap-plan')?.value            || 'agentic_shield',
+      status:           'Cold',
+      prospectId:       pid,
+      emailsSent:       0,
+      emailLog:         [],
+      scannerClicked:   false,
+      scannerCompleted: false,
+      addedAt:          new Date().toISOString(),
+      updatedAt:        new Date().toISOString()
     };
+
+    if (data.legalGapStatus === 'exposure') {
+        data.status = 'Hot';
+        data.hotFlag = true;
+    }
+
     await db.collection('prospects').doc(email).set(data, { merge: true });
     allProspects.push({ id: email, ...data });
     closeModal();
-    toast(`${pid} added`);
+    toast(`${pid} added and intelligence logged.`);
   } catch(e) { console.error(e); toast('Save failed', 'error'); }
 }
 
@@ -797,13 +900,13 @@ async function saveFSP() {
   const propDate = $('fsp-prop-date')?.value || '';
   const updates  = {
     status:           $('fsp-status')?.value         || currentFlagship.status,
-    preCallNotes:     $('fsp-precall')?.value?.trim() || '',
-    postCallGap:      $('fsp-postcall')?.value?.trim()|| '',
-    prescribedPlan:   $('fsp-plan')?.value             || '',
-    priceQuoted:      parseFloat($('fsp-price')?.value) || null,
+    preCallNotes:      $('fsp-precall')?.value?.trim() || '',
+    postCallGap:       $('fsp-postcall')?.value?.trim()|| '',
+    prescribedPlan:    $('fsp-plan')?.value             || '',
+    priceQuoted:       parseFloat($('fsp-price')?.value) || null,
     proposalSentDate: propDate,
-    nextStep:         $('fsp-next')?.value?.trim()    || '',
-    updatedAt:        new Date().toISOString()
+    nextStep:          $('fsp-next')?.value?.trim()    || '',
+    updatedAt:         new Date().toISOString()
   };
   if (propDate && !currentFlagship.proposalSentAt)
     updates.proposalSentAt = new Date().toISOString();
@@ -929,7 +1032,6 @@ async function deleteContent(id) {
 
 // ── RADAR ─────────────────────────────────────────────────────────────────────
 
-// The hook for the Add Regulation button in the HTML
 window.openAddRegulation = function() {
   openRadarModal(-1);
 };
@@ -938,11 +1040,9 @@ async function loadRadar() {
   setPageActions('');
   await loadRadarCache();
   renderRadarList();
-  // Ensure manage view is visible
   $('rv-manage')?.classList.remove('hidden');
   $('rv-exposure')?.classList.add('hidden');
   qsa('#tab-radar .view-btn').forEach((b,i) => b.classList.toggle('active', i === 0));
-  // Radar badge — CRITICAL count
   const badge = $('radar-badge');
   if (badge) {
     const n = radarEntries.filter(r => r.severity === 'CRITICAL').length;
@@ -997,7 +1097,7 @@ function openRadarModal(idx) {
   editingRegIdx = idx;
   const reg = idx >= 0 ? (radarEntries[idx] || {}) : {};
   const jurs = ['US-Federal','US-CA','US-NY','US-TX','US-CO','US-IL','EU','UK','Canada','Australia','Singapore','India','UAE','Global'];
-  const jurOpts   = jurs.map(j => `<option ${reg.jurisdiction===j?'selected':''}>${j}</option>`).join('');
+  const jurOpts    = jurs.map(j => `<option ${reg.jurisdiction===j?'selected':''}>${j}</option>`).join('');
   const planChecks = Object.entries(PLANS).map(([k,v]) =>
     `<label style="display:flex;align-items:center;gap:8px;font-size:11px;margin-bottom:6px;cursor:pointer">
       <input type="checkbox" class="reg-plan-chk" value="${k}" ${(reg.coveredByPlan||[]).includes(k)?'checked':''}> ${v}
@@ -1042,7 +1142,6 @@ async function saveRadarEntry() {
   else entries.push(entry);
 
   try {
-    // FIX: Save entries array AND push the lastUpdated timestamp to trigger Client Portal refresh
     await db.collection('settings').doc('regulatory_radar').set({ 
         entries: entries,
         lastUpdated: new Date().toISOString()
@@ -1065,7 +1164,6 @@ async function deleteRadarEntry(idx) {
   if (!confirm('Delete this regulation?')) return;
   const entries = radarEntries.filter((_, i) => i !== idx);
   try {
-    // FIX: Push timestamp to Client Portal on delete, and update array
     await db.collection('settings').doc('regulatory_radar').set({ 
         entries: entries,
         lastUpdated: new Date().toISOString()
@@ -1073,7 +1171,6 @@ async function deleteRadarEntry(idx) {
     radarEntries.length = 0;
     entries.forEach(e => radarEntries.push(e));
     
-    // FIX: Update CRITICAL badge count when an item is deleted
     const badge = $('radar-badge');
     if (badge) {
       const n = entries.filter(r => r.severity === 'CRITICAL').length;
@@ -1097,18 +1194,13 @@ async function renderExposureMatrix() {
 
     const rows = clients.map(c => {
       const jurs  = [c.registrationJurisdiction, ...(c.operatingJurisdictions||[])].filter(Boolean);
-      
-      // FIX: Legacy Data Fallback. If they are delivered but have no timestamp, fallback to an old date so they trigger the gap.
       let delAt = null;
       if (c.deliveredAt) {
           delAt = c.deliveredAt.toDate ? c.deliveredAt.toDate() : new Date(c.deliveredAt);
       } else if (c.status === 'delivered') {
-          // If no delivery date exists on a delivered client, use createdAt or a zero-date to force the gap
           delAt = c.createdAt ? (c.createdAt.toDate ? c.createdAt.toDate() : new Date(c.createdAt)) : new Date(0);
       }
-
       let red = 0, yellow = 0;
-
       radarEntries.forEach(reg => {
         let regJurs = [];
         if (Array.isArray(reg.jurisdiction)) regJurs = reg.jurisdiction;
@@ -1118,28 +1210,20 @@ async function renderExposureMatrix() {
         const match = isGlobalReg || jurs.some(j => 
             j && regJurs.some(rj => rj && (j.toLowerCase() === rj || rj.startsWith(j.toLowerCase()) || j.toLowerCase().startsWith(rj)))
         );
-
-        if (!match) return; // Skip if jurisdiction doesn't apply
-
+        if (!match) return;
         const eff = reg.effectiveDate ? new Date(reg.effectiveDate) : null;
         const coveredByPlan = reg.coveredByPlan?.includes(c.plan);
-        
         let isGap = false;
-
-        // THE CHRONOLOGICAL RULE
         if (!coveredByPlan) {
-            isGap = true; // Plan doesn't cover this module
+            isGap = true;
         } else if (coveredByPlan && c.status === 'delivered' && eff && eff > delAt) {
-            isGap = true; // Plan covers it, but law dropped AFTER we delivered. Docs are stale.
+            isGap = true;
         }
-
-        // TALLY EXPOSURES BASED ON VIP STATUS
         if (isGap) {
-            if (c.maintenanceActive) yellow++; // Under Review
-            else red++; // Exposed
+            if (c.maintenanceActive) yellow++;
+            else red++;
         }
       });
-
       return { ...c, _red: red, _yellow: yellow };
     })
     .filter(c => c._red > 0 || c._yellow > 0)
@@ -1168,6 +1252,7 @@ async function renderExposureMatrix() {
     tbody.innerHTML = '<tr><td colspan="6" class="loading" style="color:#d47a7a">Load error</td></tr>';
   }
 }
+
 // ── FINANCE ───────────────────────────────────────────────────────────────────
 async function loadFinance() {
   setPageActions('');
@@ -1188,7 +1273,6 @@ async function loadFinance() {
     setText('fin-total-sub', `${paid.length} paid clients`);
     setText('fin-avg',       fmtMoney(avg));
 
-    // Revenue by plan
     const byPlan = {};
     Object.keys(PLANS).forEach(k => { byPlan[k] = { count:0, rev:0 }; });
     paid.forEach(c => {
@@ -1209,7 +1293,6 @@ async function loadFinance() {
         : '<tr><td colspan="4" class="loading">No paid clients yet</td></tr>';
     }
 
-    // Concentration
     const concWarn = $('fin-conc-warn');
     const concList = $('fin-conc-list');
     if (mrr > 0) {
