@@ -98,14 +98,115 @@ async function loadRadarCache() {
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
 async function loadDashboard() {
-    const cSnap = await db.collection('clients').get();
-    const clients = []; cSnap.forEach(d => clients.push({ id: d.id, ...d.data() }));
-    const inProd = clients.filter(c => c.status === 'in_production');
-    const maint = clients.filter(c => c.maintenanceActive);
-    setText('d-mrr', fmtMoney(maint.length * 297));
-    setText('d-mrr-sub', `${maint.length} active maintenance`);
-    setText('d-active', inProd.length);
-    setText('d-clients-count', `${clients.length} total clients`);
+    try {
+        const cSnap = await db.collection('clients').get();
+        const clients = []; cSnap.forEach(d => clients.push({ id: d.id, ...d.data() }));
+
+        const pSnap = await db.collection('prospects').get();
+        const prospects = []; pSnap.forEach(d => prospects.push(d.data()));
+
+        const lSnap = await db.collection('leads').where('source', '==', 'scanner').get();
+        const leads = []; lSnap.forEach(d => leads.push(d.data()));
+
+        await loadRadarCache();
+
+        // ── 1. ROW 1: MONEY & URGENCY ──
+        const maint = clients.filter(c => c.maintenanceActive);
+        const mrr = maint.length * 297;
+        setText('d-mrr', fmtMoney(mrr));
+        setText('d-mrr-sub', `${maint.length} active maintenance`);
+
+        const inProd = clients.filter(c => ['under_review', 'in_production'].includes(c.status));
+        setText('d-cap-current', inProd.length);
+        const capBar = $('d-cap-bar'); if (capBar) capBar.style.width = Math.min(100, (inProd.length/50)*100) + '%';
+        setText('d-cap-label', `${inProd.length} / 50 slots`);
+
+        // Calculate Actionable Gaps
+        let gapCount = 0;
+        const today = new Date();
+        clients.forEach(c => {
+            if (c.maintenanceActive) return; // VIPs don't count as actionable upsells
+            const jurs = [c.registrationJurisdiction, ...(c.operatingJurisdictions||[])].filter(Boolean);
+            const delAt = c.deliveredAt ? (c.deliveredAt.toDate ? c.deliveredAt.toDate() : new Date(c.deliveredAt)) : (c.status==='delivered' ? new Date(0) : null);
+            
+            let isExposed = false;
+            radarEntries.forEach(reg => {
+                let rJurs = Array.isArray(reg.jurisdiction) ? reg.jurisdiction : (typeof reg.jurisdiction==='string' ? reg.jurisdiction.split(',').map(s=>s.trim().toLowerCase()) : []);
+                if (!rJurs.some(r => r==='global') && !jurs.some(j => j && rJurs.some(rj => rj && (j.toLowerCase()===rj || rj.startsWith(j.toLowerCase()))))) return;
+                
+                const eff = reg.effectiveDate ? new Date(reg.effectiveDate) : null;
+                const covered = reg.coveredByPlan?.includes(c.plan);
+                if (!covered || (covered && c.status==='delivered' && eff && eff > delAt)) isExposed = true;
+            });
+            if (isExposed) gapCount++;
+        });
+        setText('d-gaps', gapCount);
+        setText('d-gaps-sub', `${fmtMoney(gapCount * 497)} Upsell Pipeline`);
+
+        // SLA Critical
+        const slaCrit = clients.filter(c => {
+            if (!['intake_received', 'in_production'].includes(c.status)) return false;
+            const startTs = c.intakeReceivedAt || c.intakeSentAt || c.productionStartedAt;
+            return startTs && hoursSince(startTs) >= 36; // 36 hours passed = < 12h left
+        });
+        setText('d-sla-crit', slaCrit.length);
+
+        // ── 2. ROW 2: FUNNELS ──
+        // Scanner Funnel
+        const clicks = prospects.filter(p => p.scannerClicked || p.scannerCompleted).length;
+        const comps = leads.length;
+        const paid = prospects.filter(p => p.status === 'Converted').length;
+        setText('sf-clicks', clicks);
+        setText('sf-comps', comps);
+        setText('sf-paid', paid);
+        setText('sf-rate', comps > 0 ? Math.round((paid/comps)*100)+'% Conversion' : '0% Conversion');
+
+        // Outreach Funnel
+        const fc = { Cold:0, Warm:0, Hot:0, Replied:0, Negotiating:0 };
+        prospects.forEach(p => { if (fc[p.status] !== undefined) fc[p.status]++; });
+        Object.keys(fc).forEach(k => setText('of-' + k.toLowerCase(), fc[k]));
+
+        // ── 3. ROW 3: ACTION LISTS ──
+        // SLA Table
+        const slaTbody = $('d-sla-table');
+        if (slaTbody) {
+            const activeBuilds = clients.filter(c => ['intake_received', 'under_review', 'in_production'].includes(c.status));
+            slaTbody.innerHTML = activeBuilds.length ? activeBuilds.map(c => {
+                const startTs = c.intakeReceivedAt || c.intakeSentAt || c.productionStartedAt;
+                const hRem = startTs ? 48 - hoursSince(startTs) : 48;
+                const col = hRem <= 12 ? '#d47a7a' : 'var(--marble)';
+                return `<tr onclick="openDetail('${esc(c.id)}');nav('clients')">
+                    <td>${esc(c.name||c.id)}</td>
+                    <td><span class="badge ${statusBadgeClass(c.status)}">${statusLabel(c.status)}</span></td>
+                    <td style="color:${col}">${hRem}h left</td>
+                </tr>`;
+            }).join('') : '<tr><td colspan="3" class="empty">No active builds</td></tr>';
+        }
+
+        // Recent Clients
+        const rcTbody = $('d-recent-clients');
+        if (rcTbody) {
+            const sortedC = [...clients].sort((a,b) => (b.createdAt?.toDate?.()?.getTime()||0) - (a.createdAt?.toDate?.()?.getTime()||0)).slice(0, 5);
+            rcTbody.innerHTML = sortedC.length ? sortedC.map(c => `
+                <tr onclick="openDetail('${esc(c.id)}');nav('clients')">
+                    <td>${esc(c.name||c.id)}</td>
+                    <td><span class="badge ${planBadgeClass(c.plan)}">${planLabel(c.plan)}</span></td>
+                    <td><span class="badge ${statusBadgeClass(c.status)}">${statusLabel(c.status)}</span></td>
+                </tr>`).join('') : '<tr><td colspan="3" class="empty">No engagements yet</td></tr>';
+        }
+
+        // ── 4. ROW 4: AUTO RITUALS ──
+        const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay()); weekStart.setHours(0,0,0,0);
+        let weekForms = 0; leads.forEach(l => { const d = l.createdAt?.toDate ? l.createdAt.toDate() : new Date(l.createdAt||0); if (d >= weekStart) weekForms++; });
+        let weekDeals = 0; clients.forEach(c => { const d = c.createdAt?.toDate ? c.createdAt.toDate() : new Date(c.createdAt||0); if (d >= weekStart) weekDeals++; });
+        let pipeValue = 0; prospects.filter(p => !['Converted','Dead'].includes(p.status)).forEach(p => pipeValue += (PLAN_PRICES[p.intendedPlan] || 0));
+        setText('r-auto-forms', weekForms);
+        setText('r-auto-deals', weekDeals);
+        setText('r-auto-pipe', fmtMoney(pipeValue));
+
+        if (typeof loadRitual === 'function') loadRitual();
+
+    } catch (e) { console.error('Dash Error:', e); }
 }
 
 // ── CLIENTS TABLE ─────────────────────────────────────────────────────────────
