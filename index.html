@@ -923,14 +923,19 @@ tbody td.dim{color:var(--marble-dim)}
       <div id="dp-radar-list"><div class="loading">Loading radar…</div></div>
     </div>
 
-    <div id="dt-gap" class="detail-section hidden">
+<div id="dt-gap" class="detail-section hidden">
+      <div class="card card-gold" style="margin-bottom:16px; padding:12px 16px;">
+        <div class="card-label">Gap Review Price</div>
+        <div class="card-value" style="font-size:24px;">$497</div>
+        <div class="card-sub">Flat fee for post-delivery compliance updates</div>
+      </div>
       <div class="fg">
         <label class="fl">Gap Review Status</label>
         <select class="fi" id="dp-gap-status">
           <option value="">None</option>
           <option value="requested">Requested</option>
-          <option value="scoped">Scoped</option>
           <option value="invoiced">Invoiced</option>
+          <option value="paid">Paid</option>
           <option value="delivered">Delivered</option>
         </select>
       </div>
@@ -938,19 +943,12 @@ tbody td.dim{color:var(--marble-dim)}
         <label class="fl">Scope Summary</label>
         <textarea class="fi" id="dp-gap-scope" rows="4" placeholder="Describe the gap and what the review covers…"></textarea>
       </div>
-      <div class="fi-row">
-        <div class="fg">
-          <label class="fl">Invoice URL</label>
-          <input type="text" class="fi" id="dp-gap-invoice" placeholder="https://…">
-        </div>
-        <div class="fg">
-          <label class="fl">Amount (USD)</label>
-          <input type="number" class="fi" id="dp-gap-amount" placeholder="750">
-        </div>
+      <div class="fg">
+        <label class="fl">Invoice URL</label>
+        <input type="text" class="fi" id="dp-gap-invoice" placeholder="https://…">
       </div>
       <button class="btn btn-primary" onclick="saveGap()">Save Gap Review</button>
     </div>
-
     <div id="dt-financials" class="detail-section hidden">
       <div class="card" style="margin-bottom:14px">
         <div class="card-label">Plan Price</div>
