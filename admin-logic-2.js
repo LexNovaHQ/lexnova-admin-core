@@ -107,62 +107,40 @@ function setOutreachView(view, el) {
 }
 
 function populateCommandCenter() {
-  const today     = new Date(); today.setHours(0,0,0,0);
-  const weekStart = new Date(today);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-  const todayStr  = today.toISOString().split('T')[0];
-
-  // Email counters from per-prospect email logs
-  let emailsToday = 0, emailsWeek = 0;
-  allProspects.forEach(p => {
-    (p.emailLog||[]).forEach(e => {
-      const d = new Date(e.date||0); d.setHours(0,0,0,0);
-      if (d.getTime() === today.getTime()) emailsToday++;
-      if (d >= weekStart) emailsWeek++;
-    });
-  });
-  setText('oc-today', emailsToday);
-  setText('oc-week',  emailsWeek);
-
-  // Scanner counts from leads collection
-  db.collection('leads').where('source','==','scanner').get().then(snap => {
-    let all = 0, week = 0;
-    snap.forEach(d => {
-      all++;
-      const ts = d.data().createdAt;
-      const dt = ts ? (ts.toDate ? ts.toDate() : new Date(ts)) : null;
-      if (dt && dt >= weekStart) week++;
-    });
-    setText('oc-scanner-all',  all);
-    setText('oc-scanner-week', week);
-  }).catch(() => {});
-
-  // Pipeline funnel
-  const fc = { Cold:0, Warm:0, Hot:0, Replied:0, Negotiating:0, Converted:0 };
-  allProspects.forEach(p => { if (fc[p.status] !== undefined) fc[p.status]++; });
-  setText('ocf-cold',    fc.Cold);
-  setText('ocf-warm',    fc.Warm);
-  setText('ocf-hot',     fc.Hot);
-  setText('ocf-replied', fc.Replied);
-  setText('ocf-neg',     fc.Negotiating);
-  setText('ocf-conv',    fc.Converted);
-
-  // Action queue
+  let totalEmails = 0, totalClicks = 0, totalComps = 0, totalPaid = 0, convEmailCount = 0;
+  const todayStr = new Date().toISOString().split('T')[0];
   let fuToday = 0, fuOver = 0, liPending = 0;
-  allProspects.filter(p => !['Converted','Dead'].includes(p.status)).forEach(p => {
-    if (p.nextActionDate) {
-      if (p.nextActionDate === todayStr) fuToday++;
-      if (p.nextActionDate  < todayStr) fuOver++;
+
+  allProspects.forEach(p => {
+    totalEmails += (p.emailsSent || 0);
+    if (p.scannerClicked || p.scannerCompleted) totalClicks++;
+    if (p.scannerCompleted) totalComps++;
+    if (p.status === 'Converted') {
+        totalPaid++;
+        convEmailCount += (p.emailsSent || 1);
     }
-    if (['pending','connected_no_reply'].includes(p.linkedinStatus)) liPending++;
+    if (!['Converted','Dead'].includes(p.status)) {
+      if (p.nextActionDate === todayStr) fuToday++;
+      if (p.nextActionDate < todayStr) fuOver++;
+      if (['pending','connected_no_reply'].includes(p.linkedinStatus)) liPending++;
+    }
   });
+
+  setText('oc-emails-all', totalEmails);
+  setText('oc-clicks-all', totalClicks);
+  setText('oc-click-rate', totalEmails > 0 ? Math.round((totalClicks/totalEmails)*100) + '% click rate' : '0% click rate');
+  setText('oc-comps-all', totalComps);
+  setText('oc-comp-rate', totalClicks > 0 ? Math.round((totalComps/totalClicks)*100) + '% completion rate' : '0% completion rate');
+  setText('oc-paid-all', totalPaid);
+  setText('oc-close-rate', totalComps > 0 ? Math.round((totalPaid/totalComps)*100) + '% close rate' : '0% close rate');
+
   setText('aq-today', fuToday);
-  setText('aq-over',  fuOver);
-  setText('aq-li',    liPending);
+  setText('aq-over', fuOver);
+  setText('aq-li', liPending);
+  setText('oc-avg-fu', totalPaid > 0 ? (convEmailCount / totalPaid).toFixed(1) : '—');
 
   db.collection('leads').where('status','in',['new','scanner_submitted']).get()
-    .then(snap => setText('aq-inbound', snap.size))
-    .catch(()  => setText('aq-inbound', '—'));
+    .then(snap => setText('aq-inbound', snap.size)).catch(() => {});
 
   renderBatchPerformance();
 }
@@ -173,28 +151,26 @@ function renderBatchPerformance() {
   const batches = {};
   allProspects.forEach(p => {
     const b = p.batchNumber || 'Unassigned';
-    if (!batches[b]) batches[b] = { prospects:0, emails:0, replies:0, clicks:0, completions:0, conv:0 };
+    if (!batches[b]) batches[b] = { prospects:0, emails:0, clicks:0, comps:0, conv:0 };
     batches[b].prospects++;
-    batches[b].emails      += p.emailsSent || 0;
-    if (['Replied','Negotiating'].includes(p.status)) batches[b].replies++;
-    if (p.scannerClicked)    batches[b].clicks++;
-    if (p.scannerCompleted)  batches[b].completions++;
+    batches[b].emails += p.emailsSent || 0;
+    if (p.scannerClicked || p.scannerCompleted) batches[b].clicks++;
+    if (p.scannerCompleted) batches[b].comps++;
     if (p.status === 'Converted') batches[b].conv++;
   });
+  
   const keys = Object.keys(batches).sort();
-  if (!keys.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="loading">No batches yet</td></tr>';
-    return;
-  }
+  if (!keys.length) { tbody.innerHTML = '<tr><td colspan="7" class="loading">No batches yet</td></tr>'; return; }
+  
   tbody.innerHTML = keys.map(b => {
     const r = batches[b];
+    const roi = r.comps > 0 ? Math.round((r.conv/r.comps)*100)+'%' : '0%';
     return `<tr>
       <td>${esc(b)}</td><td>${r.prospects}</td><td>${r.emails}</td>
-      <td>${r.replies}</td><td>${r.clicks}</td><td>${r.completions}</td><td>${r.conv}</td>
+      <td>${r.clicks}</td><td>${r.comps}</td><td>${r.conv}</td><td style="color:var(--gold);">${roi}</td>
     </tr>`;
   }).join('');
 }
-
 // ── PIPELINE TABLE ────────────────────────────────────────────────────────────
 function populateBatchFilter() {
   const sel = $('op-batch');
