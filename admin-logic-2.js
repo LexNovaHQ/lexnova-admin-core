@@ -55,9 +55,6 @@ window.saveRitual = async function() {
   const data = {
     outreach: parseInt($('r-outreach')?.value) || 0,
     replies: parseInt($('r-replies')?.value) || 0,
-    tally: parseInt($('r-tally')?.value) || 0,
-    deals: parseInt($('r-deals')?.value) || 0,
-    pipeline: parseInt($('r-pipeline')?.value) || 0,
     updatedAt: new Date().toISOString()
   };
   try {
