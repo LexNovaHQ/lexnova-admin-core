@@ -125,7 +125,7 @@ async function loadDashboard() {
         let gapCount = 0;
         const today = new Date();
         clients.forEach(c => {
-            if (c.maintenanceActive) return; // VIPs don't count as actionable upsells
+            if (c.maintenanceActive) return; 
             const jurs = [c.registrationJurisdiction, ...(c.operatingJurisdictions||[])].filter(Boolean);
             const delAt = c.deliveredAt ? (c.deliveredAt.toDate ? c.deliveredAt.toDate() : new Date(c.deliveredAt)) : (c.status==='delivered' ? new Date(0) : null);
             
@@ -147,12 +147,11 @@ async function loadDashboard() {
         const slaCrit = clients.filter(c => {
             if (!['intake_received', 'in_production'].includes(c.status)) return false;
             const startTs = c.intakeReceivedAt || c.intakeSentAt || c.productionStartedAt;
-            return startTs && hoursSince(startTs) >= 36; // 36 hours passed = < 12h left
+            return startTs && hoursSince(startTs) >= 36; 
         });
         setText('d-sla-crit', slaCrit.length);
 
         // ── 2. ROW 2: FUNNELS ──
-        // Scanner Funnel
         const clicks = prospects.filter(p => p.scannerClicked || p.scannerCompleted).length;
         const comps = leads.length;
         const paid = prospects.filter(p => p.status === 'Converted').length;
@@ -161,13 +160,11 @@ async function loadDashboard() {
         setText('sf-paid', paid);
         setText('sf-rate', comps > 0 ? Math.round((paid/comps)*100)+'% Conversion' : '0% Conversion');
 
-        // Outreach Funnel
         const fc = { Cold:0, Warm:0, Hot:0, Replied:0, Negotiating:0 };
         prospects.forEach(p => { if (fc[p.status] !== undefined) fc[p.status]++; });
         Object.keys(fc).forEach(k => setText('of-' + k.toLowerCase(), fc[k]));
 
         // ── 3. ROW 3: ACTION LISTS ──
-        // SLA Table
         const slaTbody = $('d-sla-table');
         if (slaTbody) {
             const activeBuilds = clients.filter(c => ['intake_received', 'under_review', 'in_production'].includes(c.status));
@@ -183,7 +180,6 @@ async function loadDashboard() {
             }).join('') : '<tr><td colspan="3" class="empty">No active builds</td></tr>';
         }
 
-        // Recent Clients
         const rcTbody = $('d-recent-clients');
         if (rcTbody) {
             const sortedC = [...clients].sort((a,b) => (b.createdAt?.toDate?.()?.getTime()||0) - (a.createdAt?.toDate?.()?.getTime()||0)).slice(0, 5);
@@ -266,17 +262,20 @@ async function openDetail(email) {
     setText('dp-email', currentClient.id);
     setText('dp-plan', planLabel(currentClient.plan));
     
-    // Explicitly call population functions so data loads before you even click the tab
-    populateDetailOverview(currentClient);
-    populateDetailIntake(currentClient);
-    populateDetailChecklist(currentClient);
-    populateDetailDocuments(currentClient);
-    populateDetailRadar(currentClient);
-    populateDetailGap(currentClient);
-    populateDetailFinancials(currentClient);
-    populateDetailActivity(currentClient);
-    populateDetailReferrals(currentClient);
-    populateDetailDebrief(currentClient);
+    try {
+        populateDetailOverview(currentClient);
+        populateDetailIntake(currentClient);
+        populateDetailChecklist(currentClient);
+        populateDetailDocuments(currentClient);
+        populateDetailRadar(currentClient);
+        populateDetailGap(currentClient);
+        populateDetailFinancials(currentClient);
+        populateDetailActivity(currentClient);
+        populateDetailReferrals(currentClient);
+        populateDetailDebrief(currentClient);
+    } catch(e) {
+        console.error("Error populating detail panel:", e);
+    }
     
     detailTab('overview');
 }
@@ -322,7 +321,7 @@ window.saveOverview = async function() {
     loadClients();
 };
 
-window.onStatusChange = function(val) {}; // Placeholder for manual trigger if needed
+window.onStatusChange = function(val) {};
 
 // ── 2. INTAKE TAB ─────────────────────────────────────────────────────────────
 function populateDetailIntake(c) {
@@ -375,7 +374,7 @@ window.saveChecklist = async function() {
     toast('Checklist saved');
 };
 
-// ── 4. DELIVERY ENGINE (DOCUMENTS & VIDEO) ────────────────────────────────────
+// ── 4. DELIVERY ENGINE ────────────────────────────────────────────────────────
 function populateDetailDocuments(c) {
     const container = $('docsContainer');
     if (!container) return;
@@ -671,19 +670,24 @@ function populateDetailDebrief(c) {
     const consentColor = d.consent ? '#7ab88a' : '#d47a7a';
     const consentText = d.consent ? 'Client authorized public use of this testimonial.' : 'Client DID NOT authorize public use.';
     
+    // Safely extract text to prevent toLowerCase crashes if properties are missing
+    const bText = d.before || '';
+    const dText = d.during || '';
+    const aText = d.after || '';
+    
     wrap.innerHTML = `
         <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:24px; margin-bottom:16px;">
             <div style="margin-bottom:20px;">
                 <div style="font-size:10px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px;">1. The Anxiety (Before)</div>
-                <div style="font-size:13px; color:var(--marble); line-height:1.6; font-style:italic;">"${esc(d.before)}"</div>
+                <div style="font-size:13px; color:var(--marble); line-height:1.6; font-style:italic;">"${esc(bText)}"</div>
             </div>
             <div style="margin-bottom:20px;">
                 <div style="font-size:10px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px;">2. The Experience (During)</div>
-                <div style="font-size:13px; color:var(--marble); line-height:1.6; font-style:italic;">"${esc(d.during)}"</div>
+                <div style="font-size:13px; color:var(--marble); line-height:1.6; font-style:italic;">"${esc(dText)}"</div>
             </div>
             <div style="margin-bottom:20px;">
                 <div style="font-size:10px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px;">3. The Result (After)</div>
-                <div style="font-size:13px; color:var(--marble); line-height:1.6; font-style:italic;">"${esc(d.after)}"</div>
+                <div style="font-size:13px; color:var(--marble); line-height:1.6; font-style:italic;">"${esc(aText)}"</div>
             </div>
             <div style="padding-top:16px; border-top:1px solid var(--border); display:flex; align-items:center; gap:8px;">
                 <div style="width:8px; height:8px; border-radius:50%; background:${consentColor};"></div>
@@ -693,7 +697,7 @@ function populateDetailDebrief(c) {
         
         <div>
             <div style="font-size:10px; color:var(--marble-dim); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">Generated Landing Page Copy</div>
-            <textarea readonly style="width:100%; height:100px; background:var(--void); border:1px solid var(--border); color:var(--marble); padding:16px; font-family:sans-serif; font-size:13px; line-height:1.5; resize:none;">"Before Lex Nova, my biggest concern was ${esc(d.before.toLowerCase())}. The experience working with The Architect was ${esc(d.during.toLowerCase())}. Now, ${esc(d.after.toLowerCase())}."</textarea>
+            <textarea readonly style="width:100%; height:100px; background:var(--void); border:1px solid var(--border); color:var(--marble); padding:16px; font-family:sans-serif; font-size:13px; line-height:1.5; resize:none;">"Before Lex Nova, my biggest concern was ${esc(bText.toLowerCase())}. The experience working with The Architect was ${esc(dText.toLowerCase())}. Now, ${esc(aText.toLowerCase())}."</textarea>
             <p style="font-size:9px; color:var(--marble-dim); margin-top:6px;">Copy and paste this stitched testimonial directly to your landing page.</p>
         </div>
     `;
