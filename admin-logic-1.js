@@ -528,7 +528,6 @@ function populateDetailGap(c) {
     setVal('dp-gap-status',  g.status || '');
     setVal('dp-gap-scope',   g.scopeSummary || '');
     setVal('dp-gap-invoice', g.invoiceUrl || '');
-    setVal('dp-gap-amount',  g.amount || '');
 }
 
 window.saveGap = async function() {
@@ -537,11 +536,10 @@ window.saveGap = async function() {
         status: $('dp-gap-status')?.value || '',
         scopeSummary: $('dp-gap-scope')?.value?.trim() || '',
         invoiceUrl: $('dp-gap-invoice')?.value?.trim() || '',
-        amount: parseFloat($('dp-gap-amount')?.value) || null,
         updatedAt: new Date().toISOString()
     };
     await db.collection('clients').doc(currentClient.id).update({ gapReview });
-    toast('Gap Review saved');
+    toast('Gap Review saved ($497 Flat)');
 };
 
 // ── 7. FINANCIALS TAB ─────────────────────────────────────────────────────────
