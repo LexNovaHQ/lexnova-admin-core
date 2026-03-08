@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Lex Nova Forensic Engine</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #050505; color: #e5e5e5; font-family: 'Inter', sans-serif; }
+    textarea, input, select { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const SYSTEM = `You are the Lex Nova Phase 3 Forensic Engine. Audit an AI company for legal exposure before an Apollo credit is spent.
+
+If funding info is not provided, you MUST use the googleSearch tool to find the company's latest funding round, amount, and date before proceeding.
+
+SUPPRESSION RULE: Only include traps with a provable trigger in the product description. No generic gaps.
+
+10 TRAPS:
+BASE (check all):
+1. Moffatt—Hallucination Liability: generates text/recommendations/decisions to end users → DOC_TOS
+2. UETA§14—Agentic Liability: executes autonomous actions on user's behalf → DOC_AGT
+3. Rite Aid—Algorithmic Disgorgement: ingests/trains on user data → DOC_DPA
+4. Thaler—IP Ownership Void: generates creative output users will publish/sell → DOC_TOS+DOC_IP
+5. Specht—Consent Invalidity: no clickwrap before first AI interaction → DOC_TOS
+
+CONDITIONAL (only if triggered):
+6. Walters—AI Defamation: generates content about real people/companies → DOC_TOS
+7. UnitedHealth—Algorithmic Discrimination: influences decisions in healthcare/lending/hiring/insurance → DOC_TOS+DOC_DPIA
+8. Character.AI—Emotional Reliance: ongoing conversational AI persona → DOC_TOS
+9. Bartz—Training Data Copyright: trains/fine-tunes on user data → DOC_TOS
+10. Deepfake—Right of Publicity: generates/clones voice/image/video → DOC_AUP
+
+SEVERITY: HIGH=core product exposure / MED=indirect exposure
+
+VERDICT:
+GREEN LIGHT: 1+ HIGH gap + founder title confirmed + legal page absent/generic
+HOLD: MED gaps only OR vague product OR unclear legal page
+SKIP: AI-specific legal clauses exist OR Series B+ OR EU-only OR wrong title
+
+EMAIL FORMAT — follow exactly. Tone MUST be direct, peer-to-peer, and leverage the specific legal gap to drive a click. Write exactly 4 lines:
+Line 1: "Hi [First Name],"
+Line 2: blank
+Line 3: Combine their specific AI feature and the exact missing legal defense into a single observation. Example: "Loved how [Company] is using autonomous agents to [specific task], but I did a quick sweep of your terms and noticed you are completely missing a [Specific Legal Gap/Clause]."
+Line 4: blank
+Line 5: State the consequence and challenge THEM to take the scanner. Example: "Without it, you are assuming strict liability for every mistake the bot makes. Take this 2-minute diagnostic to map your exact financial exposure: https://lexnovahq.com/scanner.html?email=[PROSPECT_EMAIL]"
+Line 6: blank
+Subject line format: "[Company Name]'s [specific gap]" e.g. "Acme AI's agent liability gap"
+
+OUTPUT EXACTLY AS THIS JSON SCHEMA. DO NOT ADD ANY OTHER TEXT:
+{"company":"","lane":"A/B/UNSURE","fundingInfo":"","productSignal":"","activeGaps":[{"trap":"","caseStatute":"","productMatch":"","severity":"HIGH/MED","killClause":""}],"verdict":"GREEN LIGHT/HOLD/SKIP","verdictReason":"","emailSubject":"","emailBody":"","adminFormFields":{"company":"","website":"","geography":"","headcount":"","fundingStage":"","aiNative":true,"externalAI":true,"legalGapStatus":"HIGH/MED/CLEAN","legalGapAnalysis":"","personalizedHook":"","intendedPlan":"agentic_shield/workplace_shield"}}`;
+
+    function ForensicEngineMaxGemini() {
+      const [apiKey, setApiKey] = useState(() => localStorage.getItem("lexNovaApiKey") || "");
+      const [selectedModel, setSelectedModel] = useState("gemini-2.5-pro");
+      const [inp, setInp] = useState({ companyName:"", website:"", productDescription:"", termsPage:"", fundingStage:"", founderName:"", founderTitle:"", email:"", linkedinUrl:"", batchNumber:"" });
+      const [result, setResult] = useState(null);
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState(null);
+      const [copied, setCopied] = useState({});
+      const [status, setStatus] = useState("");
+
+      useEffect(() => {
+        if (apiKey) localStorage.setItem("lexNovaApiKey", apiKey);
+      }, [apiKey]);
+
+      const upd = (k,v) => setInp(p=>({...p,[k]:v}));
+
+      const runAudit = async () => {
+        if (!apiKey) { setError("Gemini API Key is required."); return; }
+        if (!inp.companyName || !inp.productDescription) { setError("Company name and product description are required."); return; }
+        
+        setLoading(true); setError(null); setResult(null);
+        setStatus(inp.fundingStage ? "Running forensic audit..." : "Querying Google Search for funding data...");
+
+        const msg = `AUDIT — ${inp.companyName}\nPRODUCT: ${inp.productDescription}\nTERMS: ${inp.termsPage || "NONE"}\nFUNDING: ${inp.fundingStage || "UNKNOWN — YOU MUST USE GOOGLE SEARCH TO FIND LATEST FUNDING ROUND AND AMOUNT."}\nFOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}\nWEBSITE: ${inp.website || "?"}`;
+
+        try {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: SYSTEM }] },
+              contents: [{ role: "user", parts: [{ text: msg }] }],
+              tools: [{ googleSearch: {} }], 
+              // Removed strict JSON mode to allow Google Search. Relying on regex cleaner below.
+              generationConfig: { temperature: 0.1 } 
+            })
+          });
+
+          const data = await res.json();
+          if (data.error) throw new Error(data.error.message);
+
+          setStatus("Parsing payload...");
+          let raw = data.candidates[0].content.parts[0].text;
+          
+          // Cleaner: strips markdown block and isolates the JSON
+          raw = raw.replace(/```json|```/g, "").trim();
+          const jsonMatch = raw.match(/\{[\s\S]*\}/);
+          if (!jsonMatch) throw new Error("No valid JSON found in the response.");
+          
+          const parsed = JSON.parse(jsonMatch[0]);
+
+          if (inp.email) parsed.emailBody = parsed.emailBody.replace(/\[PROSPECT_EMAIL\]/g, inp.email);
+          if (inp.founderName) parsed.emailBody = parsed.emailBody.replace(/\[First Name\]/gi, inp.founderName.split(" ")[0]);
+          if (inp.companyName) parsed.emailBody = parsed.emailBody.replace(/\[COMPANY_NAME\]/gi, inp.companyName);
+          
+          parsed._meta = { founderName:inp.founderName, founderTitle:inp.founderTitle, email:inp.email, linkedinUrl:inp.linkedinUrl, website:inp.website, batchNumber:inp.batchNumber };
+          setResult(parsed);
+        } catch(e) { 
+          setError("Audit failed: " + e.message); 
+        }
+        setLoading(false); setStatus("");
+      };
+
+      const copy = (text,k) => { navigator.clipboard.writeText(text); setCopied(p=>({...p,[k]:true})); setTimeout(()=>setCopied(p=>({...p,[k]:false})),2000); };
+      const vColor = v => ({"GREEN LIGHT":"#22c55e","HOLD":"#eab308","SKIP":"#ef4444"}[v]||"#888");
+      const vIcon  = v => ({"GREEN LIGHT":"🟢","HOLD":"🟡","SKIP":"🔴"}[v]||"⚪");
+      const sColor = s => s==="HIGH"?"#ef4444":"#eab308";
+
+      const S = {
+        root:{padding:"28px 20px",maxWidth:760,margin:"0 auto"},
+        card:{background:"#0c0c0c",border:"1px solid #1e1e1e",borderRadius:8,padding:"20px",marginBottom:14},
+        label:{color:"#666",fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:5,display:"block"},
+        sHead:{color:"#C5A059",fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:14},
+        input:{width:"100%",background:"#080808",border:"1px solid #252525",borderRadius:5,padding:"9px 11px",color:"#e5e5e5",fontSize:12,outline:"none",boxSizing:"border-box"},
+        field:{marginBottom:13},
+        row2:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"},
+        row3:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 14px"},
+        fbox:{background:"#080808",border:"1px solid #181818",borderRadius:5,padding:"8px 11px"},
+        copyBtn:k=>({background:copied[k]?"#0a1f0a":"#111",border:`1px solid ${copied[k]?"#22c55e":"#252525"}`,color:copied[k]?"#22c55e":"#555",fontSize:9,padding:"3px 9px",borderRadius:4,cursor:"pointer",fontWeight:700}),
+      };
+
+      return (
+        <div style={S.root}>
+          <div style={{marginBottom:24}}>
+            <div style={{color:"#C5A059",fontSize:9,fontWeight:700,letterSpacing:"0.18em",textTransform:"uppercase",marginBottom:6}}>LEX NOVA HQ · GEMINI MAX ENGINE</div>
+            <h1 style={{color:"#fff",fontSize:20,fontWeight:800,margin:"0 0 4px 0"}}>Phase 3 Forensic Engine <span style={{background:"#C5A05920",color:"#C5A059",fontSize:10,padding:"2px 8px",borderRadius:4,marginLeft:8,verticalAlign:"middle"}}>MAX</span></h1>
+            <p style={{color:"#444",fontSize:11,margin:0}}>Native Google Search enabled · Offline Desktop Version.</p>
+          </div>
+
+          <div style={S.card}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <div style={{...S.sHead,marginBottom:0}}>API CONFIGURATION</div>
+            </div>
+            <div style={S.row2}>
+              <div style={S.field}>
+                <label style={S.label}>Gemini API Key (Saves Automatically)</label>
+                <input type="password" value={apiKey} onChange={e=>setApiKey(e.target.value)} style={S.input} placeholder="AIzaSy..." />
+              </div>
+              <div style={S.field}>
+                <label style={S.label}>Engine / Model</label>
+                <select value={selectedModel} onChange={e=>setSelectedModel(e.target.value)} style={S.input}>
+                  <option value="gemini-2.5-pro">2.5 Pro (Max IQ)</option>
+                  <option value="gemini-2.5-flash">2.5 Flash (Max Speed / Free Limits)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div style={S.card}>
+            <div style={S.sHead}>INPUT BLOCK</div>
+            <div style={S.row2}>
+              <div style={S.field}><label style={S.label}>[A] Company Name *</label><input value={inp.companyName} onChange={e=>upd("companyName",e.target.value)} style={S.input} placeholder="Acme AI"/></div>
+              <div style={S.field}><label style={S.label}>Website</label><input value={inp.website} onChange={e=>upd("website",e.target.value)} style={S.input} placeholder="https://acmeai.com"/></div>
+            </div>
+            <div style={S.field}><label style={S.label}>[A] Product Description *</label><textarea rows={4} value={inp.productDescription} onChange={e=>upd("productDescription",e.target.value)} style={{...S.input,resize:"vertical"}} placeholder="Paste homepage + product page copy. Agent actions, data ingestion, output types."/></div>
+            <div style={S.field}><label style={S.label}>[B] Terms / Legal Page — write NONE if absent</label><textarea rows={3} value={inp.termsPage} onChange={e=>upd("termsPage",e.target.value)} style={{...S.input,resize:"vertical"}} placeholder="Paste ToS/Privacy Policy or leave blank..."/></div>
+            <div style={S.row2}>
+              <div style={S.field}>
+                <label style={S.label}>[C] Funding & Stage <span style={{color:"#2a2a2a",fontWeight:400,textTransform:"none",letterSpacing:0}}>— leave blank to auto-search</span></label>
+                <input value={inp.fundingStage} onChange={e=>upd("fundingStage",e.target.value)} style={S.input} placeholder="Seed, $2M, March 2025 — or leave blank"/>
+              </div>
+              <div style={S.field}><label style={S.label}>Batch #</label><input value={inp.batchNumber} onChange={e=>upd("batchNumber",e.target.value)} style={S.input} placeholder="1"/></div>
+            </div>
+            <div style={S.row3}>
+              <div style={S.field}><label style={S.label}>[D] Founder Name</label><input value={inp.founderName} onChange={e=>upd("founderName",e.target.value)} style={S.input} placeholder="John Smith"/></div>
+              <div style={S.field}><label style={S.label}>Founder Title</label><input value={inp.founderTitle} onChange={e=>upd("founderTitle",e.target.value)} style={S.input} placeholder="CEO / Co-Founder"/></div>
+              <div style={S.field}><label style={S.label}>Email — post-reveal</label><input value={inp.email} onChange={e=>upd("email",e.target.value)} style={S.input} placeholder="john@acmeai.com"/></div>
+            </div>
+            <div style={S.field}><label style={S.label}>LinkedIn URL</label><input value={inp.linkedinUrl} onChange={e=>upd("linkedinUrl",e.target.value)} style={S.input} placeholder="https://linkedin.com/in/johnsmith"/></div>
+
+            <button onClick={runAudit} disabled={loading} style={{background:loading?"#111":"#C5A059",color:loading?"#444":"#000",border:"none",borderRadius:6,padding:"11px 0",fontSize:12,fontWeight:800,cursor:loading?"not-allowed":"pointer",letterSpacing:"0.08em",width:"100%",marginTop:4}}>
+              {loading ? `⚙  ${status||"RUNNING FORENSIC AUDIT..."}` : `RUN PHASE 3 AUDIT (${selectedModel.includes("flash") ? "SPEED" : "MAX"}) →`}
+            </button>
+          </div>
+
+          {error && <div style={{background:"#120808",border:"1px solid #2a0f0f",borderRadius:8,padding:"12px 16px",marginBottom:14,color:"#f87171",fontSize:12}}>⚠ {error}</div>}
+
+          {result && (() => {
+            const m = result._meta||{}, af = result.adminFormFields||{};
+            const emailFull = `Subject: ${result.emailSubject}\n\n${result.emailBody}\n\nShwet\nLegal Architect, Lex Nova HQ\nlexnovahq.com`;
+            const adminJson = JSON.stringify({founderName:m.founderName,email:m.email,company:af.company,linkedinUrl:m.linkedinUrl,website:af.website||m.website,jobTitle:m.founderTitle,geography:af.geography,headcount:af.headcount,fundingStage:af.fundingStage,aiNative:af.aiNative,externalAI:af.externalAI,legalGapStatus:af.legalGapStatus,legalGapAnalysis:af.legalGapAnalysis,personalizedHook:af.personalizedHook,intendedPlan:af.intendedPlan,batchNumber:m.batchNumber},null,2);
+            return <div>
+              <div style={{background:"#090909",border:`2px solid ${vColor(result.verdict)}`,borderRadius:8,padding:"14px 18px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <div style={{color:vColor(result.verdict),fontSize:16,fontWeight:800,letterSpacing:"0.05em"}}>{vIcon(result.verdict)} {result.verdict}</div>
+                  <div style={{color:"#555",fontSize:11,marginTop:4}}>{result.verdictReason}</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{color:"#C5A059",fontSize:10,fontWeight:700,letterSpacing:"0.1em"}}>LANE {result.lane}</div>
+                  <div style={{color:"#333",fontSize:11,marginTop:2}}>{result.company}</div>
+                </div>
+              </div>
+
+              <div style={S.card}>
+                <div style={S.sHead}>COMPANY PROFILE</div>
+                <div style={{marginBottom:8}}><span style={{color:"#444",fontSize:10,fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase"}}>FUNDING </span><span style={{color:"#e5e5e5",fontSize:12}}>{result.fundingInfo}</span></div>
+                <div><span style={{color:"#444",fontSize:10,fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase"}}>PRODUCT SIGNAL </span><span style={{color:"#e5e5e5",fontSize:12}}>{result.productSignal}</span></div>
+              </div>
+
+              {result.activeGaps?.length>0 && <div style={S.card}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                  <div style={S.sHead}>ACTIVE GAPS — {result.activeGaps.length} TRAP{result.activeGaps.length>1?"S":""} TRIGGERED</div>
+                </div>
+                {result.activeGaps.map((g,i)=>(
+                  <div key={i} style={{display:"flex",gap:12,borderTop:i>0?"1px solid #141414":"none",paddingTop:i>0?14:0,marginTop:i>0?14:0}}>
+                    <div style={{color:sColor(g.severity),fontSize:16,lineHeight:1,paddingTop:2,flexShrink:0}}>•</div>
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,flexWrap:"wrap"}}>
+                        <span style={{color:"#e5e5e5",fontSize:13,fontWeight:700}}>{g.trap}</span>
+                        <span style={{color:"#444",fontSize:11}}>{g.caseStatute}</span>
+                        <span style={{background:sColor(g.severity)+"18",color:sColor(g.severity),fontSize:9,fontWeight:800,padding:"2px 7px",borderRadius:4}}>{g.severity}</span>
+                        <span style={{background:"#C5A05918",color:"#C5A059",fontSize:9,fontWeight:800,padding:"2px 7px",borderRadius:4}}>{g.killClause}</span>
+                      </div>
+                      <div style={{color:"#777",fontSize:12,lineHeight:1.6}}>{g.productMatch}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>}
+
+              <div style={S.card}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                  <div style={S.sHead}>EMAIL HOOK — COPY VERBATIM</div>
+                  <button style={S.copyBtn("email")} onClick={()=>copy(emailFull,"email")}>{copied.email?"COPIED":"COPY"}</button>
+                </div>
+                <div style={{background:"#060606",border:"1px solid #161616",borderRadius:6,padding:"14px 16px"}}>
+                  <div style={{color:"#C5A059",fontSize:11,marginBottom:12,fontWeight:600}}>Subject: {result.emailSubject}</div>
+                  <div style={{color:"#e5e5e5",fontSize:12,lineHeight:2,whiteSpace:"pre-wrap"}}>{result.emailBody}</div>
+                  <div style={{color:"#333",fontSize:12,marginTop:14,lineHeight:1.7}}>Shwet<br/>Legal Architect, Lex Nova HQ<br/>lexnovahq.com</div>
+                </div>
+              </div>
+
+              <div style={S.card}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                  <div style={S.sHead}>ADMIN PANEL — PROSPECT FORM FIELDS</div>
+                  <button style={S.copyBtn("admin")} onClick={()=>copy(adminJson,"admin")}>{copied.admin?"COPIED":"COPY JSON"}</button>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                  {[["Company",af.company],["Funding Stage",af.fundingStage],["Founder Name",m.founderName],["Job Title",m.founderTitle],["Email",m.email||"(post-reveal)"],["Geography",af.geography],["LinkedIn",m.linkedinUrl],["Headcount",af.headcount],["Website",af.website||m.website],["Intended Plan",af.intendedPlan],["Legal Gap Status",af.legalGapStatus],["Batch #",m.batchNumber]].map(([lbl,val])=>(
+                    <div key={lbl} style={S.fbox}>
+                      <div style={{color:"#444",fontSize:9,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:2}}>{lbl}</div>
+                      <div style={{color:val?"#e5e5e5":"#2a2a2a",fontSize:11,wordBreak:"break-all"}}>{val||"—"}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>;
+          })()}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<ForensicEngineMaxGemini />);
+  </script>
+</body>
+</html>
