@@ -1,6 +1,11 @@
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ LEX NOVA ADMIN LOGIC 1 (v4.0) — THE FACTORY & DASHBOARD ══════
+// ════════════════════════════════════════════════════════════════════════
 'use strict';
 
-// ── KNOWLEDGE BASE ENGINE (SOP) ───────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ KNOWLEDGE BASE ENGINE (SOP) ══════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 const INFO_DICT = {
     mrr: "<strong>Monthly Recurring Revenue:</strong> Cash generated exclusively from Active Shields ($297/mo). Does not include one-off kit purchases.",
     capacity: "<strong>Production Bandwidth:</strong> The total number of active builds currently in 'The Forge' or 'Pre-Flight'. The hard cap is 50 before a VA must be deployed.",
@@ -32,7 +37,9 @@ window.showInfo = function(key) {
     }
 };
 
-// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ CONSTANTS & CONFIG ═══════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 const PLANS = { agentic_shield: 'Agentic Shield', workplace_shield: 'Workplace Shield', complete_stack: 'Complete Stack', flagship: 'Flagship' };
 const STATUS_LABELS = { pending_payment: 'Pending Payment', payment_received: 'Payment Received', intake_received: 'Intake Received', under_review: 'Under Review', in_production: 'In Production', delivered: 'Delivered' };
 const PLAN_PRICES = { agentic_shield: 997, workplace_shield: 997, complete_stack: 2500, flagship: 15000 };
@@ -49,7 +56,6 @@ const JURISDICTIONS = [
     { val:'ae', label:'UAE' }, { val:'in', label:'India' }, { val:'global', label:'Global' }
 ];
 
-// MASTER SOP CATEGORIES
 const CHECKLIST_ITEMS = {
   agentic_shield: {
     "Phase 0: The Gatekeeper": ['Payment received and confirmed', 'EL (Stage 1) accepted', 'Intake vault reviewed', 'Engagement Ref generated'],
@@ -77,11 +83,12 @@ const CHECKLIST_ITEMS = {
   }
 };
 
-// ── STATE ─────────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ STATE & UTILITIES ════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 let allClients = []; let allLeads = []; let currentClient = null; let radarEntries = [];
 let clientListener = null;
 
-// ── UTILITIES ─────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
 const qsa = sel => Array.from(document.querySelectorAll(sel));
 const planLabel = k => PLANS[k] || k;
@@ -95,7 +102,9 @@ function setText(id, txt) { const el = $(id); if (el) el.textContent = String(tx
 function setVal(id, val) { const el = $(id); if (el) el.value = val ?? ''; }
 function toast(msg, type = 'success') { const t = $('toast'); if (!t) return; t.textContent = msg; t.className = type; t.style.display = 'block'; setTimeout(() => { t.style.display = 'none'; }, 3000); }
 
-// ── MODAL ─────────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ UI: MODALS & GLOBAL LOGIC ════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 function openModal(title, bodyHTML, footerHTML = '') {
   const m = $('modal'), o = $('overlay');
   if (!m) return;
@@ -112,7 +121,6 @@ function closeModal() {
   $('overlay')?.classList.remove('open');
 }
 
-// ── INIT & NAV ─────────────────────────────────────────────────────────────────
 function init() { nav('dashboard'); }
 
 function nav(tab) {
@@ -124,7 +132,6 @@ function nav(tab) {
     const subs = { dashboard: 'Command center', factory: 'Production pipeline', hunt: 'Acquisition', syndicate: 'Recurring Engine' };
     const sub = $('pageSub'); if (sub) sub.textContent = subs[tab] || tab;
     
-    // Loaders
     if (tab === 'dashboard') loadDashboard();
     if (tab === 'factory' || tab === 'clients') loadClients();
     if (tab === 'leads') loadLeads();
@@ -133,7 +140,6 @@ function nav(tab) {
         if (typeof loadOutreach === 'function') loadOutreach();
     }
     
-    // ── TRUE SYNDICATE ROUTING FIX ──
     if (tab === 'syndicate') {
         if (typeof loadRadarCache === 'function') {
             loadRadarCache().then(() => {
@@ -151,7 +157,9 @@ function nav(tab) {
     }
 }
 
-// ── RADAR CACHE ───────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ THE COMMAND CENTER DASHBOARD ═════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 async function loadRadarCache() {
   try {
     const snap = await db.collection('settings').doc('regulatory_radar').get();
@@ -159,7 +167,6 @@ async function loadRadarCache() {
   } catch (e) { console.error('Radar cache:', e); }
 }
 
-// ── DASHBOARD ─────────────────────────────────────────────────────────────────
 async function loadDashboard() {
     try {
         const cSnap = await db.collection('clients').get();
@@ -173,7 +180,6 @@ async function loadDashboard() {
 
         await loadRadarCache();
 
-        // ── 1. ROW 1: MONEY & URGENCY ──
         const maint = clients.filter(c => c.maintenanceActive);
         const mrr = maint.length * 297;
         setText('d-mrr', fmtMoney(mrr));
@@ -184,7 +190,6 @@ async function loadDashboard() {
         const capBar = $('d-cap-bar'); if (capBar) capBar.style.width = Math.min(100, (inProd.length/50)*100) + '%';
         setText('d-cap-label', `${inProd.length} / 50 slots`);
 
-        // Calculate Actionable Gaps
         let gapCount = 0;
         clients.forEach(c => {
             if (c.maintenanceActive) return; 
@@ -205,7 +210,6 @@ async function loadDashboard() {
         setText('d-gaps', gapCount);
         setText('d-gaps-sub', `${fmtMoney(gapCount * 497)} Upsell Pipeline`);
 
-        // SLA Critical
         const slaCrit = clients.filter(c => {
             if (!['intake_received', 'in_production'].includes(c.status)) return false;
             const startTs = c.intakeReceivedAt || c.intakeSentAt || c.productionStartedAt;
@@ -213,7 +217,6 @@ async function loadDashboard() {
         });
         setText('d-sla-crit', slaCrit.length);
 
-        // ── 2. ROW 2: FUNNELS ──
         const clicks = prospects.filter(p => p.scannerClicked || p.scannerCompleted).length;
         const comps = leads.length;
         const paid = prospects.filter(p => p.status === 'Converted').length;
@@ -226,7 +229,6 @@ async function loadDashboard() {
         prospects.forEach(p => { if (fc[p.status] !== undefined) fc[p.status]++; });
         Object.keys(fc).forEach(k => setText('of-' + k.toLowerCase(), fc[k]));
 
-        // ── 3. ROW 3: ACTION LISTS ──
         const slaTbody = $('d-sla-table');
         if (slaTbody) {
             const activeBuilds = clients.filter(c => ['intake_received', 'under_review', 'in_production'].includes(c.status));
@@ -253,7 +255,6 @@ async function loadDashboard() {
                 </tr>`).join('') : '<tr><td colspan="3" class="empty">No engagements yet</td></tr>';
         }
 
-        // ── 4. ROW 4: AUTO RITUALS ──
         const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay()); weekStart.setHours(0,0,0,0);
         let weekForms = 0; leads.forEach(l => { const d = l.createdAt?.toDate ? l.createdAt.toDate() : new Date(l.createdAt||0); if (d >= weekStart) weekForms++; });
         let weekDeals = 0; clients.forEach(c => { const d = c.createdAt?.toDate ? c.createdAt.toDate() : new Date(c.createdAt||0); if (d >= weekStart) weekDeals++; });
@@ -267,7 +268,9 @@ async function loadDashboard() {
     } catch (e) { console.error('Dash Error:', e); }
 }
 
-// ── CLIENTS / FACTORY BOARD ───────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ THE FACTORY ENGINE (CLIENTS) ═════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 function loadClients() {
     if (clientListener) clientListener();
     
@@ -361,7 +364,11 @@ function renderClientsTable(list) {
         }
         
         return `<tr onclick="openDetail('${esc(c.id)}')">
-            <td>${esc(c.name||'—')}</td><td class="dim">${esc(c.company||'—')}</td>
+            <td>
+              <div style="font-size:11px;font-weight:600;">${esc(c.name||'—')}</div>
+              <div style="font-size:9px;color:var(--gold);font-family:'Cormorant Garamond',serif;">${esc(c.engagementRef||'')}</div>
+            </td>
+            <td class="dim">${esc(c.company||'—')}</td>
             <td><span class="badge ${planBadgeClass(c.plan)}">${planLabel(c.plan)}</span></td>
             <td><span class="badge ${statusBadgeClass(c.status)}">${statusLabel(c.status)}</span></td>
             <td>${slaClock}</td><td>${elBadge}</td><td class="dim">${esc(c.registrationJurisdiction||'—')}</td>
@@ -374,14 +381,16 @@ function renderClientsTable(list) {
 
 function filterClients() {
     const s = ($('c-search')?.value||'').toLowerCase();
-    const list = allClients.filter(c => !s || (c.name||'').toLowerCase().includes(s) || (c.email||c.id).toLowerCase().includes(s) || (c.company||'').toLowerCase().includes(s));
+    const list = allClients.filter(c => !s || (c.name||'').toLowerCase().includes(s) || (c.email||c.id).toLowerCase().includes(s) || (c.company||'').toLowerCase().includes(s) || (c.engagementRef||'').toLowerCase().includes(s));
     renderClientsTable(list);
 }
 
 function planBadgeClass(p) { return { agentic_shield:'b-intake', workplace_shield:'b-warm', complete_stack:'b-production', flagship:'b-hot' }[p] || 'b-ghost'; }
 function statusBadgeClass(s) { return { pending_payment:'b-pending', payment_received: 'b-delivered', intake_received:'b-intake', under_review:'b-review', in_production:'b-production', delivered:'b-delivered' }[s] || 'b-ghost'; }
 
-// ── LEADS TABLE ───────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ THE INBOUND LEAD VIEWER ══════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 async function loadLeads() {
     const snap = await db.collection('leads').orderBy('createdAt','desc').get();
     const tbodies = document.querySelectorAll('#l-tbody');
@@ -395,7 +404,9 @@ async function loadLeads() {
     tbodies.forEach(tb => tb.innerHTML = html);
 }
 
-// ── DETAIL PANEL ROUTER ───────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ CLIENT DETAIL PANEL (ROUTER) ═════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 async function openDetail(email) {
     $('detailPanel').classList.add('open');
     await loadRadarCache();
@@ -440,7 +451,7 @@ function detailTab(key, el) {
     }
 }
 
-// ── 1. OVERVIEW TAB ───────────────────────────────────────────────────────────
+// ═════════ TAB 1: OVERVIEW ═════════
 function populateDetailOverview(c) {
     const isAccepted = !!c.elAccepted;
     const elStatus = $('dp-el-status');
@@ -466,7 +477,7 @@ window.saveOverview = async function() {
 
 window.onStatusChange = function(val) {};
 
-// ── 2. INTAKE TAB ─────────────────────────────────────────────────────────────
+// ═════════ TAB 2: INTAKE ═════════
 function populateDetailIntake(c) {
     const el = $('dp-intake-content');
     if (!el) return;
@@ -493,7 +504,7 @@ function populateDetailIntake(c) {
     el.innerHTML = warningsHTML + dataHTML;
 }
 
-// ── 3. CHECKLIST TAB ──────────────────────────────────────
+// ═════════ TAB 3: CHECKLIST ═════════
 function populateDetailChecklist(c) {
     const el = $('dp-checklist-items');
     if (!el) return;
@@ -551,13 +562,24 @@ window.saveChecklist = async function() {
     toast('Master SOP Checklist saved');
 };
 
-// ── 4. DELIVERY ENGINE ────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ TAB 4: DELIVERY & SCHEDULE A COMPILER ════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 function populateDetailDocuments(c) {
     const container = $('docsContainer');
     if (!container) return;
     
     const videoInput = $('doc-video-link');
     if (videoInput) videoInput.value = c.walkthroughUrl || c.deliveryVideoUrl || '';
+
+    // Pre-fill Scope Picker based on Plan
+    $('sa-agentic').checked = ['agentic_shield', 'complete_stack', 'flagship'].includes(c.plan);
+    $('sa-workplace').checked = ['workplace_shield', 'complete_stack', 'flagship'].includes(c.plan);
+    $('sa-hallucination').checked = ['agentic_shield', 'complete_stack', 'flagship'].includes(c.plan);
+    $('sa-disgorgement').checked = ['agentic_shield', 'complete_stack', 'flagship'].includes(c.plan);
+    $('sa-ip').checked = ['workplace_shield', 'complete_stack', 'flagship'].includes(c.plan);
+    
+    $('sa-price').value = c.price || PLAN_PRICES[c.plan] || '';
 
     container.innerHTML = ''; 
     
@@ -602,13 +624,373 @@ window.generateELForDelivery = function() {
         }
     }
 
-    const scope = PLAN_SCOPES[currentClient.plan] || "AI Advisory Scope.";
-    const clientName = currentClient.name || "Client Name";
-    const companyName = currentClient.company || "Company Name";
-    const planName = planLabel(currentClient.plan);
+    // ── GATHER VARIABLES FOR SCHEDULE A ──
     const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const engRef = currentClient.engagementRef || `LN-C-26-${Math.floor(Math.random() * 1000)}`;
+    const clientCompany = currentClient.company || currentClient.name || "Client Company";
+    const clientName = currentClient.name || "Client Contact";
+    const clientEmail = currentClient.id || "";
+    const planName = planLabel(currentClient.plan);
+    
+    const price = $('sa-price').value || PLAN_PRICES[currentClient.plan] || "____";
+    const discount = $('sa-discount').value || "";
+    
+    // Logic Mapping based on Plan & Scope Picker
+    let tierText = currentClient.plan === 'flagship' ? `Flagship ----------------------------------------------- $${price} USD` : `Kit -------------------------------------------------------- $${price} USD`;
+    let laneText = 'Lane A — Builders';
+    if ($('sa-workplace').checked && !$('sa-agentic').checked) laneText = 'Lane B — Users';
+    if ($('sa-agentic').checked && $('sa-workplace').checked) laneText = 'Lane A & B (Complete Stack)';
+    if (currentClient.plan === 'flagship') laneText = 'Lane C — Enterprise (Flagship)';
 
-    const elTemplate = `ENGAGEMENT LETTER (STAGE 2) - FINAL SCOPE & DELIVERY\n\nDATE: ${dateStr}\nCLIENT: ${clientName} (${companyName})\nPLAN: ${planName}\n\n1. SCOPE OF SERVICES\nBased on the intake diagnostics, Lex Nova HQ will deliver the following:\n${scope}\n\n2. DELIVERY TIMELINE\nWork will commence immediately upon execution of this document and will be delivered via the secure client portal.\n\n3. FEES & MAINTENANCE\nMaintenance phase begins upon final delivery of the items scoped above.`;
+    let paymentStructure = currentClient.plan === 'flagship' ? "60% Deposit / 40% on Delivery" : "100% Upfront";
+    let timeline = currentClient.plan === 'flagship' ? "As agreed in scope" : "48 hours from Intake Form submission";
+    let revisions = currentClient.plan === 'flagship' ? "Throughout project duration" : "1 Round";
+
+    // Build Deliverables Table
+    let deliverablesList = "1\tDOC_TOS\tTerms of Service\tCore operating terms.\n";
+    let index = 2;
+    if ($('sa-agentic').checked) { deliverablesList += `${index++}\tDOC_AGT\tAgentic Addendum\tAutonomous action waiver.\n`; }
+    if ($('sa-workplace').checked) { deliverablesList += `${index++}\tDOC_SOP\tInternal AI Policy\tEmployee AI usage guidelines.\n`; }
+    if ($('sa-hallucination').checked) { deliverablesList += `${index++}\tDOC_WVR\tHallucination Waiver\tLimits liability for AI output errors.\n`; }
+    if ($('sa-disgorgement').checked) { deliverablesList += `${index++}\tDOC_DPA\tData Processing\tGuards against algorithmic disgorgement.\n`; }
+    if ($('sa-ip').checked) { deliverablesList += `${index++}\tDOC_IP\tIP Deed\tSecures AI-generated outputs.\n`; }
+
+    // ── THE FULL VERBATIM LEGAL TEXT INJECTION ──
+    const elTemplate = `LEX NOVA HQ ENGAGEMENT LETTER — LEGAL ARCHITECTURE MANDATE
+Date: ${dateStr}
+Engagement Reference: ${engRef}
+
+To:
+Client Name: ${clientCompany}
+Attention: ${clientName}
+Address: [CLIENT ADDRESS]
+Primary Email: ${clientEmail}
+
+From:
+Lex Nova HQ | Shwetabh Singh, Principal Architect
+Primary Email: shwetabh.singh@lexnovahq.com
+
+Lex Nova HQ is the trading name of Shwetabh Singh, sole proprietor.
+Entity registration (LLC/C-Corp) is pending and will be updated upon completion.
+All obligations under this Letter are personally undertaken by the undersigned Principal Architect until such time as a registered entity assumes this agreement.
+
+Dear ${clientName},
+
+Thank you for choosing Lex Nova HQ. This Engagement Letter ("Letter"), together with Schedule A attached hereto, sets out the complete terms under which Lex Nova HQ ("Lex Nova," "we," "us," or "our") will provide services to ${clientCompany} ("Client," "you," or "your").
+
+By signing this Letter, replying to the transmitting email with the words "I accept," or checking the acceptance box on the Configuration Intake Form, you agree to be bound by all terms contained herein.
+This Letter is effective as of the date of acceptance ("Effective Date").
+
+1. THE LEGAL ARCHITECTURE MANDATE
+Lex Nova HQ is a business consultancy and commercial structure architecture.
+We provide legal architecture, commercial structuring, deal architecture, negotiation leverage design, and operational logic.
+Lex Nova is NOT a law firm. We do not practice law.
+We do not provide legal advice, tax advice, financial advice, or any form of professional advice that requires licensure in any jurisdiction.
+Nothing in this Letter, in any communication between the parties, or in any Deliverable produced under this engagement constitutes legal advice or establishes an attorney-client relationship.
+We are Legal Architects. We design the structure. We do not stamp the compliance.
+The distinction between Legal Architecture and Legal Practice is not a formality — it defines the nature, scope, and limitations of every service we provide.
+
+2. THE REVIEW-READY STANDARD
+All documents delivered under this engagement ("Deliverables") are delivered as "Review-Ready Drafts" — meaning they are approximately 95% complete structural architectures designed to bridge the gap between business intent and legal execution.
+Deliverables are NOT final legal instruments. They are not ready for execution, filing, or enforcement without independent review by qualified legal counsel admitted to practice in the Client's operating jurisdiction(s).
+Client's local counsel bears sole responsibility for: (a) confirming jurisdictional compliance; (b) validating enforceability under applicable local law; (c) making any modifications required by local statutory or regulatory requirements; and (d) approving the Deliverables for execution.
+Each Deliverable is accompanied by Architect Notes addressed to the Client's local counsel or reviewing party, explaining the structural logic, clause rationale, and risk architecture.
+These notes are for informational purposes only and do not constitute legal guidance.
+Each Kit and Bundle engagement includes a video walkthrough (delivered via Clipchamp or equivalent) explaining the architecture and key clauses in plain language.
+
+3. CLIENT REPRESENTATIONS
+By entering into this engagement, Client represents and warrants that:
+Client is a duly organized business entity (corporation, limited liability company, partnership, or sole proprietorship operating in a commercial capacity) and is not engaging Lex Nova as a consumer or for personal, family, or household purposes.
+The individual signing or accepting this Letter has full authority to bind Client to its terms.
+Client will use the Deliverables exclusively for Client's own internal business purposes and not for resale, redistribution, sublicensing, or provision to third parties.
+Client understands and accepts that Lex Nova is not a law firm and that the Deliverables require independent legal review before use.
+
+4. SCOPE OF ENGAGEMENT
+The specific scope of this engagement — including the engagement tier, service pillar, lane, product name, deliverables, fee, payment structure, delivery timeline, and included revision rounds — is set out in Schedule A attached to this Letter.
+Schedule A is incorporated into this Letter by reference and forms part of this agreement.
+Lex Nova's obligations under this engagement are strictly limited to what is described in Schedule A. Any services, documents, analyses, calls, negotiations, or other work not explicitly listed in Schedule A are outside the scope of this engagement.
+
+5. CHANGE ORDERS
+Any request for work outside the scope defined in Schedule A requires a written Change Order signed by both parties before work begins.
+Change Orders are priced at $250 USD per hour, or scoped as a new Kit, Bundle, or Flagship engagement at the applicable rate.
+Requests made verbally, via email, via Slack, or through any informal channel do not constitute valid Change Orders and will not be acted upon without a signed written Change Order.
+For clarity: "Just one more clause" is not included in the original scope unless Schedule A explicitly says otherwise.
+
+6. REVISION ROUNDS
+The number of revision rounds included in this engagement is specified in Schedule A.
+A "revision" is defined as a modification to existing content within the Deliverables that does not alter the fundamental scope, structure, or purpose of the engagement.
+Examples include: correcting typographical errors, adjusting defined terms, changing specific numerical parameters (e.g., adjusting a spend cap from $50 to $100), or modifying party names and details.
+A request that requires rewriting a clause, adding a new clause not contemplated in the original scope, restructuring a document, or addressing a new legal issue is NOT a revision — it is a scope change and requires a Change Order under Section 5.
+Revision requests must be submitted in writing (email) within 14 calendar days of delivery.
+Revision requests received after this period will be treated as Change Orders.
+Typographical errors attributable to Lex Nova (e.g., misspelling the Client's name) will be corrected immediately at no charge and do not count toward the included revision rounds.
+
+7. DELIVERY
+Lex Nova will use commercially reasonable efforts to deliver the Deliverables within the timeline specified in Schedule A, measured from the date the Client submits a complete Configuration Intake Form ("Tally Form").
+Delivery timelines are targets and not guaranteed commitments. Lex Nova shall not be liable for delays in delivery provided it is exercising commercially reasonable efforts to meet the stated timeline.
+Delivery is made exclusively via the Client's dedicated Notion portal (the "Deal Room").
+Client will receive an email notification with the Deal Room access link upon delivery.
+Deliverables are provided in PDF format (the "Reference Copy") and editable document format (the "Working Copy") for use by Client's local counsel.
+Deliverables are deemed delivered when made available in the Deal Room.
+
+8. CLIENT COOPERATION
+Client is responsible for providing accurate, complete, and timely information via the Configuration Intake Form and any subsequent communications.
+Lex Nova relies on Client-provided information to architect the Deliverables.
+Delays, errors, omissions, or deficiencies in the Deliverables resulting from incomplete, inaccurate, or untimely Client inputs are not the responsibility of Lex Nova and do not constitute a breach of warranty or grounds for a refund.
+If Lex Nova determines that Client-provided information is materially insufficient to produce Deliverables of acceptable quality, Lex Nova will notify Client and request clarification.
+The delivery timeline will be extended by the number of days between the clarification request and Client's satisfactory response.
+
+9. PAYMENT
+All fees are stated in United States Dollars (USD). All payments must be made in USD.
+Payment terms are as specified in Schedule A and are governed by the following rules:
+Kit and Bundle engagements: 100% of the fee is due and payable before any work begins.
+Work commences only upon receipt of cleared funds.
+Flagship engagements: 60% of the fee is due before work begins ("Deposit").
+The remaining 40% ("Balance") is due upon delivery of the Deliverables. The Deposit is non-refundable once paid.
+Maintenance Subscriptions: Billed monthly in advance. The minimum subscription commitment is three (3) months.
+After the initial three-month period, the subscription continues on a month-to-month basis and may be cancelled by either party with 30 calendar days' written notice.
+Payment is accepted via wire transfer (Wise), PayPal Business, or such other methods as Lex Nova may specify on the invoice.
+All fees are exclusive of any taxes, duties, or governmental charges.
+Client is responsible for all such charges applicable in Client's jurisdiction.
+All fees stated in Schedule A are gross amounts. If Client is required by law, regulation, or tax authority to withhold or deduct any taxes, duties, or levies from payments due to Lex Nova, Client shall gross up the payment amount so that Lex Nova receives the full fee as stated in Schedule A after any such withholding or deduction.
+Client is solely responsible for determining and complying with any tax withholding obligations applicable in Client's jurisdiction.
+Lex Nova will provide reasonable tax documentation (including IRS Form W-8BEN or equivalent) upon request.
+
+10. THE 14-DAY INTAKE DEADLINE
+Client must submit the Configuration Intake Form within fourteen (14) calendar days of payment ("Intake Deadline").
+If the Configuration Intake Form is not submitted by the Intake Deadline, the engagement is deemed cancelled by Client.
+Upon cancellation under this Section, Lex Nova will issue a refund of the fee paid minus a 15% administrative fee, which compensates Lex Nova for the engagement slot held and administrative processing.
+Lex Nova will send a reminder to Client's primary email address at least three (3) calendar days before the Intake Deadline expires.
+
+11. REFUND POLICY
+Cancellation before payment: No engagement exists. Nothing is owed by either party.
+Cancellation after payment but before Intake Form submission: Subject to Section 10 (the 14-Day Intake Deadline and 15% administrative fee).
+Cancellation after Intake Form submission: No refunds. The Intake Form submission is the point of no return.
+Upon submission, Lex Nova begins architectural work, allocates capacity, and reserves delivery resources.
+No refunds will be issued for any reason after the Intake Form is submitted.
+Cancellation of a Flagship engagement after the Deposit is paid: The Deposit is non-refundable.
+If Client cancels before the Balance is due, Client owes nothing further.
+Work in progress will be delivered in its then-current state with no obligation on Lex Nova to complete.
+Maintenance Subscriptions: No refunds for any month in which the subscription was active, including partial months.
+The minimum three-month commitment is non-refundable once the first monthly payment is made.
+
+12. LATE PAYMENT
+Payments not received within 7 calendar days of the due date are considered late.
+Late payments accrue interest at the rate of 1.5% per month (or the maximum rate permitted by applicable law, whichever is lower), calculated from the original due date.
+If any payment remains outstanding for more than 15 calendar days after the due date, Lex Nova may, at its sole discretion: (a) suspend all work under the engagement until payment is received;
+(b) revoke Client's access to the Notion Deal Room portal; and (c) withhold delivery of any completed or in-progress Deliverables.
+If payment remains outstanding for more than 30 calendar days after the due date, Lex Nova may terminate the engagement immediately upon written notice.
+All fees owed remain due and payable notwithstanding termination.
+
+13. INTELLECTUAL PROPERTY
+Background IP. Lex Nova retains all right, title, and interest in and to its templates, clause libraries, structural frameworks, methodologies, processes, tools, know-how, and any other pre-existing intellectual property ("Background IP").
+Nothing in this Letter transfers ownership of Background IP to Client.
+License to Client. Subject to full payment of all fees, Lex Nova grants Client a non-exclusive, non-transferable, non-sublicensable, perpetual license to use the Deliverables solely for Client's own internal business purposes.
+This license does not extend to the underlying Background IP except to the extent necessary to use the Deliverables as delivered.
+Permitted Deployment. Client may deploy the Deliverables for their intended operational purpose, including but not limited to: publishing terms of service, privacy policies, and acceptable use policies on Client's website or application;
+distributing employee handbooks, internal policies, and workplace guidelines to Client's personnel;
+presenting contractual documents to Client's counterparties, investors, and business partners in the ordinary course of business;
+and filing or submitting Deliverables to regulatory bodies as required.
+Prohibited Redistribution. Client shall not reproduce, distribute, resell, sublicense, or otherwise make the Deliverables or any derivative works available to any third party for the purpose of reuse as a template, framework, or structural model.
+The Deliverables are licensed for Client's own operational use, not for redistribution as legal architecture to other businesses.
+Any such unauthorized redistribution constitutes a material breach of this Letter.
+Structural Markers. Client acknowledges that the Deliverables contain proprietary structural markers, metadata, and architectural fingerprints that enable identification of their origin.
+Client shall not remove, alter, or obscure any such markers, whether embedded in document metadata, formatting conventions, or clause structures.
+Feedback Assignment. Any feedback, suggestions, ideas, enhancement requests, or other input provided by Client regarding the Deliverables, Lex Nova's services, or Lex Nova's templates and methodologies ("Feedback") shall become the sole property of Lex Nova.
+Client irrevocably assigns to Lex Nova all right, title, and interest in such Feedback without obligation, compensation, or attribution.
+No Implied Rights. Except for the express license granted in Section 13.2, no rights in any intellectual property are transferred or implied under this Letter.
+
+14. CONFIDENTIALITY
+"Confidential Information" means any non-public information disclosed by one party ("Disclosing Party") to the other party ("Receiving Party") in connection with this engagement, including but not limited to: business plans, financial data, client lists, technical specifications, product roadmaps, intake form responses, and the terms of this Letter.
+The Receiving Party shall: (a) hold Confidential Information in strict confidence;
+(b) not disclose it to any third party without the Disclosing Party's prior written consent;
+and (c) use it only for the purposes of this engagement.
+Confidential Information does not include information that: (a) is or becomes publicly available without breach of this Letter;
+(b) was known to the Receiving Party prior to disclosure;
+(c) is independently developed without reference to the Disclosing Party's information;
+or (d) is required to be disclosed by law, regulation, or court order, provided the Receiving Party gives prompt written notice where legally permitted.
+For clarity: Lex Nova's templates, clause libraries, structural frameworks, and Background IP constitute Lex Nova's Confidential Information.
+Client's intake form responses, business data, and operational details constitute Client's Confidential Information.
+This Section survives termination or expiration of this Letter for a period of three (3) years.
+
+15. LIABILITY
+Liability Cap. Lex Nova's total aggregate liability under this engagement — whether in contract, tort, negligence, strict liability, or otherwise — shall not exceed the total fees actually paid by Client under this specific engagement (as defined in Schedule A).
+For Maintenance Subscriptions, liability shall not exceed the total fees paid in the twelve (12) months preceding the event giving rise to the claim.
+EXCLUSION OF DAMAGES. IN NO EVENT SHALL LEX NOVA BE LIABLE FOR ANY INDIRECT, INCIDENTAL, CONSEQUENTIAL, SPECIAL, PUNITIVE, OR EXEMPLARY DAMAGES, INCLUDING BUT NOT LIMITED TO: LOSS OF PROFITS, LOSS OF REVENUE, LOSS OF BUSINESS, LOSS OF DATA, WASTED EXPENDITURE, COST OF SUBSTITUTE SERVICES, REGULATORY FINES, OR REPUTATIONAL HARM — HOWEVER CAUSED AND REGARDLESS OF THE THEORY OF LIABILITY, EVEN IF LEX NOVA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+The limitations in this Section apply to the fullest extent permitted by applicable law and survive termination or expiration of this Letter.
+
+16. WARRANTY
+Lex Nova warrants that:
+The Deliverables will be prepared with reasonable professional skill and care consistent with industry standards for commercial structuring services.
+The Deliverables will substantially conform to the scope described in Schedule A.
+The Deliverables will incorporate the specific clauses and structural elements identified through the Client's Configuration Intake Form responses, as applicable.
+EXCEPT AS EXPRESSLY SET FORTH IN SECTION 16.1, LEX NOVA MAKES NO WARRANTIES OF ANY KIND, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE.
+LEX NOVA SPECIFICALLY DISCLAIMS ALL IMPLIED WARRANTIES, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+WITHOUT LIMITING THE FOREGOING, LEX NOVA DOES NOT WARRANT THAT:
+THE DELIVERABLES WILL BE LEGALLY ENFORCEABLE IN ANY JURISDICTION;
+THE DELIVERABLES WILL COMPLY WITH ANY SPECIFIC LAW, REGULATION, OR LEGAL STANDARD;
+THE DELIVERABLES WILL PREVENT ANY CLAIM, LAWSUIT, REGULATORY ACTION, FINE, OR LIABILITY;
+THE DELIVERABLES WILL ACHIEVE ANY SPECIFIC BUSINESS OUTCOME; OR
+ANY THIRD PARTY, INCLUDING OPPOSING COUNSEL, REGULATORS, COURTS, OR THE CLIENT'S OWN EMPLOYEES, WILL RESPOND TO OR INTERPRET THE DELIVERABLES IN ANY PARTICULAR MANNER.
+Warranty Cure. If the Deliverables fail to conform to the warranties in Section 16.1, Client must notify Lex Nova in writing within fourteen (14) calendar days of delivery, specifying the non-conformity in reasonable detail.
+Lex Nova will, at its sole discretion, re-deliver a corrected version within a commercially reasonable timeframe.
+This re-delivery is Client's sole and exclusive remedy for any warranty claim.
+Warranty claims not raised within the 14-day notification period are deemed waived.
+
+17. CLIENT INDEMNIFICATION
+Client shall indemnify, defend, and hold harmless Lex Nova, its principal, agents, and affiliates from and against any and all claims, damages, losses, liabilities, costs, and expenses (including reasonable attorneys' fees) arising from or related to:
+Client's modification of the Deliverables after delivery;
+Client's use of the Deliverables without obtaining independent review by qualified local counsel;
+Client's deployment or execution of the Deliverables as final legal instruments without the modifications recommended by local counsel;
+Any inaccurate or incomplete information provided by Client through the Configuration Intake Form or other communications;
+Client's breach of any representation, warranty, or obligation under this Letter.
+This Section survives termination or expiration of this Letter indefinitely.
+
+18. TERMINATION
+Kit and Bundle Engagements. These engagements terminate naturally upon delivery of the Deliverables and completion of included revision rounds (or expiration of the 14-day revision request window, whichever occurs first).
+Flagship Engagements. Either party may terminate a Flagship engagement for material breach by the other party, provided the terminating party: (a) delivers written notice specifying the breach in reasonable detail;
+and (b) the breaching party fails to cure the breach within ten (10) business days of receiving such notice.
+Flagship — Termination by Lex Nova for Cause. If Client fails to cooperate as required by Section 8, fails to make a payment when due, or otherwise materially breaches this Letter, Lex Nova may terminate the Flagship engagement after following the notice and cure procedure in Section 18.2.
+Upon such termination, all fees paid are retained by Lex Nova and any Balance outstanding becomes immediately due.
+Flagship — Termination by Client for Cause. If Lex Nova materially breaches this Letter and fails to cure within the notice period, Client may terminate.
+Upon such termination, Lex Nova will issue a pro-rata refund of unearned fees (calculated based on the proportion of Deliverables not yet delivered), less a reasonable amount for work in progress.
+Maintenance Subscriptions. Subject to the three (3) month minimum commitment, either party may terminate a Maintenance Subscription with thirty (30) calendar days' written notice.
+No refunds are issued for months already paid.
+Maintenance — Updated Terms. Lex Nova may update the terms of this Letter from time to time.
+Updated terms will be provided to Client via email at least thirty (30) days before taking effect.
+Continued payment of the Maintenance Subscription after the effective date constitutes acceptance of the updated terms.
+If Client does not agree to the updated terms, Client may terminate the Maintenance Subscription in accordance with Section 18.5.
+
+19. FORCE MAJEURE
+Neither party shall be liable for any delay or failure to perform its obligations under this Letter if such delay or failure results from circumstances beyond the party's reasonable control, including but not limited to: acts of God, natural disasters, pandemics, government actions, internet outages, infrastructure failures, cyberattacks, or changes in law or regulation that materially affect the engagement.
+The affected party shall notify the other party in writing as soon as reasonably practicable and shall use commercially reasonable efforts to mitigate the impact and resume performance.
+If a Force Majeure event continues for more than thirty (30) calendar days, either party may terminate the engagement upon written notice.
+In such event, Lex Nova will refund any fees paid for Deliverables not yet delivered.
+
+20. DISPUTE RESOLUTION
+Informal Resolution. The parties shall first attempt to resolve any dispute arising under or in connection with this Letter through good faith negotiation.
+The complaining party shall send a written Dispute Notice to the other party's primary email address.
+The parties shall have thirty (30) calendar days from the date of the Dispute Notice to reach an informal resolution.
+Kit and Bundle Disputes (Total Engagement Fee Under $5,000 USD).
+If informal resolution fails, disputes shall be submitted to binding arbitration administered by the American Arbitration Association ("AAA") under its Expedited Procedures.
+The arbitration shall be conducted entirely through written submissions (no oral hearing) unless the arbitrator determines that an oral hearing is necessary.
+The prevailing party shall be entitled to recover its reasonable arbitration costs and fees from the non-prevailing party.
+Flagship and Maintenance Disputes (Total Engagement Fee $5,000 USD or Above).
+If informal resolution fails, disputes shall be submitted to binding arbitration administered by the American Arbitration Association ("AAA") under its Commercial Arbitration Rules.
+The arbitration shall be conducted via video conference. The arbitration shall be conducted by a single arbitrator.
+Small Claims Carve-Out. Notwithstanding the above, either party may bring an action in any small claims court of competent jurisdiction for claims within such court's jurisdictional limits, provided the action is brought on an individual basis and not as part of a class action.
+Equitable Relief Carve-Out. Nothing in this Section prevents either party from seeking injunctive or equitable relief in a court of competent jurisdiction to protect its intellectual property rights or Confidential Information.
+The place of arbitration shall be Wilmington, Delaware, USA. The language of arbitration shall be English.
+
+21. GOVERNING LAW
+This Letter and any disputes arising out of or in connection with it shall be governed by and construed in accordance with the laws of the State of Delaware, United States of America, without regard to its conflict of laws principles.
+
+22. LOGO AND TESTIMONIAL RIGHTS
+Standard Engagements. Lex Nova may reference Client's company name and the general nature of the engagement (e.g., "AI Governance architecture for a SaaS startup") in its marketing materials, website, case studies, and proposals to prospective clients.
+Lex Nova will not disclose Confidential Information in such references.
+Client may opt out of this right by providing written notice at any time.
+First Clients Protocol. Where Schedule A indicates that the engagement is subject to the First Clients Protocol, Client has agreed to provide, in exchange for the discounted fee: (a) a written testimonial within 30 days of delivery;
+(b) permission to use Client's company logo on Lex Nova's website and marketing materials;
+and (c) willingness to be referenced as a case study, subject to Client's reasonable approval of the case study content before publication.
+
+23. NOTICES
+All formal notices under this Letter (including Dispute Notices, termination notices, breach notices, and Change Order requests) shall be sent via email to the primary email address specified at the top of this Letter.
+Notices are deemed received forty-eight (48) hours after sending, regardless of whether actually read, provided they are sent to the correct email address.
+For Critical Notices — defined as notices of termination, breach, or dispute — if the sending party receives no acknowledgment within five (5) business days, the sending party shall make one additional reasonable attempt to contact the other party via the secondary email address or another available channel (e.g., LinkedIn, phone).
+Each party is responsible for maintaining accurate email addresses and promptly notifying the other party of any changes.
+
+24. ASSIGNMENT
+Client may not assign, transfer, or delegate this Letter or any rights or obligations hereunder without the prior written consent of Lex Nova.
+Lex Nova may assign this Letter to any successor entity, affiliate, or acquirer without Client's consent, provided the assignee assumes all obligations under this Letter.
+
+25. ENTIRE AGREEMENT
+This Letter, together with Schedule A, constitutes the entire agreement between the parties with respect to the subject matter hereof and supersedes all prior or contemporaneous negotiations, discussions, representations, proposals, and agreements, whether written or oral.
+No amendment or modification to this Letter shall be effective unless made in writing and signed by both parties.
+No verbal or informal commitment made during any sales call, email exchange, or other communication shall be binding unless incorporated into this Letter or a signed Change Order.
+
+26. SEVERABILITY
+If any provision of this Letter is held to be invalid, illegal, or unenforceable by a court or arbitrator of competent jurisdiction, such provision shall be modified to the minimum extent necessary to make it valid and enforceable, or if modification is not possible, severed from this Letter.
+The remaining provisions shall continue in full force and effect.
+
+27. NO WAIVER
+The failure of either party to enforce any right or provision of this Letter shall not constitute a waiver of such right or provision.
+Any waiver must be in writing and signed by the waiving party.
+A waiver of any right on one occasion shall not be deemed a waiver of the same or any other right on any subsequent occasion.
+
+28. SURVIVAL
+The following Sections survive termination or expiration of this Letter for the period indicated:
+Section 1 (Legal Architecture Mandate) — Indefinitely.
+Section 2 (Review-Ready Standard) — Indefinitely.
+Section 3 (Client Representations) — Indefinitely.
+Section 13 (Intellectual Property) — Indefinitely.
+Section 14 (Confidentiality) — Three (3) years post-termination.
+Section 15 (Liability) — Indefinitely.
+Section 16 (Warranty, including Disclaimer) — Indefinitely.
+Section 17 (Client Indemnification) — Indefinitely.
+Section 20 (Dispute Resolution) — Indefinitely.
+Section 21 (Governing Law) — Indefinitely.
+Section 24 (Assignment) — Indefinitely.
+Section 26 (Severability) — Indefinitely.
+Section 27 (No Waiver) — Indefinitely.
+Any payment obligations outstanding at termination — Until fulfilled.
+
+29. ELECTRONIC SIGNATURES
+This Letter may be accepted and executed by electronic means, including: (a) email reply to the transmitting email containing the words "I accept" or substantially similar language indicating agreement;
+(b) checking the acceptance checkbox on the Configuration Intake Form (Tally Form) that incorporates this Letter by reference;
+or (c) electronic signature via a digital signature platform.
+Electronic acceptance constitutes a valid and binding signature for all purposes under applicable law, including the United States Electronic Signatures in Global and National Commerce Act (E-SIGN), the Uniform Electronic Transactions Act (UETA), the EU Electronic Identification and Trust Services Regulation (eIDAS), and the Information Technology Act, 2000 (India), Sections 5 and 10A, as applicable.
+
+30. ACCEPTANCE AND SIGNATURE
+By signing or accepting below, the parties agree to all terms and conditions contained in this Engagement Letter and the attached Schedule A.
+
+For LexNova: 
+___________________________
+
+For Client:
+___________________________
+This Letter may also be accepted by replying to the transmitting email with "I accept" or by checking the acceptance box on the Configuration Intake Form.
+See Section 29.
+
+════════════════════════════════════════════════════════════════
+SCHEDULE A — ENGAGEMENT SCOPE
+════════════════════════════════════════════════════════════════
+
+Engagement Reference:  ${engRef}
+Client Name:  ${clientCompany}
+Effective Date:  ${dateStr}
+
+ENGAGEMENT DETAILS
+Engagement Tier: ${tierText}
+Vertical: Lex Nova (Legal Architecture)
+Pillar: AI Governance
+Lane: ${laneText}
+
+DELIVERABLES
+Product Name: ${planName}
+
+File ID       Document Name           Description
+${deliverablesList}
+
+COMMERCIAL TERMS
+Total Fee: $${price} USD
+Payment Structure: ${paymentStructure}
+Delivery Timeline: ${timeline}
+Revision Rounds Included: ${revisions}
+
+FIRST CLIENTS PROTOCOL
+Applicable?: ${discount ? 'Yes' : 'No'}
+Discount Applied: ${discount || 'None'}
+Obligations:
+- Written testimonial within 30 days of delivery
+- Logo usage permission for Lex Nova marketing
+- Case study participation (subject to Client approval)
+
+ADDITIONAL NOTES
+This Schedule A is incorporated into and forms part of the Engagement Letter dated ${dateStr} between Lex Nova HQ and ${clientCompany}.
+
+Acknowledged by Client: ___________________________ Date: _________________
+
+[END OF DOCUMENT]`;
 
     const div = document.createElement('div');
     div.className = "doc-row border border-gold/30 p-4 mb-3 bg-[#0a0a0a] relative";
@@ -616,11 +998,11 @@ window.generateELForDelivery = function() {
         <div style="position:absolute; top:0; left:0; width:3px; height:100%; background:var(--gold);"></div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid rgba(197,160,89,0.3); padding-bottom:8px; padding-left:12px;">
             <input type="text" value="Engagement Letter (Stage 2) - ${planName}" class="doc-name fi" style="background:transparent; border:none; color:var(--gold); font-weight:bold; text-transform:uppercase; font-size:12px; width:70%; padding:0;">
-            <span style="font-size:9px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; opacity:0.6;">Async Review</span>
+            <span style="font-size:9px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; opacity:0.6;">Automated Review</span>
         </div>
         <div class="fg" style="padding-left:12px;">
-            <label class="fl" style="color:var(--gold);">Draft Review (Edit before publishing)</label>
-            <textarea class="doc-content fi" style="height:200px; line-height:1.6; font-size:11px; background:var(--void); border-color:var(--border2); color:var(--marble);">${elTemplate}</textarea>
+            <label class="fl" style="color:var(--gold);">Draft Review (Copy to PDF or Signature Platform)</label>
+            <textarea class="doc-content fi" style="height:300px; line-height:1.6; font-size:11px; background:var(--void); border-color:var(--border2); color:var(--marble); font-family:monospace; white-space:pre-wrap;">${elTemplate}</textarea>
         </div>
         <div class="doc-grid" style="padding:12px; background:var(--void); border:1px solid var(--border); margin-left:12px;">
             <div class="fg" style="margin-bottom:0"><label class="fl" style="color:var(--gold);">Final PDF URL (Signature Link)</label><input type="text" placeholder="https://..." class="fi doc-pdf" style="border-color:rgba(197,160,89,0.4);"></div>
@@ -694,7 +1076,9 @@ window.saveDocuments = async function() {
     }
 };
 
-// ── RADAR TAB ──────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ TAB 5: RADAR & EXPOSURE MATRIX ═══════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 function populateDetailRadar(c) {
     const el = $('dp-radar-list');
     if (!el) return;
@@ -732,7 +1116,9 @@ window.saveRegulation = async function() {
     } catch (e) { toast('Error saving regulation', 'error'); }
 };
 
-// ── GAP REVIEW TAB ─────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ TAB 6: GAP REVIEW ($497 UPSELLS) ═════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 function populateDetailGap(c) {
     const g = c.gapReview || {};
     setVal('dp-gap-status',  g.status || '');
@@ -752,7 +1138,9 @@ window.saveGap = async function() {
     toast('Gap Review saved ($497 Flat)');
 };
 
-// ── FINANCIALS TAB ─────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ TAB 7: FINANCIALS & MAINTENANCE ══════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 function populateDetailFinancials(c) {
     const price = c.price || PLAN_PRICES[c.plan] || 0;
     setText('dp-price', fmtMoney(price));
@@ -778,7 +1166,9 @@ window.saveMaint = async function() {
     toast('Maintenance saved');
 };
 
-// ── ACTIVITY TAB ───────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ TAB 8: ACTIVITY LOG ══════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 function populateDetailActivity(c) {
     const el = $('dp-activity-log');
     if (!el) return;
@@ -797,7 +1187,9 @@ window.addActivityNote = async function() {
     openDetail(currentClient.id); 
 };
 
-// ── REFERRALS TAB (THE SYNDICATE) ──────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ TAB 9: THE SYNDICATE (REFERRALS) ═════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 function populateDetailReferrals(c) {
     const wrap = $('dp-ref-list');
     if (!wrap) return;
@@ -854,7 +1246,9 @@ window.creditReferral = async function(clientId, refIdx) {
     }
 };
 
-// ── 10. DEPLOYMENT DEBRIEF (TESTIMONIALS) ─────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ TAB 10: DEPLOYMENT DEBRIEF ═══════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 function populateDetailDebrief(c) {
     const wrap = $('dp-debrief-content');
     if (!wrap) return;
