@@ -489,6 +489,59 @@ window.convertLead = async function(leadId) {
 };
 
 // ════════════════════════════════════════════════════════════════════════
+// ═════════ THE DOSSIER GENERATOR ════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
+window.copyDossier = async function(id) {
+    const p = allProspects.find(x => x.id === id);
+    if (!p) return;
+
+    const traps = (p.activeTraps && p.activeTraps.length) ? p.activeTraps.join(', ') : 'None detected';
+    
+    const text = `[LEX NOVA FORENSIC DOSSIER]
+ID: ${p.prospectId || '—'}
+Target: ${p.founderName || p.name || '—'} ${p.jobTitle ? '| ' + p.jobTitle : ''}
+Company: ${p.company || '—'} ${p.website ? '(' + p.website + ')' : ''}
+LinkedIn: ${p.linkedinUrl || '—'}
+
+[FORENSIC INTELLIGENCE]
+Verdict: ${p.verdict || '—'}
+Verdict Reason: ${p.verdictReason || '—'}
+Liability Lane: ${p.lane || '—'}
+Gap Status: ${p.legalGapStatus || '—'}
+Product Signal: ${p.productSignal || '—'}
+Active Traps: ${traps}
+Legal Gap Analysis: ${p.legalGapAnalysis || '—'}
+
+[THE SPEAR (HOOK)]
+"${p.personalizedHook || '—'}"
+
+[LOGISTICS]
+Status: ${p.status || '—'}
+Intended Plan: ${PLANS[p.intendedPlan] || p.intendedPlan || '—'}
+Funding Stage: ${p.fundingStage || '—'}`;
+
+    try {
+        await navigator.clipboard.writeText(text);
+        toast('Dossier copied to clipboard!');
+    } catch (err) {
+        console.error('Failed to copy text: ', err);
+        // Fallback for older browsers
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            toast('Dossier copied to clipboard!');
+        } catch (err2) {
+            toast('Failed to copy', 'error');
+        }
+        document.body.removeChild(textArea);
+    }
+};
+
+// ════════════════════════════════════════════════════════════════════════
 // ═════════ THE FORENSIC VAULT (PROSPECT UI) ═════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 function openPP(id) {
@@ -523,6 +576,10 @@ function renderPPBody(p) {
 
   body.innerHTML = `
     
+    <div style="display:flex; justify-content:flex-end; margin-bottom:15px;">
+        <button class="btn btn-outline btn-sm" onclick="copyDossier('${esc(p.id)}')">⎘ Copy Dossier (No Email)</button>
+    </div>
+
     <div style="margin-bottom:18px; padding:16px; background:rgba(197,160,89,0.05); border:1px solid var(--gold-mid); border-radius:4px;">
       <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:12px">Forensic Intelligence Vault</div>
       <div class="fi-row" style="margin-bottom:12px">
