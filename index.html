@@ -32,6 +32,10 @@ input,select,textarea{font-family:inherit}
 .faint{color:var(--marble-faint)}
 .mono{font-size:10px;letter-spacing:.15em;text-transform:uppercase}
 
+/* ── INFO ICON ──────────────────────────────────────────── */
+.info-icon{display:inline-block; margin-left:6px; color:var(--gold); font-size:10px; cursor:pointer; opacity:0.6; font-style:normal; font-family:sans-serif; vertical-align:middle; transition: opacity 0.2s;}
+.info-icon:hover{opacity:1;}
+
 /* ── BADGES ─────────────────────────────────────────────── */
 .badge{display:inline-block;padding:2px 8px;font-size:9px;letter-spacing:.12em;text-transform:uppercase;border-radius:0}
 .b-pending{background:rgba(90,90,150,.15);border:1px solid rgba(90,90,180,.3);color:#7a7ae0}
@@ -399,23 +403,23 @@ tbody td.dim{color:var(--marble-dim)}
     <div id="tab-dashboard" class="tab-content active">
       <div class="card-grid card-grid-4" style="margin-bottom:20px">
         <div class="card card-gold">
-          <div class="card-label">Monthly Recurring Rev</div>
+          <div class="card-label">Monthly Recurring Rev <span class="info-icon" onclick="showInfo('mrr')">ⓘ</span></div>
           <div class="card-value" id="d-mrr">$0</div>
           <div class="card-sub" id="d-mrr-sub">0 active maintenance</div>
         </div>
         <div class="card">
-          <div class="card-label">Capacity / Bandwidth</div>
+          <div class="card-label">Capacity / Bandwidth <span class="info-icon" onclick="showInfo('capacity')">ⓘ</span></div>
           <div class="card-value" id="d-cap-current">0</div>
           <div class="capacity-bar"><div class="capacity-fill" id="d-cap-bar" style="width:0%"></div></div>
           <div style="font-size:9px;color:var(--marble-dim)" id="d-cap-label">0 / 0 slots</div>
         </div>
         <div class="card card-gold" style="border-color:rgba(212,122,122,0.4); background:rgba(212,122,122,0.05);">
-          <div class="card-label" style="color:#d47a7a;">Actionable Gaps</div>
+          <div class="card-label" style="color:#d47a7a;">Actionable Gaps <span class="info-icon" onclick="showInfo('gaps')">ⓘ</span></div>
           <div class="card-value" id="d-gaps" style="color:#d47a7a;">0</div>
           <div class="card-sub" style="color:rgba(212,122,122,0.7);" id="d-gaps-sub">$0 Upsell Pipeline</div>
         </div>
         <div class="card" style="border-color:rgba(212,122,122,0.4);">
-          <div class="card-label" style="color:#d47a7a;">SLA Critical</div>
+          <div class="card-label" style="color:#d47a7a;">SLA Critical <span class="info-icon" onclick="showInfo('sla')">ⓘ</span></div>
           <div class="card-value" id="d-sla-crit" style="color:#d47a7a;">0</div>
           <div class="card-sub" style="color:rgba(212,122,122,0.7);">Builds < 12h remaining</div>
         </div>
@@ -507,21 +511,71 @@ tbody td.dim{color:var(--marble-dim)}
     </div>
     
     <div id="tab-hunt" class="tab-content">
-      <div class="filter-bar" style="margin-bottom:20px; justify-content:space-between;">
-        <div style="display:flex; gap:10px;">
-          <input type="text" class="fi" placeholder="Search targets…" id="op-search" oninput="if(typeof filterProspects==='function') filterProspects()">
-          <select class="fi" id="op-batch" onchange="if(typeof filterProspects==='function') filterProspects()"><option value="">All Batches</option></select>
-          <select class="fi" id="op-status" onchange="if(typeof filterProspects==='function') filterProspects()">
-             <option value="">All Status</option><option>Cold</option><option>Warm</option><option>Hot</option><option>Replied</option><option>Dead</option>
+      
+      <div class="filter-bar" style="margin-bottom:20px; display:flex; flex-direction:column; gap:10px;">
+        <div style="display:flex; gap:10px; width:100%; align-items:center; justify-content:space-between;">
+          <div style="display:flex; gap:10px; flex:1;">
+            <input type="text" class="fi" placeholder="Search targets…" id="op-search" oninput="if(typeof filterProspects==='function') filterProspects()" style="flex:1;">
+            <select class="fi" id="op-batch" onchange="if(typeof filterProspects==='function') filterProspects()"><option value="">All Batches</option></select>
+            <select class="fi" id="op-status" onchange="if(typeof filterProspects==='function') filterProspects()">
+               <option value="">All Statuses</option><option>Cold</option><option>Warm</option><option>Hot</option><option>Replied</option><option>Negotiating</option><option>Converted</option><option>Dead</option>
+            </select>
+            <select class="fi" id="op-sort" onchange="if(typeof filterProspects==='function') filterProspects()" style="border-color:var(--gold); color:var(--gold);">
+              <option value="nextDate">Sort: Action Date (Urgent)</option>
+              <option value="dateAdded">Sort: Date Added (Newest)</option>
+              <option value="score">Sort: Scanner Score (Highest)</option>
+              <option value="emailsSent">Sort: Emails Sent (Highest)</option>
+              <option value="company">Sort: Company A-Z</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="if(typeof openAddProspect==='function') openAddProspect()">+ Add Prospect</button>
+        </div>
+        
+        <div style="display:flex; gap:10px; width:100%;">
+          <select class="fi" id="op-gap" onchange="if(typeof filterProspects==='function') filterProspects()">
+            <option value="">Gap: All Types</option>
+            <option value="exposure">🔴 No Legal Page</option>
+            <option value="generic">🟡 Generic SaaS</option>
+            <option value="ai-lite">🔵 AI-Lite</option>
+          </select>
+          <select class="fi" id="op-ai" onchange="if(typeof filterProspects==='function') filterProspects()">
+            <option value="">AI Stack: All</option>
+            <option value="native">AI-Native Core</option>
+            <option value="external">External AI Tools</option>
+          </select>
+          <select class="fi" id="op-li-filter" onchange="if(typeof filterProspects==='function') filterProspects()">
+            <option value="">LinkedIn: All</option>
+            <option value="connected">Connected</option>
+            <option value="pending">Pending</option>
+            <option value="replied">Replied</option>
+          </select>
+          <select class="fi" id="op-scanner" onchange="if(typeof filterProspects==='function') filterProspects()">
+            <option value="">Scanner: All</option>
+            <option value="clicked">Clicked 🔥</option>
+            <option value="completed">Completed 🔥🔥</option>
+            <option value="none">Not Yet</option>
+          </select>
+          <select class="fi" id="op-funding" onchange="if(typeof filterProspects==='function') filterProspects()">
+            <option value="">Funding: All</option>
+            <option>Pre-seed</option><option>Seed</option><option>Series A</option><option>Series B+</option><option>Bootstrapped</option>
           </select>
         </div>
-        <button class="btn btn-primary" onclick="if(typeof openAddProspect==='function') openAddProspect()">+ Add Prospect</button>
       </div>
 
       <div class="tbl-wrap">
         <table>
           <thead>
-            <tr><th>Prospect</th><th>Company</th><th>Batch</th><th>Status</th><th>Branch</th><th>Scanner</th><th>LinkedIn</th><th>Next Action</th><th>Emails Sent</th></tr>
+            <tr>
+              <th>Prospect</th>
+              <th>Company</th>
+              <th>Batch</th>
+              <th>Status <span class="info-icon" onclick="showInfo('hunt_status')">ⓘ</span></th>
+              <th>Branch</th>
+              <th>Scanner <span class="info-icon" onclick="showInfo('scanner_flags')">ⓘ</span></th>
+              <th>LinkedIn</th>
+              <th>Next Action</th>
+              <th>Emails Sent</th>
+            </tr>
           </thead>
           <tbody id="op-tbody"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
         </table>
@@ -546,19 +600,19 @@ tbody td.dim{color:var(--marble-dim)}
 
       <div class="k-wrap">
         <div class="k-col">
-          <div class="k-head"><span class="k-title">The Magazine</span><span class="k-count" id="kd-c1">0</span></div>
+          <div class="k-head"><span class="k-title">The Magazine <span class="info-icon" onclick="showInfo('magazine')">ⓘ</span></span><span class="k-count" id="kd-c1">0</span></div>
           <div class="k-body" id="kd-col-1"><div class="loading">Logic mapping pending...</div></div>
         </div>
         <div class="k-col">
-          <div class="k-head"><span class="k-title">Downrange</span><span class="k-count" id="kd-c2">0</span></div>
+          <div class="k-head"><span class="k-title">Downrange <span class="info-icon" onclick="showInfo('downrange')">ⓘ</span></span><span class="k-count" id="kd-c2">0</span></div>
           <div class="k-body" id="kd-col-2"></div>
         </div>
         <div class="k-col">
-          <div class="k-head"><span class="k-title" style="color:#d4a850">Engaged (Tripwire)</span><span class="k-count" id="kd-c3">0</span></div>
+          <div class="k-head"><span class="k-title" style="color:#d4a850">Engaged (Tripwire) <span class="info-icon" onclick="showInfo('engaged')">ⓘ</span></span><span class="k-count" id="kd-c3">0</span></div>
           <div class="k-body" id="kd-col-3"></div>
         </div>
         <div class="k-col">
-          <div class="k-head"><span class="k-title" style="color:#d47a7a">Decision Desk</span><span class="k-count" id="kd-c4">0</span></div>
+          <div class="k-head"><span class="k-title" style="color:#d47a7a">Decision Desk <span class="info-icon" onclick="showInfo('decision_desk')">ⓘ</span></span><span class="k-count" id="kd-c4">0</span></div>
           <div class="k-body" id="kd-col-4"></div>
         </div>
         <div class="k-col" style="border-color:var(--gold-mid)">
@@ -582,13 +636,6 @@ tbody td.dim{color:var(--marble-dim)}
             <tbody id="l-tbody"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
           </table>
         </div>
-        
-        <div style="display:none;">
-            <tbody id="oh-tbody"></tbody>
-            <tbody id="ofu-tbody"></tbody>
-            <tbody id="oin-tbody"></tbody>
-            <tbody id="od-tbody"></tbody>
-        </div>
       </div>
     </div>
 
@@ -600,15 +647,15 @@ tbody td.dim{color:var(--marble-dim)}
 
       <div id="fac-board" class="k-wrap">
         <div class="k-col">
-          <div class="k-head"><span class="k-title">Intake Holding</span><span class="k-count" id="kf-c1">0</span></div>
+          <div class="k-head"><span class="k-title">Intake Holding <span class="info-icon" onclick="showInfo('intake_holding')">ⓘ</span></span><span class="k-count" id="kf-c1">0</span></div>
           <div class="k-body" id="kf-col-1"><div class="loading">Logic mapping pending...</div></div>
         </div>
         <div class="k-col">
-          <div class="k-head"><span class="k-title">The Forge</span><span class="k-count" id="kf-c2">0</span></div>
+          <div class="k-head"><span class="k-title">The Forge <span class="info-icon" onclick="showInfo('the_forge')">ⓘ</span></span><span class="k-count" id="kf-c2">0</span></div>
           <div class="k-body" id="kf-col-2"></div>
         </div>
         <div class="k-col">
-          <div class="k-head"><span class="k-title" style="color:#d47a7a">Pre-Flight Review</span><span class="k-count" id="kf-c3">0</span></div>
+          <div class="k-head"><span class="k-title" style="color:#d47a7a">Pre-Flight Review <span class="info-icon" onclick="showInfo('pre_flight')">ⓘ</span></span><span class="k-count" id="kf-c3">0</span></div>
           <div class="k-body" id="kf-col-3"></div>
         </div>
         <div class="k-col">
@@ -969,7 +1016,6 @@ tbody td.dim{color:var(--marble-dim)}
 <div id="toast"></div>
 
 <script>
-  // This single source of truth connects the new Funnel UI to your existing JS.
   window._originalNav = window.nav;
   window.nav = function(tab) {
       document.querySelectorAll('.tab-content').forEach(p => p.classList.remove('active'));
@@ -981,7 +1027,6 @@ tbody td.dim{color:var(--marble-dim)}
       const navEl = document.querySelector('.nav-item[data-tab="' + tab + '"]');
       if (navEl) navEl.classList.add('active');
       
-      // Call the appropriate Logic 1 or Logic 2 loading functions
       if (tab === 'dashboard' && typeof loadDashboard === 'function') loadDashboard();
       if (tab === 'hunt' && typeof loadOutreach === 'function') loadOutreach();
       if (tab === 'deals' && typeof loadOutreach === 'function') { loadOutreach(); if(typeof loadFlagship==='function') loadFlagship(); }
