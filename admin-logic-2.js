@@ -479,7 +479,7 @@ window.convertLead = async function(leadId) {
       personalizedHook:     'Submitted via scanner.'
     };
     
-    await db.collection('prospects').doc(pid).set(data, { merge: true });
+    await db.collection('prospects').doc(pid).set(prospectData, { merge: true });
     await db.collection('leads').doc(leadId).update({ status: 'converted', convertedAt: new Date().toISOString() });
     
     toast(`Lead converted to ${pid}`);
@@ -541,6 +541,15 @@ Funding Stage: ${p.fundingStage || '—'}`;
     }
 };
 
+// ═════════ THE COPY UTILITY ═════════
+window.copyToClipboard = function(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.select();
+    document.execCommand('copy');
+    toast('Copied to clipboard');
+};
+
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ THE FORENSIC VAULT (PROSPECT UI) ═════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
@@ -574,10 +583,16 @@ function renderPPBody(p) {
       <span style="color:var(--marble-dim);flex:1;word-break:break-word;">${esc(e.notes||'')}</span>
     </div>`).join('') || '<div style="font-size:10px;color:var(--marble-faint)">No emails logged</div>';
 
+  const scannerLink = p.scannerLink || `https://lexnovahq.com/scanner.html?pid=${p.prospectId || ''}`;
+
   body.innerHTML = `
     
-    <div style="display:flex; justify-content:flex-end; margin-bottom:15px;">
-        <button class="btn btn-outline btn-sm" onclick="copyDossier('${esc(p.id)}')">⎘ Copy Dossier (No Email)</button>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; gap:10px;">
+        <div style="display:flex; gap:8px; align-items:center; flex:1;">
+            <input type="text" class="fi" id="pp-scanner-url" readonly value="${scannerLink}" style="font-size:10px; color:var(--gold); width:280px; border-color:var(--gold-mid);">
+            <button class="btn btn-outline btn-sm" onclick="copyToClipboard('pp-scanner-url')">Copy Link</button>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="copyDossier('${esc(p.id)}')">⎘ Copy Dossier (No Email)</button>
     </div>
 
     <div style="margin-bottom:18px; padding:16px; background:rgba(197,160,89,0.05); border:1px solid var(--gold-mid); border-radius:4px;">
@@ -820,8 +835,7 @@ async function saveProspect() {
         updates.notes = (updates.notes || '') + `\n[SYSTEM] Deal Closed. Data migrated to Client ID: ${clientId}`;
     }
 
-    // Because the Document ID is the prospectId, we just update it directly!
-    // (If prospectId doesn't exist, fallback to id for legacy compatibility)
+    // Because the Document ID is the prospectId, we update it directly!
     const docKey = currentProspect.prospectId || currentProspect.id;
     await db.collection('prospects').doc(docKey).set(updates, { merge: true });
     
@@ -884,12 +898,13 @@ async function genProspectId() {
     const snap = await db.collection('prospects').get();
     let max = 0;
     snap.forEach(d => {
-      const m = (d.data().prospectId||'').match(/LN-P-[A-Z]+-\d{2}-\d{2}-(\d+)/);
+      const m = (d.data().prospectId||'').match(/LN-P-[A-Z]+-\d{2}-[0-9A-Z]+-(\d+)/);
       if (m) max = Math.max(max, parseInt(m[1], 10));
     });
-    // Fallback format if generating manually via modal
-    return `LN-P-AI-26-00-${String(max + 1).padStart(3,'0')}`;
-  } catch { return 'LN-P-AI-26-00-001'; }
+    // Month + Alpha format (e.g. 03A)
+    const month = String(new Date().getMonth() + 1).padStart(2, '0');
+    return `LN-P-AI-26-${month}A-${String(max + 1).padStart(3,'0')}`;
+  } catch { return 'LN-P-AI-26-03A-001'; }
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -970,7 +985,7 @@ function openAddProspect() {
           <div class="section-sub" style="margin-top:20px">Gate 3: Post-Reveal & Logistics</div>
           <div class="fi-row">
               <div class="fg"><label class="fl">Batch ID</label>
-                  <input type="text" class="fi" id="ap-batch" value="03-001"></div>
+                  <input type="text" class="fi" id="ap-batch" value="03A"></div>
               <div class="fg"><label class="fl">Intended Plan</label>
                   <select class="fi" id="ap-plan">${planOpts}</select></div>
           </div>
@@ -1015,11 +1030,12 @@ async function saveNewProspect() {
       legalGapStatus:   $('ap-gap-status')?.value      || 'generic',
       legalGapAnalysis: $('ap-gap-text')?.value?.trim() || '',
       personalizedHook: hook,
+      scannerLink:      `https://lexnovahq.com/scanner.html?pid=${pid}`,
       
       emailVerified:    $('ap-chk-verify')?.checked    || false,
       directEmail:      $('ap-chk-direct')?.checked    || false,
 
-      batchNumber:      $('ap-batch')?.value?.trim()   || '03-001',
+      batchNumber:      $('ap-batch')?.value?.trim()   || '03A',
       intendedPlan:     $('ap-plan')?.value            || 'agentic_shield',
       status:           'Cold',
       prospectId:       pid,
@@ -1036,8 +1052,9 @@ async function saveNewProspect() {
         data.hotFlag = true;
     }
 
-    await db.collection('prospects').doc(email).set(data, { merge: true });
-    allProspects.push({ id: email, ...data });
+    // Write using pid as Doc ID
+    await db.collection('prospects').doc(pid).set(data, { merge: true });
+    allProspects.push({ id: pid, ...data });
     closeModal();
     toast(`${pid} added manually.`);
   } catch(e) { console.error(e); toast('Save failed', 'error'); }
