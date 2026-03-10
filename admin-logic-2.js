@@ -495,10 +495,10 @@ function renderPPBody(p) {
   const planSel = Object.entries(PLANS).map(([k,v]) =>
     `<option value="${k}" ${p.intendedPlan===k?'selected':''}>${v}</option>`).join('');
   const logRows = (p.emailLog||[]).slice().reverse().map(e =>
-    `<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid rgba(197,160,89,.06);font-size:10px">
+    `<div style="display:flex; gap:10px; padding:7px 0; border-bottom:1px solid rgba(197,160,89,.06); font-size:10px; flex-wrap:wrap;">
       <span style="color:var(--marble-faint);flex-shrink:0;width:80px">${esc(e.date||'—')}</span>
       <span style="color:var(--gold);flex-shrink:0;width:90px">${esc(e.type||'—')}</span>
-      <span style="color:var(--marble-dim)">${esc(e.notes||'')}</span>
+      <span style="color:var(--marble-dim);flex:1;word-break:break-word;">${esc(e.notes||'')}</span>
     </div>`).join('') || '<div style="font-size:10px;color:var(--marble-faint)">No emails logged</div>';
 
   body.innerHTML = `
@@ -509,7 +509,7 @@ function renderPPBody(p) {
          <div class="fg"><label class="fl">Company</label><input type="text" class="fi" id="pp-company-edit" value="${esc(p.company||'')}"></div>
       </div>
       <div class="fg" style="margin-bottom:10px">
-         <label class="fl">Email (Warning: Changing this will migrate the database ID)</label>
+         <label class="fl">Email (Warning: Changing this migrates database ID)</label>
          <input type="email" class="fi" id="pp-email-edit" value="${esc(p.email||'')}">
       </div>
       <div class="fi-row" style="margin-bottom:10px">
@@ -543,11 +543,11 @@ function renderPPBody(p) {
       <div class="fg"><label class="fl" style="color:var(--gold)">Personalized Hook (The Spear)</label>
          <textarea class="fi" id="pp-hook" rows="3" style="border-color:var(--gold-mid)">${esc(p.personalizedHook||'')}</textarea>
       </div>
-      <div style="display:flex; gap:15px">
-        <label style="font-size:10px; display:flex; align-items:center; gap:5px">
+      <div style="display:flex; gap:15px; flex-wrap:wrap;">
+        <label style="font-size:10px; display:flex; align-items:center; gap:5px; cursor:pointer;">
           <input type="checkbox" id="pp-chk-native" ${p.aiNative?'checked':''}> AI-Native
         </label>
-        <label style="font-size:10px; display:flex; align-items:center; gap:5px">
+        <label style="font-size:10px; display:flex; align-items:center; gap:5px; cursor:pointer;">
           <input type="checkbox" id="pp-chk-ext" ${p.externalAI?'checked':''}> External AI
         </label>
       </div>
@@ -591,7 +591,7 @@ function renderPPBody(p) {
           <input type="number" class="fi" id="pp-emails" value="${p.emailsSent||0}" min="0">
         </div>
       </div>
-      <div style="display:flex;gap:24px;margin-bottom:10px;font-size:11px">
+      <div style="display:flex; gap:24px; margin-bottom:10px; font-size:11px; flex-wrap:wrap;">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
           <input type="checkbox" id="pp-sc" ${p.scannerClicked?'checked':''}> Scanner Clicked 🔥
         </label>
@@ -647,7 +647,7 @@ function renderPPBody(p) {
     </div>
 
     <div style="border-top:1px solid rgba(138,58,58,.2); padding-top:16px; margin-top:20px; text-align:center;">
-        <button class="btn btn-danger btn-sm" style="width:100%" onclick="deleteProspect('${p.id}')">Permanently Delete Target</button>
+        <button class="btn btn-danger btn-sm" style="width:100%" onclick="deleteProspect('${esc(p.id)}')">Permanently Delete Target</button>
     </div>
   `;
 }
@@ -757,10 +757,10 @@ async function logEmail() {
     const logEl = $('pp-email-log');
     if (logEl) {
       logEl.innerHTML = currentProspect.emailLog.slice().reverse().map(e =>
-        `<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid rgba(197,160,89,.06);font-size:10px">
+        `<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid rgba(197,160,89,.06);font-size:10px;flex-wrap:wrap;">
           <span style="color:var(--marble-faint);flex-shrink:0;width:80px">${esc(e.date)}</span>
           <span style="color:var(--gold);flex-shrink:0;width:90px">${esc(e.type)}</span>
-          <span style="color:var(--marble-dim)">${esc(e.notes)}</span>
+          <span style="color:var(--marble-dim);flex:1;word-break:break-word;">${esc(e.notes)}</span>
         </div>`).join('');
     }
     toast('Email logged');
@@ -830,7 +830,7 @@ function openAddProspect() {
 
       <div>
           <div class="section-sub">Gate 2: 60s Audit & Legal Gap</div>
-          <div style="display:flex; gap:20px; margin-bottom:15px">
+          <div style="display:flex; gap:20px; margin-bottom:15px; flex-wrap:wrap;">
               <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
                   <input type="checkbox" id="ap-chk-native"> AI-Native
               </label>
@@ -858,7 +858,7 @@ function openAddProspect() {
               <div class="fg"><label class="fl">Intended Plan</label>
                   <select class="fi" id="ap-plan">${planOpts}</select></div>
           </div>
-          <div style="display:flex; gap:20px;">
+          <div style="display:flex; gap:20px; flex-wrap:wrap;">
               <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
                   <input type="checkbox" id="ap-chk-verify"> Email Verified
               </label>
