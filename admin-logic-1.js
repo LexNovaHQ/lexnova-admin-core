@@ -279,16 +279,17 @@ function renderFactoryBoard() {
   const cols = { 1: [], 2: [], 3: [], 4: [] };
 
   allClients.forEach(c => {
-    if (c.status === 'delivered') return; 
-
+    // We removed the archive lock so delivered items push to column 4
     if (c.status === 'pending_payment' || c.status === 'payment_received') {
       cols[1].push(c); 
     } else if (c.status === 'intake_received' || c.status === 'under_review') {
       cols[2].push(c); 
     } else if (c.status === 'in_production') {
       cols[3].push(c); 
-    } else {
+    } else if (c.status === 'delivered') {
       cols[4].push(c); 
+    } else {
+      cols[1].push(c); // Fallback
     }
   });
 
@@ -309,7 +310,10 @@ function renderFactoryBoard() {
           let slaStyle = 'color:var(--marble-faint)';
           const startTs = c.intakeReceivedAt || c.intakeSentAt || c.productionStartedAt;
           
-          if (startTs) {
+          if (c.status === 'delivered') {
+              slaText = 'Deployed';
+              slaStyle = 'color:var(--green);';
+          } else if (startTs) {
               const hRem = 48 - hoursSince(startTs);
               if (hRem <= 0) { slaText = '⚠ OVERDUE'; slaStyle = 'color:#d47a7a; font-weight:600;'; }
               else if (hRem <= 12) { slaText = `⚠ ${hRem}h left`; slaStyle = 'color:#d47a7a;'; }
@@ -341,11 +345,14 @@ function renderClientsTable(list) {
         let slaClock = '<span class="dim">—</span>';
         const startTs = c.intakeReceivedAt || c.intakeSentAt || c.productionStartedAt;
 
-        if (startTs && (c.status === 'intake_received' || c.status === 'in_production')) {
+        if (c.status === 'delivered') {
+            slaClock = `<span style="color:var(--green)">Deployed</span>`;
+        } else if (startTs && (c.status === 'intake_received' || c.status === 'in_production')) {
             const hRem = 48 - hoursSince(startTs);
             const cls = hRem <= 0 ? 'cd-over' : hRem <= 8 ? 'cd-warn' : 'cd-ok';
             slaClock = `<span class="countdown ${cls}">${hRem > 0 ? hRem + 'h left' : Math.abs(hRem) + 'h OVER'}</span>`;
         }
+        
         return `<tr onclick="openDetail('${esc(c.id)}')">
             <td>${esc(c.name||'—')}</td><td class="dim">${esc(c.company||'—')}</td>
             <td><span class="badge ${planBadgeClass(c.plan)}">${planLabel(c.plan)}</span></td>
