@@ -28,7 +28,7 @@ window.showInfo = function(key) {
     if (typeof openModal === 'function') {
         openModal("System Information", `<div style="font-size:13px; line-height:1.6; color:var(--marble);">${text}</div>`);
     } else {
-        alert(text.replace(/<[^>]*>?/gm, '')); // Fallback if modal isn't ready
+        alert(text.replace(/<[^>]*>?/gm, '')); 
     }
 };
 
@@ -124,22 +124,30 @@ function nav(tab) {
     const subs = { dashboard: 'Command center', factory: 'Production pipeline', hunt: 'Acquisition', syndicate: 'Recurring Engine' };
     const sub = $('pageSub'); if (sub) sub.textContent = subs[tab] || tab;
     
-    // Loaders for Logic 1
+    // Loaders
     if (tab === 'dashboard') loadDashboard();
     if (tab === 'factory' || tab === 'clients') loadClients();
     if (tab === 'leads') loadLeads();
     
-    // Cross-file hooks into Logic 2
     if (tab === 'hunt' || tab === 'deals') {
         if (typeof loadOutreach === 'function') loadOutreach();
     }
+    
+    // ── TRUE SYNDICATE ROUTING FIX ──
     if (tab === 'syndicate') {
-        if (typeof loadRadar === 'function') loadRadar();
+        if (typeof loadRadarCache === 'function') {
+            loadRadarCache().then(() => {
+                if (typeof renderExposureMatrix === 'function') renderExposureMatrix();
+            });
+        }
+        if (typeof loadFinance === 'function') loadFinance();
     }
+    
     if (tab === 'engine') {
         if (typeof loadFinance === 'function') loadFinance();
         if (typeof loadContent === 'function') loadContent();
         if (typeof loadSettings === 'function') loadSettings();
+        if (typeof loadRadar === 'function') loadRadar();
     }
 }
 
@@ -279,7 +287,6 @@ function renderFactoryBoard() {
   const cols = { 1: [], 2: [], 3: [], 4: [] };
 
   allClients.forEach(c => {
-    // We removed the archive lock so delivered items push to column 4
     if (c.status === 'pending_payment' || c.status === 'payment_received') {
       cols[1].push(c); 
     } else if (c.status === 'intake_received' || c.status === 'under_review') {
@@ -289,7 +296,7 @@ function renderFactoryBoard() {
     } else if (c.status === 'delivered') {
       cols[4].push(c); 
     } else {
-      cols[1].push(c); // Fallback
+      cols[1].push(c); 
     }
   });
 
