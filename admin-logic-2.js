@@ -479,7 +479,7 @@ window.convertLead = async function(leadId) {
       personalizedHook:     'Submitted via scanner.'
     };
     
-    await db.collection('prospects').doc(email).set(prospectData, { merge: true });
+    await db.collection('prospects').doc(pid).set(data, { merge: true });
     await db.collection('leads').doc(leadId).update({ status: 'converted', convertedAt: new Date().toISOString() });
     
     toast(`Lead converted to ${pid}`);
