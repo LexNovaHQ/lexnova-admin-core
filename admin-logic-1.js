@@ -1,5 +1,37 @@
 'use strict';
 
+// ── KNOWLEDGE BASE ENGINE (SOP) ───────────────────────────────────────────────
+const INFO_DICT = {
+    mrr: "<strong>Monthly Recurring Revenue:</strong> Cash generated exclusively from Active Shields ($297/mo). Does not include one-off kit purchases.",
+    capacity: "<strong>Production Bandwidth:</strong> The total number of active builds currently in 'The Forge' or 'Pre-Flight'. The hard cap is 50 before a VA must be deployed.",
+    gaps: "<strong>Actionable Gaps:</strong> Clients who bought a kit, but whose jurisdictions now have new laws logged in the Regulatory Radar. These are prime targets for a $497 Gap Review.",
+    sla: "<strong>SLA Danger Zone:</strong> Delivery builds that have less than 12 hours remaining on the strict 48-hour turnaround clock.",
+    
+    hunt_status: "<strong>Pipeline Status:</strong><br><br><strong>Cold:</strong> Target identified, no emails sent.<br><strong>Warm:</strong> Emails are actively firing.<br><strong>Replied:</strong> Manual intervention required.<br><strong>Hot:</strong> Severe Legal Gap identified OR Scanner clicked.<br><strong>Converted:</strong> Payment received.",
+    scanner_flags: "<strong>The Tripwire System:</strong><br><br>🔥 (One Fire) = The target clicked the link in your cold email.<br>🔥🔥 (Two Fires) = The target completed the audit and saw their risk score.",
+    
+    magazine: "<strong>The Magazine:</strong> Cold leads. You have audited their legal gaps, drafted a personalized Spear Hook, and they are ready to be loaded into your email sender.",
+    downrange: "<strong>Downrange:</strong> Active. Emails are currently firing to these targets. You are waiting for a Tripwire trigger.",
+    engaged: "<strong>Engaged:</strong> They hit the Tripwire (🔥) by clicking the link in your email, or they replied. They are now aware of Lex Nova.",
+    decision_desk: "<strong>Decision Desk:</strong> Hot leads. They completed the full scanner (🔥🔥) and saw their liability exposure, or you are actively quoting them a Flagship price.",
+    
+    intake_holding: "<strong>Phase 0 (Gatekeeper):</strong> Payment received, but waiting for the client to complete the secure Intake Vault.",
+    the_forge: "<strong>Phase 1 & 2 (Production):</strong> Active legal engineering. Drafting Lane A (Agentic) or Lane B (Workplace) documents.",
+    pre_flight: "<strong>Phase 4 (Death Checks):</strong> Mandatory final review. You must physically verify liability caps and disclaimers before generating the final Engagement Letter.",
+    
+    spear_hook: "<strong>The Spear:</strong> A hyper-personalized, 1-2 sentence hook for cold emails. It must identify exactly what AI they use and state the specific legal vulnerability (e.g. UETA Section 14) they face.",
+    death_checks: "<strong>The Death Checks:</strong> Non-negotiable SOP locks. The system will physically prevent you from delivering the portal to the client if these boxes are not checked."
+};
+
+window.showInfo = function(key) {
+    const text = INFO_DICT[key] || "Definition not found in SOP.";
+    if (typeof openModal === 'function') {
+        openModal("System Information", `<div style="font-size:13px; line-height:1.6; color:var(--marble);">${text}</div>`);
+    } else {
+        alert(text.replace(/<[^>]*>?/gm, '')); // Fallback if modal isn't ready
+    }
+};
+
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const PLANS = { agentic_shield: 'Agentic Shield', workplace_shield: 'Workplace Shield', complete_stack: 'Complete Stack', flagship: 'Flagship' };
 const STATUS_LABELS = { pending_payment: 'Pending Payment', payment_received: 'Payment Received', intake_received: 'Intake Received', under_review: 'Under Review', in_production: 'In Production', delivered: 'Delivered' };
@@ -227,7 +259,7 @@ async function loadDashboard() {
     } catch (e) { console.error('Dash Error:', e); }
 }
 
-// ── CLIENTS / FACTORY BOARD (ARMOR-PLATED) ───────────────────────────────────
+// ── CLIENTS / FACTORY BOARD ───────────────────────────────────────────────────
 function loadClients() {
     if (clientListener) clientListener();
     
@@ -460,8 +492,9 @@ function populateDetailChecklist(c) {
     Object.keys(catMap).forEach(category => {
         const isDeathCheck = category.includes("Death Check");
         const catColor = isDeathCheck ? '#d47a7a' : 'var(--gold)';
+        const iconInfo = isDeathCheck ? `<span class="info-icon" onclick="showInfo('death_checks')">ⓘ</span>` : '';
 
-        html += `<div style="margin-top:16px; margin-bottom:8px; font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:${catColor}; border-bottom:1px solid ${isDeathCheck ? 'rgba(212,122,122,0.3)' : 'var(--border)'}; padding-bottom:4px;">${category}</div>`;
+        html += `<div style="margin-top:16px; margin-bottom:8px; font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:${catColor}; border-bottom:1px solid ${isDeathCheck ? 'rgba(212,122,122,0.3)' : 'var(--border)'}; padding-bottom:4px;">${category} ${iconInfo}</div>`;
         
         catMap[category].forEach(item => {
             html += `
