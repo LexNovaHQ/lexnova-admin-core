@@ -17,7 +17,7 @@ const JURISDICTIONS = [
     { val:'ae', label:'UAE' }, { val:'in', label:'India' }, { val:'global', label:'Global' }
 ];
 
-// NEW: Categorized Checklist Engine mapping to Master SOP
+// MASTER SOP CATEGORIES
 const CHECKLIST_ITEMS = {
   agentic_shield: {
     "Phase 0: The Gatekeeper": ['Payment received and confirmed', 'EL (Stage 1) accepted', 'Intake vault reviewed', 'Engagement Ref generated'],
@@ -88,10 +88,10 @@ function nav(tab) {
     qsa('.nav-item').forEach(l => l.classList.remove('active'));
     $('tab-' + tab)?.classList.add('active');
     document.querySelector(`.nav-item[data-tab="${tab}"]`)?.classList.add('active');
-    const subs = { dashboard: 'Command center', clients: 'Client management', leads: 'Lead management' };
+    const subs = { dashboard: 'Command center', factory: 'Production pipeline', hunt: 'Acquisition', syndicate: 'Recurring Engine' };
     const sub = $('pageSub'); if (sub) sub.textContent = subs[tab] || tab;
     if (tab === 'dashboard') loadDashboard();
-    if (tab === 'clients' || tab === 'factory') loadClients();
+    if (tab === 'factory' || tab === 'clients') loadClients();
     if (tab === 'leads') loadLeads();
 }
 
@@ -117,7 +117,7 @@ async function loadDashboard() {
 
         await loadRadarCache();
 
-        // ── 1. ROW 1: MONEY & URGENCY ──
+        // ── MONEY & URGENCY ──
         const maint = clients.filter(c => c.maintenanceActive);
         const mrr = maint.length * 297;
         setText('d-mrr', fmtMoney(mrr));
@@ -128,9 +128,7 @@ async function loadDashboard() {
         const capBar = $('d-cap-bar'); if (capBar) capBar.style.width = Math.min(100, (inProd.length/50)*100) + '%';
         setText('d-cap-label', `${inProd.length} / 50 slots`);
 
-        // Calculate Actionable Gaps
         let gapCount = 0;
-        const today = new Date();
         clients.forEach(c => {
             if (c.maintenanceActive) return; 
             const jurs = [c.registrationJurisdiction, ...(c.operatingJurisdictions||[])].filter(Boolean);
@@ -150,7 +148,6 @@ async function loadDashboard() {
         setText('d-gaps', gapCount);
         setText('d-gaps-sub', `${fmtMoney(gapCount * 497)} Upsell Pipeline`);
 
-        // SLA Critical
         const slaCrit = clients.filter(c => {
             if (!['intake_received', 'in_production'].includes(c.status)) return false;
             const startTs = c.intakeReceivedAt || c.intakeSentAt || c.productionStartedAt;
@@ -158,7 +155,7 @@ async function loadDashboard() {
         });
         setText('d-sla-crit', slaCrit.length);
 
-        // ── 2. ROW 2: FUNNELS ──
+        // ── FUNNELS ──
         const clicks = prospects.filter(p => p.scannerClicked || p.scannerCompleted).length;
         const comps = leads.length;
         const paid = prospects.filter(p => p.status === 'Converted').length;
@@ -171,7 +168,7 @@ async function loadDashboard() {
         prospects.forEach(p => { if (fc[p.status] !== undefined) fc[p.status]++; });
         Object.keys(fc).forEach(k => setText('of-' + k.toLowerCase(), fc[k]));
 
-        // ── 3. ROW 3: ACTION LISTS ──
+        // ── SLA DANGER TABLE ──
         const slaTbody = $('d-sla-table');
         if (slaTbody) {
             const activeBuilds = clients.filter(c => ['intake_received', 'under_review', 'in_production'].includes(c.status));
@@ -179,7 +176,7 @@ async function loadDashboard() {
                 const startTs = c.intakeReceivedAt || c.intakeSentAt || c.productionStartedAt;
                 const hRem = startTs ? 48 - hoursSince(startTs) : 48;
                 const col = hRem <= 12 ? '#d47a7a' : 'var(--marble)';
-                return `<tr onclick="openDetail('${esc(c.id)}');nav('clients')">
+                return `<tr onclick="openDetail('${esc(c.id)}');nav('factory')">
                     <td>${esc(c.name||c.id)}</td>
                     <td><span class="badge ${statusBadgeClass(c.status)}">${statusLabel(c.status)}</span></td>
                     <td style="color:${col}">${hRem}h left</td>
@@ -187,18 +184,7 @@ async function loadDashboard() {
             }).join('') : '<tr><td colspan="3" class="empty">No active builds</td></tr>';
         }
 
-        const rcTbody = $('d-recent-clients');
-        if (rcTbody) {
-            const sortedC = [...clients].sort((a,b) => (b.createdAt?.toDate?.()?.getTime()||0) - (a.createdAt?.toDate?.()?.getTime()||0)).slice(0, 5);
-            rcTbody.innerHTML = sortedC.length ? sortedC.map(c => `
-                <tr onclick="openDetail('${esc(c.id)}');nav('clients')">
-                    <td>${esc(c.name||c.id)}</td>
-                    <td><span class="badge ${planBadgeClass(c.plan)}">${planLabel(c.plan)}</span></td>
-                    <td><span class="badge ${statusBadgeClass(c.status)}">${statusLabel(c.status)}</span></td>
-                </tr>`).join('') : '<tr><td colspan="3" class="empty">No engagements yet</td></tr>';
-        }
-
-        // ── 4. ROW 4: AUTO RITUALS ──
+        // ── AUTO RITUALS ──
         const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay()); weekStart.setHours(0,0,0,0);
         let weekForms = 0; leads.forEach(l => { const d = l.createdAt?.toDate ? l.createdAt.toDate() : new Date(l.createdAt||0); if (d >= weekStart) weekForms++; });
         let weekDeals = 0; clients.forEach(c => { const d = c.createdAt?.toDate ? c.createdAt.toDate() : new Date(c.createdAt||0); if (d >= weekStart) weekDeals++; });
@@ -212,83 +198,84 @@ async function loadDashboard() {
     } catch (e) { console.error('Dash Error:', e); }
 }
 
-// ── CLIENTS / FACTORY BOARD ───────────────────────────────────────────────────
+// ── CLIENTS / FACTORY BOARD (ARMOR-PLATED) ───────────────────────────────────
 function loadClients() {
     if (clientListener) clientListener();
-    $('c-tbody').innerHTML = '<tr><td colspan="9" class="loading">Loading…</td></tr>';
+    
+    const tbodies = document.querySelectorAll('#c-tbody');
+    tbodies.forEach(tb => tb.innerHTML = '<tr><td colspan="9" class="loading">Loading…</td></tr>');
     
     clientListener = db.collection('clients').orderBy('createdAt','desc').onSnapshot(async (snap) => {
         await loadRadarCache();
         allClients = [];
         snap.forEach(d => allClients.push({ id: d.id, ...d.data() }));
         renderClientsTable(allClients);
-        renderFactoryBoard(); // NEW: Auto-updates the Kanban
+        renderFactoryBoard(); 
     });
 }
 
-// NEW: Kanban Logic for "The Factory"
 function renderFactoryBoard() {
   const cols = { 1: [], 2: [], 3: [], 4: [] };
 
   allClients.forEach(c => {
-    if (c.status === 'delivered') return; // Hide completed builds from active board
+    if (c.status === 'delivered') return; 
 
     if (c.status === 'pending_payment' || c.status === 'payment_received') {
-      cols[1].push(c); // Intake Holding
+      cols[1].push(c); 
     } else if (c.status === 'intake_received' || c.status === 'under_review') {
-      cols[2].push(c); // The Forge
+      cols[2].push(c); 
     } else if (c.status === 'in_production') {
-      cols[3].push(c); // Pre-Flight Review
+      cols[3].push(c); 
     } else {
-      cols[4].push(c); // Portal Prep (fallback)
+      cols[4].push(c); 
     }
   });
 
   for (let i = 1; i <= 4; i++) {
-    const el = $('kf-col-' + i);
-    const cnt = $('kf-c' + i);
-    if (!el || !cnt) continue;
+    const els = document.querySelectorAll('#kf-col-' + i);
+    const cnts = document.querySelectorAll('#kf-c' + i);
+    if (els.length === 0) continue;
     
-    cnt.innerText = cols[i].length;
+    cnts.forEach(c => c.innerText = cols[i].length);
     
-    if (cols[i].length === 0) {
-        el.innerHTML = '<div class="empty" style="padding:20px; border:none;">Empty</div>';
-        continue;
-    }
+    const html = cols[i].length === 0 
+      ? '<div class="empty" style="padding:20px; border:none;">Empty</div>'
+      : cols[i].map(c => {
+          const name = esc(c.name || c.id);
+          const plan = planLabel(c.plan);
+          
+          let slaText = 'Awaiting Intake';
+          let slaStyle = 'color:var(--marble-faint)';
+          const startTs = c.intakeReceivedAt || c.intakeSentAt || c.productionStartedAt;
+          
+          if (startTs) {
+              const hRem = 48 - hoursSince(startTs);
+              if (hRem <= 0) { slaText = '⚠ OVERDUE'; slaStyle = 'color:#d47a7a; font-weight:600;'; }
+              else if (hRem <= 12) { slaText = `⚠ ${hRem}h left`; slaStyle = 'color:#d47a7a;'; }
+              else { slaText = `${hRem}h left`; slaStyle = 'color:var(--gold);'; }
+          }
 
-    el.innerHTML = cols[i].map(c => {
-      const name = esc(c.name || c.id);
-      const plan = planLabel(c.plan);
-      
-      let slaText = 'Awaiting Intake';
-      let slaStyle = 'color:var(--marble-faint)';
-      const startTs = c.intakeReceivedAt || c.intakeSentAt || c.productionStartedAt;
-      
-      if (startTs) {
-          const hRem = 48 - hoursSince(startTs);
-          if (hRem <= 0) { slaText = '⚠ OVERDUE'; slaStyle = 'color:#d47a7a; font-weight:600;'; }
-          else if (hRem <= 12) { slaText = `⚠ ${hRem}h left`; slaStyle = 'color:#d47a7a;'; }
-          else { slaText = `${hRem}h left`; slaStyle = 'color:var(--gold);'; }
-      }
-
-      return `
-        <div class="k-card" onclick="openDetail('${esc(c.id)}')">
-          <div class="k-name">${name}</div>
-          <div class="k-comp" style="color:var(--gold)">${plan}</div>
-          <div class="k-meta">
-            <span style="${slaStyle}">${slaText}</span>
-            <span>${c.elAccepted ? 'EL ✓' : 'EL ⏳'}</span>
-          </div>
-        </div>
-      `;
-    }).join('');
+          return `
+            <div class="k-card" onclick="openDetail('${esc(c.id)}')">
+              <div class="k-name">${name}</div>
+              <div class="k-comp" style="color:var(--gold)">${plan}</div>
+              <div class="k-meta">
+                <span style="${slaStyle}">${slaText}</span>
+                <span>${c.elAccepted ? 'EL ✓' : 'EL ⏳'}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+        
+    els.forEach(el => el.innerHTML = html);
   }
 }
 
 function renderClientsTable(list) {
-    const tbody = $('c-tbody');
-    if (!tbody) return;
-    tbody.innerHTML = list.map(c => {
+    const tbodies = document.querySelectorAll('#c-tbody');
+    if (tbodies.length === 0) return;
+    
+    const html = list.map(c => {
         const elBadge = !!c.elAccepted ? `<span class="badge b-delivered">✓ Yes</span>` : `<span class="badge b-ghost">—</span>`;
         let slaClock = '<span class="dim">—</span>';
         const startTs = c.intakeReceivedAt || c.intakeSentAt || c.productionStartedAt;
@@ -306,6 +293,8 @@ function renderClientsTable(list) {
             <td><div class="radar-dots">●</div></td><td class="dim">${fmtDate(c.createdAt)}</td>
         </tr>`;
     }).join('');
+    
+    tbodies.forEach(tb => tb.innerHTML = html);
 }
 
 function filterClients() {
@@ -320,12 +309,15 @@ function statusBadgeClass(s) { return { pending_payment:'b-pending', payment_rec
 // ── LEADS TABLE ───────────────────────────────────────────────────────────────
 async function loadLeads() {
     const snap = await db.collection('leads').orderBy('createdAt','desc').get();
-    const tbody = $('l-tbody');
-    tbody.innerHTML = '';
-    snap.forEach(d => {
+    const tbodies = document.querySelectorAll('#l-tbody');
+    if (tbodies.length === 0) return;
+    
+    const html = snap.docs.map(d => {
         const l = d.data();
-        tbody.innerHTML += `<tr><td>${esc(l.name||'—')}</td><td>${esc(l.email||d.id)}</td><td class="dim">${esc(l.company||'—')}</td><td><span class="badge b-ghost">${esc(l.leadType||'—')}</span></td><td>${esc(l.status||'—')}</td><td class="dim">${esc(l.source||'—')}</td><td>${l.scannerExternalScore ?? '—'}</td><td>${l.scannerInternalScore ?? '—'}</td><td class="dim">${fmtDate(l.createdAt)}</td><td><button class="btn btn-outline btn-sm">Convert</button></td></tr>`;
-    });
+        return `<tr><td>${esc(l.name||'—')}</td><td>${esc(l.email||d.id)}</td><td class="dim">${esc(l.company||'—')}</td><td><span class="badge b-ghost">${esc(l.leadType||'—')}</span></td><td>${esc(l.status||'—')}</td><td class="dim">${esc(l.source||'—')}</td><td>${l.scannerExternalScore ?? '—'}</td><td>${l.scannerInternalScore ?? '—'}</td><td class="dim">${fmtDate(l.createdAt)}</td><td><button class="btn btn-outline btn-sm">Convert</button></td></tr>`;
+    }).join('');
+    
+    tbodies.forEach(tb => tb.innerHTML = html);
 }
 
 // ── DETAIL PANEL ROUTER ───────────────────────────────────────────────────────
@@ -409,7 +401,6 @@ function populateDetailIntake(c) {
         return;
     }
     
-    // NEW: Auto-Injection Warnings
     let warningsHTML = '';
     const warnings = [];
     if (intake.processesEUData === 'Yes') warnings.push('⚠ EU Data Detected: Inject DOC_DPA and reference SCCs.');
@@ -427,7 +418,7 @@ function populateDetailIntake(c) {
     el.innerHTML = warningsHTML + dataHTML;
 }
 
-// ── 3. CHECKLIST TAB (MASTER SOP ENGINE) ──────────────────────────────────────
+// ── 3. CHECKLIST TAB ──────────────────────────────────────
 function populateDetailChecklist(c) {
     const el = $('dp-checklist-items');
     if (!el) return;
@@ -435,7 +426,7 @@ function populateDetailChecklist(c) {
     const saved = c.checklist || {};
     
     let html = '';
-    let globalIndex = 0; // Maintain unique ID for saving
+    let globalIndex = 0; 
 
     Object.keys(catMap).forEach(category => {
         const isDeathCheck = category.includes("Death Check");
@@ -503,7 +494,6 @@ function populateDetailDocuments(c) {
                 <button onclick="this.closest('.doc-row').remove()" style="color:#d47a7a; font-size:10px; text-transform:uppercase; background:none; border:none; cursor:pointer;">Remove</button>
             </div>
             ${d.purpose ? `<div style="font-size:10px; color:var(--marble-dim); margin-bottom:12px;"><strong>Purpose:</strong> ${esc(d.purpose)}</div>` : ''}
-            ${d.content ? `<div style="font-size:10px; color:var(--marble-dim); margin-bottom:12px; background:var(--void); padding:8px; border:1px solid var(--border); opacity:0.8;"><strong>EL Preview:</strong> ${esc(d.content.substring(0,100))}...</div>` : ''}
             
             <div class="doc-grid">
                 <div class="fg" style="margin-bottom:0">
@@ -526,13 +516,12 @@ function populateDetailDocuments(c) {
 window.generateELForDelivery = function() {
     if (!currentClient) { toast("No client selected.", "error"); return; }
 
-    // DEATH CHECK HARD-LOCK
     const deathChecks = qsa('.death-check');
     if (deathChecks.length > 0) {
         const allPassed = deathChecks.every(box => box.classList.contains('done'));
         if (!allPassed) {
             toast("SOP VIOLATION: Pre-Flight Death Checks incomplete. Cannot generate EL.", "error");
-            detailTab('checklist'); // Force them to look at it
+            detailTab('checklist');
             return;
         }
     }
@@ -585,7 +574,6 @@ window.addDocRow = function() {
 window.saveDocuments = async function() {
     if (!currentClient) return;
 
-    // FINAL DELIVERY HARD-LOCK
     const deathChecks = qsa('.death-check');
     if (deathChecks.length > 0) {
         const allPassed = deathChecks.every(box => box.classList.contains('done'));
@@ -630,7 +618,7 @@ window.saveDocuments = async function() {
     }
 };
 
-// ── 5. RADAR TAB ──────────────────────────────────────────────────────────────
+// ── RADAR TAB ──────────────────────────────────────────────────────────────
 function populateDetailRadar(c) {
     const el = $('dp-radar-list');
     if (!el) return;
@@ -668,7 +656,7 @@ window.saveRegulation = async function() {
     } catch (e) { toast('Error saving regulation', 'error'); }
 };
 
-// ── 6. GAP REVIEW TAB ─────────────────────────────────────────────────────────
+// ── GAP REVIEW TAB ─────────────────────────────────────────────────────────
 function populateDetailGap(c) {
     const g = c.gapReview || {};
     setVal('dp-gap-status',  g.status || '');
@@ -688,7 +676,7 @@ window.saveGap = async function() {
     toast('Gap Review saved ($497 Flat)');
 };
 
-// ── 7. FINANCIALS TAB ─────────────────────────────────────────────────────────
+// ── FINANCIALS TAB ─────────────────────────────────────────────────────────
 function populateDetailFinancials(c) {
     const price = c.price || PLAN_PRICES[c.plan] || 0;
     setText('dp-price', fmtMoney(price));
@@ -714,7 +702,7 @@ window.saveMaint = async function() {
     toast('Maintenance saved');
 };
 
-// ── 8. ACTIVITY TAB ───────────────────────────────────────────────────────────
+// ── ACTIVITY TAB ───────────────────────────────────────────────────────────
 function populateDetailActivity(c) {
     const el = $('dp-activity-log');
     if (!el) return;
@@ -730,10 +718,10 @@ window.addActivityNote = async function() {
     await db.collection('clients').doc(currentClient.id).update({ activityLog: firebase.firestore.FieldValue.arrayUnion(entry) });
     $('dp-new-note').value = '';
     toast('Note added');
-    openDetail(currentClient.id); // refresh
+    openDetail(currentClient.id); 
 };
 
-// ── 9. REFERRALS TAB (THE SYNDICATE) ──────────────────────────────────────────
+// ── REFERRALS TAB (THE SYNDICATE) ──────────────────────────────────────────
 function populateDetailReferrals(c) {
     const wrap = $('dp-ref-list');
     if (!wrap) return;
@@ -743,7 +731,7 @@ function populateDetailReferrals(c) {
     }
     
     wrap.innerHTML = c.referrals.map((r, idx) => `
-        <div style="background:rgba(255,255,255,0.02); border:1px solid var(--shadow); padding:16px; display:flex; justify-content:space-between; align-items:center;">
+        <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:16px; display:flex; justify-content:space-between; align-items:center;">
             <div>
                 <div style="font-size:14px; color:var(--marble); font-weight:600; margin-bottom:4px;">${esc(r.company)}</div>
                 <div style="font-size:11px; color:var(--marble-dim);">Founder: ${esc(r.name)} &bull; Email: ${esc(r.email)} &bull; Submitted: ${r.date}</div>
@@ -768,7 +756,7 @@ window.addReferral = async function() {
     await db.collection('clients').doc(currentClient.id).update({ referrals: firebase.firestore.FieldValue.arrayUnion(entry) });
     $('dp-ref-co').value = ''; $('dp-ref-email').value = ''; $('dp-ref-date').value = '';
     toast('Referral added');
-    openDetail(currentClient.id); // refresh
+    openDetail(currentClient.id); 
 };
 
 window.creditReferral = async function(clientId, refIdx) {
@@ -803,7 +791,6 @@ function populateDetailDebrief(c) {
     const consentColor = d.consent ? '#7ab88a' : '#d47a7a';
     const consentText = d.consent ? 'Client authorized public use of this testimonial.' : 'Client DID NOT authorize public use.';
     
-    // Safely extract text to prevent toLowerCase crashes if properties are missing
     const bText = d.before || '';
     const dText = d.during || '';
     const aText = d.after || '';
