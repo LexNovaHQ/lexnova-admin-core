@@ -497,7 +497,7 @@ tbody td.dim{color:var(--marble-dim)}
               <div class="card-value" id="r-auto-deals" style="font-size:24px;">0</div>
               <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Auto-calculated</div>
             </div>
-            <div class="ritual-item" style="background:transparent; border-style:dashed; grid-column:span 1 / -1;">
+            <div class="ritual-item" style="background:transparent; border-style:dashed; grid-column:span 2;">
               <div class="ritual-label">Pipeline Value</div>
               <div class="card-value" id="r-auto-pipe" style="font-size:24px; color:var(--gold);">$0</div>
               <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Total active outreach + flagship value</div>
@@ -1028,8 +1028,23 @@ tbody td.dim{color:var(--marble-dim)}
       if (tab === 'hunt' && typeof loadOutreach === 'function') loadOutreach();
       if (tab === 'deals' && typeof loadOutreach === 'function') { loadOutreach(); if(typeof loadFlagship==='function') loadFlagship(); }
       if (tab === 'factory' && typeof loadClients === 'function') loadClients();
-      if (tab === 'syndicate' && typeof loadRadar === 'function') loadRadar();
-      if (tab === 'engine' && typeof loadFinance === 'function') { loadFinance(); if(typeof loadContent==='function') loadContent(); if(typeof loadSettings==='function') loadSettings(); }
+      
+      // ── THE SYNDICATE FIX ──
+      if (tab === 'syndicate') { 
+          if (typeof loadRadarCache === 'function') {
+              loadRadarCache().then(() => {
+                  if (typeof renderExposureMatrix === 'function') renderExposureMatrix();
+              });
+          }
+          if (typeof loadFinance === 'function') loadFinance(); 
+      }
+      
+      if (tab === 'engine' && typeof loadFinance === 'function') { 
+          loadFinance(); 
+          if(typeof loadContent==='function') loadContent(); 
+          if(typeof loadSettings==='function') loadSettings(); 
+          if(typeof loadRadar==='function') loadRadar();
+      }
   };
 </script>
 
