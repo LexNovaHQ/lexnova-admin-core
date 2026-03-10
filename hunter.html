@@ -127,6 +127,7 @@ OUTPUT EXACTLY AS THIS JSON SCHEMA. DO NOT ADD ANY OTHER TEXT/MARKDOWN OUTSIDE T
       // ID Nomenclature State (MM-Alpha)
       const [pillar, setPillar] = useState("AI");
       const [batchMonth, setBatchMonth] = useState(() => String(new Date().getMonth() + 1).padStart(2, '0'));
+      const [batchAlpha, setBatchAlpha] = useState("A");
 
       const [inp, setInp] = useState({ companyName:"", website:"", productDescription:"", termsPage:"", fundingStage:"", founderName:"", founderTitle:"", email:"", linkedinUrl:"" });
       const [result, setResult] = useState(null);
@@ -234,79 +235,60 @@ FOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}
             const targetCompany = (result.company || result._meta.companyName || '').toLowerCase().trim();
             const yearStr = "26"; 
             
-            // ── GUARD 1, 2, 3: SEARCH FOR LEGACY DATA ──
+            // Reconstruct exact batch ID format: MM-Alpha (e.g. 03-A)
+            const batchTag = `${batchMonth}-${batchAlpha}`; 
+            const idPrefix = `LN-P-${pillar}-${yearStr}-${batchTag}-`; // e.g. LN-P-AI-26-03-A-
+            
+            // ── PULL ENTIRE DB FOR TRIPLE GUARD & SERIAL HUNT ──
             const allDocsSnap = await db.collection('prospects').get();
             
             let legacyDoc = null;
-            let highestBatchCount = 0;
-            let currentAlpha = 'A';
+            let maxNum = 0;
 
-            // We iterate through all docs to do two things at once:
-            // 1. Find if this company/email already exists.
-            // 2. Count the batch size and find the highest serial to know if we need to flip to 'B'.
             allDocsSnap.forEach(doc => {
                 const data = doc.data();
                 const docId = doc.id;
                 
-                // Deduplication Check
+                // 1. THE TRIPLE GUARD MATCH
                 if (!legacyDoc) {
-                    if (targetEmail && (data.email === targetEmail || docId === targetEmail)) {
+                    const dbEmail = (data.email || '').toLowerCase().trim();
+                    const dbComp = (data.company || '').toLowerCase().trim();
+                    
+                    if (targetEmail !== '' && (docId.toLowerCase() === targetEmail || dbEmail === targetEmail)) {
                         legacyDoc = { id: docId, data: data };
-                    } else if (targetCompany && (data.company || '').toLowerCase() === targetCompany) {
+                    } else if (targetCompany !== '' && dbComp === targetCompany) {
                         legacyDoc = { id: docId, data: data };
                     }
                 }
 
-                // Batch Calculation Logic (e.g. LN-P-AI-26-03-A-001)
+                // 2. THE SERIAL HUNTER (Finds highest serial in current MM-Alpha batch)
                 const pid = data.prospectId || "";
-                const prefixMatch = `LN-P-${pillar}-${yearStr}-${batchMonth}-`;
-                
-                if (pid.startsWith(prefixMatch)) {
-                    // Extract Alpha and Serial: LN-P-AI-26-03- A - 001
+                if (pid.startsWith(idPrefix)) {
                     const parts = pid.split('-');
-                    if (parts.length >= 7) {
-                        const alpha = parts[5];
-                        const serial = parseInt(parts[6], 10);
-                        
-                        // We track the highest alpha currently in use for this month
-                        if (alpha > currentAlpha) currentAlpha = alpha;
-                        
-                        // We count how many exist in this specific Alpha batch
-                        if (alpha === currentAlpha) {
-                            highestBatchCount++;
-                        }
-                    }
+                    const serialStr = parts[parts.length - 1]; // Grabs the last chunk
+                    const num = parseInt(serialStr, 10);
+                    if (!isNaN(num) && num > maxNum) maxNum = num;
                 }
             });
 
-            // ── BATCH OVERFLOW (FLIP) LOGIC ──
-            // If the current alpha batch has 99 prospects, we flip to the next letter.
-            if (highestBatchCount >= 99) {
-                currentAlpha = String.fromCharCode(currentAlpha.charCodeAt(0) + 1);
-                highestBatchCount = 0; // Reset count for the new letter
-            }
-            
-            const nextNumStr = String(highestBatchCount + 1).padStart(3, '0');
-            const batchTag = `${batchMonth}-${currentAlpha}`; 
-            
-            // ── ASSIGN PROSPECT ID ──
-            let finalProspectId = `LN-P-${pillar}-${yearStr}-${batchTag}-${nextNumStr}`;
-            let legacyHistory = {};
+            // ── DETERMINE THE FINAL PROSPECT ID (STRICT ENFORCEMENT) ──
+            let finalProspectId;
+            const nextNumStr = String(maxNum + 1).padStart(3, '0');
+            const newlyGeneratedId = `${idPrefix}${nextNumStr}`; // Strictly e.g., LN-P-AI-26-03-A-001
 
-            // ── THE HANDSHAKE (MIGRATION MANEUVER) ──
-            if (legacyDoc) {
-                setPushStatus("Legacy file found. Initiating Overwrite Maneuver...");
-                // If it already had a valid ID, we keep it. If not, we assign the newly generated one.
-                finalProspectId = legacyDoc.data.prospectId || finalProspectId;
+            if (legacyDoc && legacyDoc.data.prospectId) {
+                // If it has an old ID, check if it perfectly matches the canonical format.
+                // Format: LN-P-XXX-26-XX-X-XXX
+                const oldPid = legacyDoc.data.prospectId;
+                const isPerfectFormat = /^LN-P-[A-Z]+-\d{2}-\d{2}-[A-Z]-\d{3}$/.test(oldPid);
                 
-                // Salvage the relationship history
-                legacyHistory = {
-                    emailLog: legacyDoc.data.emailLog || [],
-                    emailsSent: legacyDoc.data.emailsSent || 0,
-                    status: legacyDoc.data.status || 'Cold',
-                    notes: legacyDoc.data.notes || '',
-                    addedAt: legacyDoc.data.addedAt || firebase.firestore.FieldValue.serverTimestamp()
-                };
+                if (isPerfectFormat) {
+                    finalProspectId = oldPid; // Preserve the perfectly formatted thread
+                } else {
+                    finalProspectId = newlyGeneratedId; // Overwrite the malformed legacy ID
+                }
+            } else {
+                finalProspectId = newlyGeneratedId; // It's completely new
             }
 
             const scannerLink = `https://lexnovahq.com/scanner.html?pid=${finalProspectId}`;
@@ -315,11 +297,14 @@ FOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}
             let finalHook = result.personalizedHook;
             finalHook = finalHook.replace(/\[PROSPECT_ID\]/g, finalProspectId);
 
-            // ── BUILD THE MASTER OBJECT (NEW WORLD) ──
-            const dbEmail = result._meta.email || legacyDoc?.data?.email || `pending-${Date.now()}@reveal.apollo`;
+            // ── BUILD THE MASTER OBJECT (PRESERVE OLD, OVERWRITE NEW) ──
+            const dbEmail = targetEmail || legacyDoc?.data?.email || `pending-${Date.now()}@reveal.apollo`;
             
             const prospectData = {
-                // Identity
+                // 1. SPREAD LEGACY DATA FIRST (Preserves custom notes/random fields)
+                ...(legacyDoc?.data || {}),
+
+                // 2. CORE IDENTITY (Overwrite with new if available)
                 prospectId: finalProspectId,
                 founderName: result._meta.founderName || legacyDoc?.data?.founderName || '',
                 email: dbEmail,
@@ -328,13 +313,13 @@ FOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}
                 linkedinUrl: result._meta.linkedinUrl || legacyDoc?.data?.linkedinUrl || '',
                 jobTitle: result._meta.founderTitle || legacyDoc?.data?.jobTitle || '',
                 
-                // Logistics
-                batchNumber: batchTag,
+                // 3. LOGISTICS
+                batchNumber: legacyDoc?.data?.batchNumber || batchTag, // Keep old batch if it existed
                 geography: result.geography || legacyDoc?.data?.geography || 'US',
                 headcount: result.headcount || legacyDoc?.data?.headcount || '1-10',
                 fundingStage: result.fundingStage || legacyDoc?.data?.fundingStage || '',
                 
-                // Intelligence / Sync (OVERWRITTEN WITH LATEST FORENSIC)
+                // 4. THE LIVE FORENSIC AUDIT (OBLITERATE OLD INTELLIGENCE)
                 aiNative: result.aiNative || false,
                 externalAI: result.externalAI || false,
                 legalGapStatus: result.legalGapStatus || 'generic',
@@ -342,8 +327,6 @@ FOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}
                 intendedPlan: result.intendedPlan || 'agentic_shield',
                 personalizedHook: finalHook,
                 scannerLink: scannerLink,
-                
-                // Forensic Vault (OVERWRITTEN WITH LATEST FORENSIC)
                 lane: result.lane || 'A',
                 productSignal: result.productSignal || '',
                 activeTraps: result.activeTraps || [],
@@ -351,33 +334,33 @@ FOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}
                 verdictReason: result.verdictReason || '',
                 emailSubject: result.emailSubject || '',
                 
-                // Tracking (Salvaged from legacy if exists)
-                status: legacyHistory.status || (result.verdict === 'GREEN LIGHT' ? 'Hot' : 'Cold'),
+                // 5. STATUS & TRACKING (Salvaged from legacy if exists)
+                status: legacyDoc?.data?.status || (result.verdict === 'GREEN LIGHT' ? 'Hot' : 'Cold'),
                 hotFlag: result.verdict === 'GREEN LIGHT' || result.legalGapStatus === 'exposure',
-                emailsSent: legacyHistory.emailsSent || 0,
-                emailLog: legacyHistory.emailLog || [],
+                emailsSent: legacyDoc?.data?.emailsSent || 0,
+                emailLog: legacyDoc?.data?.emailLog || [],
                 scannerClicked: legacyDoc?.data?.scannerClicked || false,
                 scannerCompleted: legacyDoc?.data?.scannerCompleted || false,
-                addedAt: legacyHistory.addedAt || firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                notes: legacyHistory.notes || ''
+                addedAt: legacyDoc?.data?.addedAt || firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
-            // ── THE HARD LOCK EXECUTION ──
-            // 1. Create the new ID-named document
+            // ── THE HARD LOCK EXECUTION (MIGRATE & DELETE) ──
+            
+            // 1. Create/Overwrite the Document named precisely as the strict ID
             await db.collection('prospects').doc(finalProspectId).set(prospectData);
             
-            // 2. Delete the old Email-named document if it exists and isn't already the ID
+            // 2. The Kill Switch: If we found an old file under a different name, delete it.
             if (legacyDoc && legacyDoc.id !== finalProspectId) {
                 await db.collection('prospects').doc(legacyDoc.id).delete();
                 console.log(`[SYSTEM] Legacy file ${legacyDoc.id} deleted and migrated to ${finalProspectId}`);
             }
 
-            setPushStatus(`Success! File locked as ${finalProspectId}`);
+            setPushStatus(`Success! Locked: ${finalProspectId}`);
             
         } catch(e) {
             console.error(e);
-            setPushStatus("ERROR: Data Bridge Failed.");
+            setPushStatus("ERROR: Bridge Failed.");
         }
       };
 
@@ -408,7 +391,7 @@ FOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}
               <input type="email" placeholder="Admin Email" style={{...S.input, marginBottom:10}} onChange={e => setCreds(p => ({...p, email: e.target.value}))} />
               <input type="password" placeholder="Passcode" style={{...S.input, marginBottom:20}} onChange={e => setCreds(p => ({...p, password: e.target.value}))} />
               <button onClick={login} className="btn" style={{ width: "100%", padding: 12, borderRadius: 4 }}>Access Engine</button>
-          </div>
+            </div>
           </div>
         );
       }
@@ -453,6 +436,7 @@ FOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}
                       <option value="SS">Pillar: SS</option>
                   </select>
                   <input value={batchMonth} onChange={e=>setBatchMonth(e.target.value)} style={{...S.input, padding:"4px 8px", width:"40px", fontSize:10}} placeholder="MM"/>
+                  <input value={batchAlpha} onChange={e=>setBatchAlpha(e.target.value.toUpperCase())} style={{...S.input, padding:"4px 8px", width:"40px", fontSize:10}} placeholder="A"/>
               </div>
             </div>
             
@@ -486,8 +470,6 @@ FOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}
                   <div style={{color:vColor(result.verdict),fontSize:18,fontWeight:800,letterSpacing:"0.05em"}}>{vIcon(result.verdict)} {result.verdict}</div>
                   <div style={{color:"#888",fontSize:12,marginTop:6,maxWidth:"80%"}}>{result.verdictReason}</div>
                 </div>
-                
-                {/* ── THE CRM BRIDGE BUTTON ── */}
                 <button onClick={pushToCRM} className="btn" style={{padding:"12px 24px", borderRadius:4, fontSize:11}}>
                     {pushStatus ? pushStatus : "PUSH TO COMMAND CENTER"}
                 </button>
