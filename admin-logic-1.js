@@ -17,30 +17,37 @@ const JURISDICTIONS = [
     { val:'ae', label:'UAE' }, { val:'in', label:'India' }, { val:'global', label:'Global' }
 ];
 
+// NEW: Categorized Checklist Engine mapping to Master SOP
 const CHECKLIST_ITEMS = {
-  agentic_shield: [
-    'EL (Stage 1) accepted and filed', 'Intake vault reviewed', 'Engagement Ref generated', 
-    'Operating jurisdictions confirmed', 'DOC_TOS drafted', 'DOC_AGT drafted', 'DOC_AUP drafted', 
-    'DOC_SLA drafted', 'DOC_DPA drafted', 'DOC_PP drafted', 'DOC_PBK drafted', 
-    'Full EL (Stage 2) generated and sent', 'Client portal access provisioned', 'All documents delivered'
-  ],
-  workplace_shield: [
-    'EL (Stage 1) accepted and filed', 'Intake vault reviewed', 'Engagement Ref generated',
-    'Operating jurisdictions confirmed', 'DOC_HND drafted', 'DOC_IP drafted', 'DOC_SCAN drafted',
-    'DOC_SOP drafted', 'DOC_DPIA drafted', 'Full EL (Stage 2) generated', 'All documents delivered'
-  ],
-  complete_stack: [
-    'EL (Stage 1) accepted', 'Intake vault reviewed', 'Engagement Ref generated',
-    'All Lane A documents drafted', 'All Lane B documents drafted', 'Full EL (Stage 2) sent', 'All delivered'
-  ],
-  flagship: [
-    'EL (Stage 1) accepted', 'Discovery call completed', 'Post-call gap analysis documented',
-    'Proposal sent and accepted', 'Bespoke documents drafted', 'Delivered'
-  ]
+  agentic_shield: {
+    "Phase 0: The Gatekeeper": ['Payment received and confirmed', 'EL (Stage 1) accepted', 'Intake vault reviewed', 'Engagement Ref generated'],
+    "Phase 1: Lane A Production": ['Injection logic evaluated', 'DOC_TOS drafted', 'DOC_AGT drafted', 'DOC_AUP drafted', 'DOC_SLA drafted', 'DOC_DPA drafted', 'DOC_PP drafted', 'DOC_PBK_A drafted'],
+    "Pre-Flight (The Death Checks)": ['Liability: Hallucination waiver prominent', 'Money: Agentic spend cap set in Schedule C', 'Data: Correct DPA attached', 'Shield: AS-IS disclaimer in ALL CAPS', 'Identity: Client name spelled correctly'],
+    "Phase 4/5: Delivery Prep": ['Full EL (Stage 2) generated', 'PDFs uploaded to OneDrive', 'DOCX uploaded to OneDrive', 'Walkthrough video recorded and linked']
+  },
+  workplace_shield: {
+    "Phase 0: The Gatekeeper": ['Payment received and confirmed', 'EL (Stage 1) accepted', 'Intake vault reviewed', 'Engagement Ref generated'],
+    "Phase 2: Lane B Production": ['Injection logic evaluated', 'DOC_SCAN drafted', 'DOC_HND drafted', 'DOC_IP drafted', 'DOC_SOP drafted', 'DOC_DPIA drafted', 'DOC_PBK_B drafted'],
+    "Pre-Flight (The Death Checks)": ['Policy: Traffic light matches SCAN and HND', 'Ownership: IP Deed ready for execution', 'Evidence: HITL examples match industry', 'Compliance: DPIA timeline dates current', 'Identity: Client name spelled correctly'],
+    "Phase 4/5: Delivery Prep": ['Full EL (Stage 2) generated', 'PDFs uploaded to OneDrive', 'DOCX uploaded to OneDrive', 'Walkthrough video recorded and linked']
+  },
+  complete_stack: {
+    "Phase 0: The Gatekeeper": ['Payment received and confirmed', 'EL (Stage 1) accepted', 'Intake vault reviewed', 'Engagement Ref generated'],
+    "Phase 1: Lane A Production": ['Injection logic evaluated', 'DOC_TOS drafted', 'DOC_AGT drafted', 'DOC_AUP drafted', 'DOC_SLA drafted', 'DOC_DPA drafted', 'DOC_PP drafted', 'DOC_PBK_A drafted'],
+    "Phase 2: Lane B Production": ['DOC_SCAN drafted', 'DOC_HND drafted', 'DOC_IP drafted', 'DOC_SOP drafted', 'DOC_DPIA drafted', 'DOC_PBK_B drafted'],
+    "Pre-Flight (The Death Checks)": ['Lane A Death Checks passed', 'Lane B Death Checks passed', 'Consistency: IP and Data rules match across lanes', 'Completeness: All 13 deliverables present'],
+    "Phase 4/5: Delivery Prep": ['Full EL (Stage 2) generated', 'PDFs uploaded to OneDrive', 'DOCX uploaded to OneDrive', 'Walkthrough video recorded and linked']
+  },
+  flagship: {
+    "Phase 0: The Gatekeeper": ['EL (Stage 1) accepted', 'Discovery call completed'],
+    "Production": ['Post-call gap analysis documented', 'Proposal sent and accepted', 'Bespoke documents drafted'],
+    "Delivery": ['Delivered']
+  }
 };
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let allClients = []; let allLeads = []; let currentClient = null; let radarEntries = [];
+let clientListener = null;
 
 // ── UTILITIES ─────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -84,7 +91,7 @@ function nav(tab) {
     const subs = { dashboard: 'Command center', clients: 'Client management', leads: 'Lead management' };
     const sub = $('pageSub'); if (sub) sub.textContent = subs[tab] || tab;
     if (tab === 'dashboard') loadDashboard();
-    if (tab === 'clients') loadClients();
+    if (tab === 'clients' || tab === 'factory') loadClients();
     if (tab === 'leads') loadLeads();
 }
 
@@ -205,15 +212,77 @@ async function loadDashboard() {
     } catch (e) { console.error('Dash Error:', e); }
 }
 
-// ── CLIENTS TABLE ─────────────────────────────────────────────────────────────
+// ── CLIENTS / FACTORY BOARD ───────────────────────────────────────────────────
 function loadClients() {
+    if (clientListener) clientListener();
     $('c-tbody').innerHTML = '<tr><td colspan="9" class="loading">Loading…</td></tr>';
-    db.collection('clients').orderBy('createdAt','desc').onSnapshot(async (snap) => {
+    
+    clientListener = db.collection('clients').orderBy('createdAt','desc').onSnapshot(async (snap) => {
         await loadRadarCache();
         allClients = [];
         snap.forEach(d => allClients.push({ id: d.id, ...d.data() }));
         renderClientsTable(allClients);
+        renderFactoryBoard(); // NEW: Auto-updates the Kanban
     });
+}
+
+// NEW: Kanban Logic for "The Factory"
+function renderFactoryBoard() {
+  const cols = { 1: [], 2: [], 3: [], 4: [] };
+
+  allClients.forEach(c => {
+    if (c.status === 'delivered') return; // Hide completed builds from active board
+
+    if (c.status === 'pending_payment' || c.status === 'payment_received') {
+      cols[1].push(c); // Intake Holding
+    } else if (c.status === 'intake_received' || c.status === 'under_review') {
+      cols[2].push(c); // The Forge
+    } else if (c.status === 'in_production') {
+      cols[3].push(c); // Pre-Flight Review
+    } else {
+      cols[4].push(c); // Portal Prep (fallback)
+    }
+  });
+
+  for (let i = 1; i <= 4; i++) {
+    const el = $('kf-col-' + i);
+    const cnt = $('kf-c' + i);
+    if (!el || !cnt) continue;
+    
+    cnt.innerText = cols[i].length;
+    
+    if (cols[i].length === 0) {
+        el.innerHTML = '<div class="empty" style="padding:20px; border:none;">Empty</div>';
+        continue;
+    }
+
+    el.innerHTML = cols[i].map(c => {
+      const name = esc(c.name || c.id);
+      const plan = planLabel(c.plan);
+      
+      let slaText = 'Awaiting Intake';
+      let slaStyle = 'color:var(--marble-faint)';
+      const startTs = c.intakeReceivedAt || c.intakeSentAt || c.productionStartedAt;
+      
+      if (startTs) {
+          const hRem = 48 - hoursSince(startTs);
+          if (hRem <= 0) { slaText = '⚠ OVERDUE'; slaStyle = 'color:#d47a7a; font-weight:600;'; }
+          else if (hRem <= 12) { slaText = `⚠ ${hRem}h left`; slaStyle = 'color:#d47a7a;'; }
+          else { slaText = `${hRem}h left`; slaStyle = 'color:var(--gold);'; }
+      }
+
+      return `
+        <div class="k-card" onclick="openDetail('${esc(c.id)}')">
+          <div class="k-name">${name}</div>
+          <div class="k-comp" style="color:var(--gold)">${plan}</div>
+          <div class="k-meta">
+            <span style="${slaStyle}">${slaText}</span>
+            <span>${c.elAccepted ? 'EL ✓' : 'EL ⏳'}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
 }
 
 function renderClientsTable(list) {
@@ -238,6 +307,13 @@ function renderClientsTable(list) {
         </tr>`;
     }).join('');
 }
+
+function filterClients() {
+    const s = ($('c-search')?.value||'').toLowerCase();
+    const list = allClients.filter(c => !s || (c.name||'').toLowerCase().includes(s) || (c.email||c.id).toLowerCase().includes(s) || (c.company||'').toLowerCase().includes(s));
+    renderClientsTable(list);
+}
+
 function planBadgeClass(p) { return { agentic_shield:'b-intake', workplace_shield:'b-warm', complete_stack:'b-production', flagship:'b-hot' }[p] || 'b-ghost'; }
 function statusBadgeClass(s) { return { pending_payment:'b-pending', payment_received: 'b-delivered', intake_received:'b-intake', under_review:'b-review', in_production:'b-production', delivered:'b-delivered' }[s] || 'b-ghost'; }
 
@@ -332,24 +408,55 @@ function populateDetailIntake(c) {
         el.innerHTML = '<div class="loading">No intake data submitted yet</div>';
         return;
     }
-    el.innerHTML = Object.entries(intake).map(([k,v]) => `<div class="border-b border-shadow py-2 flex text-xs"><span class="w-1/3 opacity-50 uppercase">${esc(k)}</span><span class="w-2/3">${esc(Array.isArray(v) ? v.join(', ') : v)}</span></div>`).join('');
+    
+    // NEW: Auto-Injection Warnings
+    let warningsHTML = '';
+    const warnings = [];
+    if (intake.processesEUData === 'Yes') warnings.push('⚠ EU Data Detected: Inject DOC_DPA and reference SCCs.');
+    if (intake.usesFreelancers === 'Yes') warnings.push('⚠ Freelancers Detected: Inject Contractor IP Assignment limits.');
+    
+    if (warnings.length > 0) {
+        warningsHTML = `<div style="background:rgba(197,160,89,0.1); border:1px solid var(--gold); padding:12px; margin-bottom:16px;">
+            <div style="color:var(--gold); font-size:10px; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px;">Injection Verdicts</div>
+            ${warnings.map(w => `<div style="font-size:11px; color:var(--marble); margin-bottom:4px;">${w}</div>`).join('')}
+        </div>`;
+    }
+
+    const dataHTML = Object.entries(intake).map(([k,v]) => `<div style="border-bottom:1px solid var(--border); padding:8px 0; display:flex; font-size:11px;"><span style="width:35%; opacity:0.6; text-transform:uppercase;">${esc(k)}</span><span style="width:65%;">${esc(Array.isArray(v) ? v.join(', ') : v)}</span></div>`).join('');
+    
+    el.innerHTML = warningsHTML + dataHTML;
 }
 
-// ── 3. CHECKLIST TAB ──────────────────────────────────────────────────────────
+// ── 3. CHECKLIST TAB (MASTER SOP ENGINE) ──────────────────────────────────────
 function populateDetailChecklist(c) {
     const el = $('dp-checklist-items');
     if (!el) return;
-    const items = CHECKLIST_ITEMS[c.plan] || CHECKLIST_ITEMS.agentic_shield;
+    const catMap = CHECKLIST_ITEMS[c.plan] || CHECKLIST_ITEMS.agentic_shield;
     const saved = c.checklist || {};
     
-    el.innerHTML = items.map((item, i) => `
-        <div class="chk-item" style="display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid rgba(197,160,89,.06);">
-            <div class="chk-box ${saved[i] ? 'done' : ''}" id="chk-box-${i}" style="width:16px; height:16px; border:1px solid var(--border2); cursor:pointer; display:flex; align-items:center; justify-content:center; ${saved[i] ? 'background:var(--gold-dim); border-color:var(--gold);' : ''}" onclick="toggleChk(this, ${i})">
-                <span class="chk-tick" style="color:var(--gold); font-size:10px; display:${saved[i] ? 'block' : 'none'};">✓</span>
-            </div>
-            <span class="chk-label" id="chk-label-${i}" style="font-size:11px; ${saved[i] ? 'color:var(--marble-dim); text-decoration:line-through;' : 'color:var(--marble);'}">${esc(item)}</span>
-        </div>
-    `).join('');
+    let html = '';
+    let globalIndex = 0; // Maintain unique ID for saving
+
+    Object.keys(catMap).forEach(category => {
+        const isDeathCheck = category.includes("Death Check");
+        const catColor = isDeathCheck ? '#d47a7a' : 'var(--gold)';
+
+        html += `<div style="margin-top:16px; margin-bottom:8px; font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:${catColor}; border-bottom:1px solid ${isDeathCheck ? 'rgba(212,122,122,0.3)' : 'var(--border)'}; padding-bottom:4px;">${category}</div>`;
+        
+        catMap[category].forEach(item => {
+            html += `
+                <div class="chk-item" style="display:flex; align-items:flex-start; gap:10px; padding:7px 0; border-bottom:1px solid rgba(197,160,89,.04);">
+                    <div class="chk-box ${saved[globalIndex] ? 'done' : ''} ${isDeathCheck ? 'death-check' : ''}" id="chk-box-${globalIndex}" style="width:16px; height:16px; border:1px solid var(--border2); cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:2px; ${saved[globalIndex] ? 'background:var(--gold-dim); border-color:var(--gold);' : ''}" onclick="toggleChk(this, ${globalIndex})">
+                        <span class="chk-tick" style="color:var(--gold); font-size:10px; display:${saved[globalIndex] ? 'block' : 'none'};">✓</span>
+                    </div>
+                    <span class="chk-label" id="chk-label-${globalIndex}" style="font-size:11px; line-height:1.4; ${saved[globalIndex] ? 'color:var(--marble-dim); text-decoration:line-through;' : 'color:var(--marble);'}">${esc(item)}</span>
+                </div>
+            `;
+            globalIndex++;
+        });
+    });
+
+    el.innerHTML = html;
 }
 
 window.toggleChk = function(el, i) {
@@ -367,11 +474,14 @@ window.toggleChk = function(el, i) {
 
 window.saveChecklist = async function() {
     if (!currentClient) return;
-    const items = CHECKLIST_ITEMS[currentClient.plan] || CHECKLIST_ITEMS.agentic_shield;
     const checklist = {};
-    items.forEach((_, i) => { checklist[i] = $(`chk-box-${i}`)?.classList.contains('done') || false; });
+    const boxes = qsa('.chk-box');
+    boxes.forEach((box) => {
+        const idStr = box.id.replace('chk-box-', '');
+        checklist[idStr] = box.classList.contains('done');
+    });
     await db.collection('clients').doc(currentClient.id).update({ checklist, updatedAt: nowTs() });
-    toast('Checklist saved');
+    toast('Master SOP Checklist saved');
 };
 
 // ── 4. DELIVERY ENGINE ────────────────────────────────────────────────────────
@@ -415,6 +525,18 @@ function populateDetailDocuments(c) {
 
 window.generateELForDelivery = function() {
     if (!currentClient) { toast("No client selected.", "error"); return; }
+
+    // DEATH CHECK HARD-LOCK
+    const deathChecks = qsa('.death-check');
+    if (deathChecks.length > 0) {
+        const allPassed = deathChecks.every(box => box.classList.contains('done'));
+        if (!allPassed) {
+            toast("SOP VIOLATION: Pre-Flight Death Checks incomplete. Cannot generate EL.", "error");
+            detailTab('checklist'); // Force them to look at it
+            return;
+        }
+    }
+
     const scope = PLAN_SCOPES[currentClient.plan] || "AI Advisory Scope.";
     const clientName = currentClient.name || "Client Name";
     const companyName = currentClient.company || "Company Name";
@@ -462,6 +584,17 @@ window.addDocRow = function() {
 
 window.saveDocuments = async function() {
     if (!currentClient) return;
+
+    // FINAL DELIVERY HARD-LOCK
+    const deathChecks = qsa('.death-check');
+    if (deathChecks.length > 0) {
+        const allPassed = deathChecks.every(box => box.classList.contains('done'));
+        if (!allPassed) {
+            toast("SOP VIOLATION: Cannot deliver while Death Checks are incomplete.", "error");
+            return;
+        }
+    }
+
     const docs = [];
     qsa('#docsContainer .doc-row').forEach(row => {
         const nameInput = row.querySelector('.doc-name');
