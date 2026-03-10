@@ -59,7 +59,7 @@ window.saveRitual = async function() {
   } catch(e) { toast('Error saving ritual', 'error'); }
 };
 
-// ── OUTREACH ──────────────────────────────────────────────────────────────────
+// ── OUTREACH (ARMOR-PLATED SYNC ENGINE) ───────────────────────────────────────
 let outreachListener = null;
 
 function loadOutreach() {
@@ -67,16 +67,19 @@ function loadOutreach() {
   if (outreachListener) outreachListener(); 
 
   outreachListener = db.collection('prospects').onSnapshot((snap) => {
-    allProspects = [];
-    snap.forEach(d => allProspects.push({ id: d.id, ...d.data() }));
-    
-    populateCommandCenter();
-    if (typeof renderDealsBoard === 'function') renderDealsBoard(); // Updates Kanban
-    
-    // THE FIX: Unconditionally load The Hunt table and filters
-    filterProspects();
-    populateBatchFilter();
+    try {
+        allProspects = [];
+        snap.forEach(d => allProspects.push({ id: d.id, ...d.data() }));
+        
+        // Isolate each render step so a failure in one doesn't kill the others
+        try { populateCommandCenter(); } catch(e) { console.error('Command Center Render Error:', e); }
+        try { if (typeof renderDealsBoard === 'function') renderDealsBoard(); } catch(e) { console.error('Deals Board Render Error:', e); }
+        try { filterProspects(); } catch(e) { console.error('Hunt Pipeline Render Error:', e); }
+        try { populateBatchFilter(); } catch(e) { console.error('Batch Filter Render Error:', e); }
 
+    } catch (fatal) {
+        console.error("Fatal Outreach Sync Error:", fatal);
+    }
   }, (e) => {
     console.error(e);
     toast('Outreach Sync Failed', 'error');
@@ -127,7 +130,9 @@ function populateCommandCenter() {
   setText('aq-today', fuToday);
   setText('aq-over', fuOver);
   setText('aq-li', liPending);
-  setText('oc-avg-fu', totalPaid > 0 ? (convEmailCount / totalPaid).toFixed(1) : '—');
+  
+  const avgFuEl = $('oc-avg-fu');
+  if (avgFuEl) avgFuEl.textContent = totalPaid > 0 ? (convEmailCount / totalPaid).toFixed(1) : '—';
 
   db.collection('leads').where('status','in',['new','scanner_submitted']).get()
     .then(snap => setText('aq-inbound', snap.size)).catch(() => {});
@@ -136,8 +141,9 @@ function populateCommandCenter() {
 }
 
 function renderBatchPerformance() {
-  const tbody = $('oc-batches');
-  if (!tbody) return;
+  const tbodies = document.querySelectorAll('#oc-batches');
+  if (tbodies.length === 0) return;
+
   const batches = {};
   allProspects.forEach(p => {
     const b = p.batchNumber || 'Unassigned';
@@ -150,105 +156,104 @@ function renderBatchPerformance() {
   });
   
   const keys = Object.keys(batches).sort();
-  if (!keys.length) { tbody.innerHTML = '<tr><td colspan="7" class="loading">No batches yet</td></tr>'; return; }
-  
-  tbody.innerHTML = keys.map(b => {
-    const r = batches[b];
-    const roi = r.comps > 0 ? Math.round((r.conv/r.comps)*100)+'%' : '0%';
-    return `<tr>
-      <td>${esc(b)}</td><td>${r.prospects}</td><td>${r.emails}</td>
-      <td>${r.clicks}</td><td>${r.comps}</td><td>${r.conv}</td><td style="color:var(--gold);">${roi}</td>
-    </tr>`;
-  }).join('');
+  const html = !keys.length 
+    ? '<tr><td colspan="7" class="loading">No batches yet</td></tr>'
+    : keys.map(b => {
+        const r = batches[b];
+        const roi = r.comps > 0 ? Math.round((r.conv/r.comps)*100)+'%' : '0%';
+        return `<tr>
+          <td>${esc(b)}</td><td>${r.prospects}</td><td>${r.emails}</td>
+          <td>${r.clicks}</td><td>${r.comps}</td><td>${r.conv}</td><td style="color:var(--gold);">${roi}</td>
+        </tr>`;
+      }).join('');
+      
+  tbodies.forEach(tb => tb.innerHTML = html);
 }
 
-// ── KANBAN BOARD LOGIC (ACTIVE DEALS) ─────────────────────────────────────────
+// ── KANBAN BOARD LOGIC (ARMOR-PLATED) ─────────────────────────────────────────
 function renderDealsBoard() {
-  // Col 1: Magazine | Col 2: Downrange | Col 3: Engaged | Col 4: Decision | Col 5: Won
   const cols = { 1: [], 2: [], 3: [], 4: [], 5: [] };
 
-  // 1. Process Outreach Prospects
   allProspects.forEach(p => {
     if (p.status === 'Dead') return;
 
     if (p.status === 'Converted') {
       cols[5].push(p);
     } else if (p.status === 'Negotiating' || p.scannerCompleted || p.status === 'Hot' || p.hotFlag) {
-      cols[4].push(p); // Decision Desk
+      cols[4].push(p); 
     } else if (p.status === 'Replied' || p.scannerClicked) {
-      cols[3].push(p); // Engaged (Tripwire hit)
+      cols[3].push(p); 
     } else if (p.emailsSent > 0 || p.status === 'Warm') {
-      cols[2].push(p); // Downrange
+      cols[2].push(p); 
     } else {
-      cols[1].push(p); // The Magazine
+      cols[1].push(p); 
     }
   });
 
-  // 2. Blend Flagship Pipeline into the Board
-  allFlagship.forEach(f => {
-     if (f.status === 'Won') cols[5].push(f);
-     else if (f.status === 'Lost') return;
-     else if (f.status === 'Identified') cols[1].push(f);
-     else cols[4].push(f); // All active Flagship deals sit at the Decision Desk
-  });
+  if (allFlagship && Array.isArray(allFlagship)) {
+      allFlagship.forEach(f => {
+         if (f.status === 'Won') cols[5].push(f);
+         else if (f.status === 'Lost') return;
+         else if (f.status === 'Identified') cols[1].push(f);
+         else cols[4].push(f);
+      });
+  }
 
-  // 3. Render the Cards
   const todayStr = new Date().toISOString().split('T')[0];
 
   for (let i = 1; i <= 5; i++) {
-    const el = $('kd-col-' + i);
-    const cnt = $('kd-c' + i);
-    if (!el || !cnt) continue;
+    // FORCE UPDATE EVERY MATCHING COLUMN IN DOM
+    const els = document.querySelectorAll('#kd-col-' + i);
+    const cnts = document.querySelectorAll('#kd-c' + i);
+    if (els.length === 0) continue;
     
-    cnt.innerText = cols[i].length;
+    cnts.forEach(c => c.innerText = cols[i].length);
     
-    if (cols[i].length === 0) {
-        el.innerHTML = '<div class="empty" style="padding:20px; border:none;">Empty</div>';
-        continue;
-    }
-
-    // Sort by urgency (Overdue -> Due Today -> Future -> No Date)
     cols[i].sort((a,b) => (a.nextActionDate || '9999').localeCompare(b.nextActionDate || '9999'));
 
-    el.innerHTML = cols[i].map(c => {
-      const isFlagship = c.priceQuoted !== undefined; 
-      const name = esc(c.founderName || c.name || 'Unknown');
-      const comp = esc(c.company || '—');
-      
-      let flags = '';
-      if (!isFlagship) {
-          if (c.scannerCompleted) flags += '🔥🔥 ';
-          else if (c.scannerClicked || c.hotFlag) flags += '🔥 ';
-      } else {
-          flags += '<span style="color:var(--gold)">◆ </span>'; 
-      }
+    const html = cols[i].length === 0 
+      ? '<div class="empty" style="padding:20px; border:none;">Empty</div>'
+      : cols[i].map(c => {
+          const isFlagship = c.priceQuoted !== undefined; 
+          const name = esc(c.founderName || c.name || 'Unknown');
+          const comp = esc(c.company || '—');
+          
+          let flags = '';
+          if (!isFlagship) {
+              if (c.scannerCompleted) flags += '🔥🔥 ';
+              else if (c.scannerClicked || c.hotFlag) flags += '🔥 ';
+          } else {
+              flags += '<span style="color:var(--gold)">◆ </span>'; 
+          }
 
-      const nextDate = c.nextActionDate || '';
-      const isOverdue = nextDate && nextDate < todayStr;
-      const isToday = nextDate === todayStr;
-      
-      let dateStyle = 'color:var(--marble-faint)';
-      let dateText = nextDate || 'No action set';
-      
-      if (isOverdue) { dateStyle = 'color:#d47a7a; font-weight:600;'; dateText = '⚠ ' + dateText; }
-      else if (isToday) { dateStyle = 'color:var(--gold);'; dateText = '★ Today'; }
+          const nextDate = c.nextActionDate || '';
+          const isOverdue = nextDate && nextDate < todayStr;
+          const isToday = nextDate === todayStr;
+          
+          let dateStyle = 'color:var(--marble-faint)';
+          let dateText = nextDate || 'No action set';
+          
+          if (isOverdue) { dateStyle = 'color:#d47a7a; font-weight:600;'; dateText = '⚠ ' + dateText; }
+          else if (isToday) { dateStyle = 'color:var(--gold);'; dateText = '★ Today'; }
 
-      const clickFn = isFlagship ? `openFSP('${esc(c.id)}')` : `openPP('${esc(c.id)}')`;
+          const clickFn = isFlagship ? `openFSP('${esc(c.id)}')` : `openPP('${esc(c.id)}')`;
 
-      return `
-        <div class="k-card" onclick="${clickFn}">
-          <div class="k-name">${flags}${name}</div>
-          <div class="k-comp">${comp}</div>
-          <div class="k-meta">
-            <span style="${dateStyle}">${dateText}</span>
-          </div>
-        </div>
-      `;
-    }).join('');
+          return `
+            <div class="k-card" onclick="${clickFn}">
+              <div class="k-name">${flags}${name}</div>
+              <div class="k-comp">${comp}</div>
+              <div class="k-meta">
+                <span style="${dateStyle}">${dateText}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+        
+    els.forEach(el => el.innerHTML = html);
   }
 }
 
-// ── PIPELINE TABLE ────────────────────────────────────────────────────────────
+// ── THE HUNT TABLE (ARMOR-PLATED) ───────────────────────────────────────────
 function populateBatchFilter() {
   const sel = $('op-batch');
   if (!sel || sel.options.length > 1) return;
@@ -256,33 +261,6 @@ function populateBatchFilter() {
     const o = document.createElement('option'); o.value = b; o.textContent = b;
     sel.appendChild(o);
   });
-}
-
-function renderPipeline(list) {
-  const tbody = $('op-tbody');
-  if (!tbody) return;
-  const rows = list.filter(p => p.status !== 'Dead');
-  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="9" class="loading">No prospects found</td></tr>'; return; }
-  const sClass = { Cold:'b-cold', Warm:'b-warm', Hot:'b-hot', Replied:'b-intake',
-                   Negotiating:'b-production', Converted:'b-converted' };
-  tbody.innerHTML = rows.map(p => {
-    const fire = p.scannerCompleted ? '🔥🔥' : p.scannerClicked ? '🔥' : '';
-    const scan = p.scannerCompleted
-      ? '<span class="badge b-delivered">Completed</span>'
-      : p.scannerClicked
-      ? '<span class="badge b-warm">Clicked</span>'
-      : '<span class="badge b-ghost">—</span>';
-    return `<tr onclick="openPP('${esc(p.id)}')">
-      <td>${esc(p.founderName||p.name||'—')}</td>
-      <td class="dim">${esc(p.company||'—')}</td>
-      <td class="dim">${esc(p.batchNumber||'—')}</td>
-      <td><span class="badge ${sClass[p.status]||'b-ghost'}">${esc(p.status||'—')}</span></td>
-      <td class="dim">${esc(p.followUpBranch||'—')}</td>
-      <td>${scan} <span class="hot-flag">${fire}</span></td> <td class="dim">${esc(p.linkedinStatus||'—')}</td>
-      <td class="dim">${esc(p.nextActionDate||'—')}</td>
-      <td class="dim">${p.emailsSent||0}</td>
-    </tr>`;
-  }).join('');
 }
 
 function filterProspects() {
@@ -315,45 +293,85 @@ function filterProspects() {
   renderPipeline(list);
 }
 
+function renderPipeline(list) {
+  // FORCE OVERWRITE EVERY HIDDEN OR VISIBLE TBODY WITH THIS ID
+  const tbodies = document.querySelectorAll('#op-tbody');
+  if (tbodies.length === 0) return;
+  
+  const rows = list.filter(p => p.status !== 'Dead');
+  const sClass = { Cold:'b-cold', Warm:'b-warm', Hot:'b-hot', Replied:'b-intake', Negotiating:'b-production', Converted:'b-converted' };
+  
+  const html = !rows.length 
+    ? '<tr><td colspan="9" class="loading">No prospects found</td></tr>'
+    : rows.map(p => {
+        const fire = p.scannerCompleted ? '🔥🔥' : p.scannerClicked ? '🔥' : '';
+        const scan = p.scannerCompleted
+          ? '<span class="badge b-delivered">Completed</span>'
+          : p.scannerClicked
+          ? '<span class="badge b-warm">Clicked</span>'
+          : '<span class="badge b-ghost">—</span>';
+        return `<tr onclick="openPP('${esc(p.id)}')">
+          <td>${esc(p.founderName||p.name||'—')}</td>
+          <td class="dim">${esc(p.company||'—')}</td>
+          <td class="dim">${esc(p.batchNumber||'—')}</td>
+          <td><span class="badge ${sClass[p.status]||'b-ghost'}">${esc(p.status||'—')}</span></td>
+          <td class="dim">${esc(p.followUpBranch||'—')}</td>
+          <td>${scan} <span class="hot-flag">${fire}</span></td> <td class="dim">${esc(p.linkedinStatus||'—')}</td>
+          <td class="dim">${esc(p.nextActionDate||'—')}</td>
+          <td class="dim">${p.emailsSent||0}</td>
+        </tr>`;
+      }).join('');
+
+  tbodies.forEach(tb => tb.innerHTML = html);
+}
+
 function renderHot() {
-  const tbody = $('oh-tbody');
-  if (!tbody) return;
+  const tbodies = document.querySelectorAll('#oh-tbody');
+  if (tbodies.length === 0) return;
   const hot = allProspects.filter(p => (p.scannerClicked||p.scannerCompleted||p.hotFlag) && p.status !== 'Converted');
-  if (!hot.length) { tbody.innerHTML = '<tr><td colspan="6" class="loading">No hot signals yet</td></tr>'; return; }
-  tbody.innerHTML = hot.map(p => `
-    <tr onclick="openPP('${esc(p.id)}')">
-      <td>${esc(p.founderName||p.name||'—')} ${p.scannerCompleted?'🔥🔥':(p.scannerClicked||p.hotFlag?'🔥':'')}</td>
-      <td class="dim">${esc(p.company||'—')}</td>
-      <td>${p.scannerCompleted ? 'Scanner Completed' : (p.scannerClicked ? 'Scanner Clicked' : 'Intelligence Match')}</td>
-      <td>${p.scannerExternalScore ?? '—'}</td>
-      <td><span class="badge b-${(p.status||'cold').toLowerCase()}">${esc(p.status||'—')}</span></td>
-      <td class="dim">${esc(p.nextActionDate||'—')}</td>
-    </tr>`).join('');
+  
+  const html = !hot.length 
+    ? '<tr><td colspan="6" class="empty">No hot signals yet</td></tr>'
+    : hot.map(p => `
+        <tr onclick="openPP('${esc(p.id)}')">
+          <td>${esc(p.founderName||p.name||'—')} ${p.scannerCompleted?'🔥🔥':(p.scannerClicked||p.hotFlag?'🔥':'')}</td>
+          <td class="dim">${esc(p.company||'—')}</td>
+          <td>${p.scannerCompleted ? 'Scanner Completed' : (p.scannerClicked ? 'Scanner Clicked' : 'Intelligence Match')}</td>
+          <td>${p.scannerExternalScore ?? '—'}</td>
+          <td><span class="badge b-${(p.status||'cold').toLowerCase()}">${esc(p.status||'—')}</span></td>
+          <td class="dim">${esc(p.nextActionDate||'—')}</td>
+        </tr>`).join('');
+        
+  tbodies.forEach(tb => tb.innerHTML = html);
 }
 
 function renderFollowup() {
-  const tbody = $('ofu-tbody');
-  if (!tbody) return;
+  const tbodies = document.querySelectorAll('#ofu-tbody');
+  if (tbodies.length === 0) return;
   const todayStr = new Date().toISOString().split('T')[0];
   const due = allProspects
     .filter(p => p.nextActionDate && p.nextActionDate <= todayStr && !['Converted','Dead'].includes(p.status))
     .sort((a,b) => (a.nextActionDate||'').localeCompare(b.nextActionDate||''));
-  if (!due.length) { tbody.innerHTML = '<tr><td colspan="5" class="loading">No follow-ups due</td></tr>'; return; }
-  tbody.innerHTML = due.map(p => {
-    const over = p.nextActionDate < todayStr;
-    return `<tr onclick="openPP('${esc(p.id)}')">
-      <td>${esc(p.founderName||p.name||'—')}</td>
-      <td class="dim">${esc(p.company||'—')}</td>
-      <td ${over?'style="color:#d47a7a"':''}>${esc(p.nextActionDate)} ${over?'⚠':''}</td>
-      <td><span class="badge b-${(p.status||'cold').toLowerCase()}">${esc(p.status||'—')}</span></td>
-      <td class="dim">${esc(p.nextAction||'—')}</td>
-    </tr>`;
-  }).join('');
+    
+  const html = !due.length 
+    ? '<tr><td colspan="5" class="empty">No follow-ups due</td></tr>'
+    : due.map(p => {
+        const over = p.nextActionDate < todayStr;
+        return `<tr onclick="openPP('${esc(p.id)}')">
+          <td>${esc(p.founderName||p.name||'—')}</td>
+          <td class="dim">${esc(p.company||'—')}</td>
+          <td ${over?'style="color:#d47a7a"':''}>${esc(p.nextActionDate)} ${over?'⚠':''}</td>
+          <td><span class="badge b-${(p.status||'cold').toLowerCase()}">${esc(p.status||'—')}</span></td>
+          <td class="dim">${esc(p.nextAction||'—')}</td>
+        </tr>`;
+      }).join('');
+      
+  tbodies.forEach(tb => tb.innerHTML = html);
 }
 
 async function renderInbound() {
-  const tbody = $('oin-tbody');
-  if (!tbody) return;
+  const tbodies = document.querySelectorAll('#oin-tbody');
+  if (tbodies.length === 0) return;
   try {
     const snap = await db.collection('leads')
       .where('leadType','in',['warm_lead','hot_lead'])
@@ -361,33 +379,41 @@ async function renderInbound() {
     const leads = [];
     snap.forEach(d => leads.push({ id: d.id, ...d.data() }));
     const active = leads.filter(l => !['converted','archived'].includes(l.status));
-    if (!active.length) { tbody.innerHTML = '<tr><td colspan="6" class="loading">No inbound submissions</td></tr>'; return; }
-    tbody.innerHTML = active.map(l => `
-      <tr>
-        <td>${esc(l.name||'—')}</td>
-        <td class="dim">${esc(l.email||l.id)}</td>
-        <td class="dim">${esc(l.company||'—')}</td>
-        <td>${l.scannerExternalScore ?? l.scannerScore ?? '—'}</td>
-        <td class="dim">${fmtDate(l.createdAt)}</td>
-        <td onclick="event.stopPropagation()">
-          <button class="btn btn-primary btn-sm" onclick="convertLead('${esc(l.id)}')">Convert</button>
-        </td>
-      </tr>`).join('');
-  } catch(e) { console.error(e); tbody.innerHTML = '<tr><td colspan="6" class="loading">Error loading</td></tr>'; }
+    
+    const html = !active.length 
+        ? '<tr><td colspan="6" class="empty">No inbound submissions</td></tr>'
+        : active.map(l => `
+          <tr>
+            <td>${esc(l.name||'—')}</td>
+            <td class="dim">${esc(l.email||l.id)}</td>
+            <td class="dim">${esc(l.company||'—')}</td>
+            <td>${l.scannerExternalScore ?? l.scannerScore ?? '—'}</td>
+            <td class="dim">${fmtDate(l.createdAt)}</td>
+            <td onclick="event.stopPropagation()">
+              <button class="btn btn-primary btn-sm" onclick="convertLead('${esc(l.id)}')">Convert</button>
+            </td>
+          </tr>`).join('');
+          
+    tbodies.forEach(tb => tb.innerHTML = html);
+  } catch(e) { console.error(e); tbodies.forEach(tb => tb.innerHTML = '<tr><td colspan="6" class="loading">Error loading</td></tr>'); }
 }
 
 function renderDead() {
-  const tbody = $('od-tbody');
-  if (!tbody) return;
+  const tbodies = document.querySelectorAll('#od-tbody');
+  if (tbodies.length === 0) return;
   const dead = allProspects.filter(p => p.status === 'Dead');
-  if (!dead.length) { tbody.innerHTML = '<tr><td colspan="4" class="loading">No archived prospects</td></tr>'; return; }
-  tbody.innerHTML = dead.map(p => `
-    <tr onclick="openPP('${esc(p.id)}')">
-      <td>${esc(p.founderName||p.name||'—')}</td>
-      <td class="dim">${esc(p.company||'—')}</td>
-      <td class="dim">${esc(p.batchNumber||'—')}</td>
-      <td class="dim">${fmtDate(p.archivedAt||p.updatedAt)}</td>
-    </tr>`).join('');
+  
+  const html = !dead.length 
+    ? '<tr><td colspan="4" class="empty">No archived prospects</td></tr>'
+    : dead.map(p => `
+        <tr onclick="openPP('${esc(p.id)}')">
+          <td>${esc(p.founderName||p.name||'—')}</td>
+          <td class="dim">${esc(p.company||'—')}</td>
+          <td class="dim">${esc(p.batchNumber||'—')}</td>
+          <td class="dim">${fmtDate(p.archivedAt||p.updatedAt)}</td>
+        </tr>`).join('');
+        
+  tbodies.forEach(tb => tb.innerHTML = html);
 }
 
 // ── LEAD CONVERSION ───────────────────────────────────────────────────────────
@@ -835,47 +861,52 @@ async function saveNewProspect() {
 // ── FLAGSHIP ──────────────────────────────────────────────────────────────────
 async function loadFlagship() {
   setPageActions(`<button class="btn btn-primary" onclick="openAddFlagship()">+ Add Flagship Prospect</button>`);
-  const tbody = $('fs-tbody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="loading">Loading…</td></tr>';
+  
+  // Armor plate the table loader
+  const tbodies = document.querySelectorAll('#fs-tbody');
+  tbodies.forEach(tb => tb.innerHTML = '<tr><td colspan="7" class="loading">Loading…</td></tr>');
+  
   try {
     const snap = await db.collection('flagship').orderBy('addedAt','desc').get();
     allFlagship = [];
     snap.forEach(d => allFlagship.push({ id: d.id, ...d.data() }));
     renderFlagshipTable(allFlagship);
-    if (typeof renderDealsBoard === 'function') renderDealsBoard(); // NEW: Refresh Board with Flagship Deals
+    if (typeof renderDealsBoard === 'function') renderDealsBoard(); // Refresh Board with Flagship Deals
   } catch(e) {
     console.error(e);
-    const tb = $('fs-tbody');
-    if (tb) tb.innerHTML = '<tr><td colspan="7" class="loading" style="color:#d47a7a">Failed to load</td></tr>';
+    tbodies.forEach(tb => tb.innerHTML = '<tr><td colspan="7" class="loading" style="color:#d47a7a">Failed to load</td></tr>');
   }
 }
 
 function renderFlagshipTable(list) {
-  const tbody = $('fs-tbody');
-  if (!tbody) return;
-  if (!list.length) { tbody.innerHTML = '<tr><td colspan="7" class="loading">No flagship prospects</td></tr>'; return; }
+  const tbodies = document.querySelectorAll('#fs-tbody');
+  if (tbodies.length === 0) return;
+  
   const sClass = {
     'Identified':'b-cold', 'Discovery Scheduled':'b-intake', 'Discovery Done':'b-warm',
     'Proposal Sent':'b-production', 'Negotiating':'b-hot', 'Won':'b-delivered', 'Lost':'b-dead'
   };
-  tbody.innerHTML = list.map(fs => {
-    let fuBadge = '';
-    if (fs.proposalSentAt && fs.status === 'Proposal Sent') {
-      const hrs = Math.floor((Date.now() - new Date(fs.proposalSentAt).getTime()) / 3600000);
-      fuBadge = hrs > 24
-        ? ` <span style="color:#d47a7a;font-size:9px">⚠ ${hrs}h</span>`
-        : ` <span style="color:var(--gold);font-size:9px">${hrs}h</span>`;
-    }
-    return `<tr onclick="openFSP('${esc(fs.id)}')">
-      <td>${esc(fs.founderName||fs.name||'—')}</td>
-      <td class="dim">${esc(fs.company||'—')}</td>
-      <td><span class="badge ${sClass[fs.status]||'b-ghost'}">${esc(fs.status||'—')}</span></td>
-      <td class="dim">${fmtMoney(fs.priceQuoted)}</td>
-      <td class="dim">${esc(fs.proposalSentDate||'—')}${fuBadge}</td>
-      <td class="dim">${esc(fs.nextStep||'—')}</td>
-      <td class="dim">${fmtDate(fs.addedAt)}</td>
-    </tr>`;
-  }).join('');
+  
+  const html = !list.length 
+    ? '<tr><td colspan="7" class="loading">No flagship prospects</td></tr>'
+    : list.map(fs => {
+        let fuBadge = '';
+        if (fs.proposalSentAt && fs.status === 'Proposal Sent') {
+          const hrs = Math.floor((Date.now() - new Date(fs.proposalSentAt).getTime()) / 3600000);
+          fuBadge = hrs > 24 ? ` <span style="color:#d47a7a;font-size:9px">⚠ ${hrs}h</span>` : ` <span style="color:var(--gold);font-size:9px">${hrs}h</span>`;
+        }
+        return `<tr onclick="openFSP('${esc(fs.id)}')">
+          <td>${esc(fs.founderName||fs.name||'—')}</td>
+          <td class="dim">${esc(fs.company||'—')}</td>
+          <td><span class="badge ${sClass[fs.status]||'b-ghost'}">${esc(fs.status||'—')}</span></td>
+          <td class="dim">${fmtMoney(fs.priceQuoted)}</td>
+          <td class="dim">${esc(fs.proposalSentDate||'—')}${fuBadge}</td>
+          <td class="dim">${esc(fs.nextStep||'—')}</td>
+          <td class="dim">${fmtDate(fs.addedAt)}</td>
+        </tr>`;
+      }).join('');
+      
+  tbodies.forEach(tb => tb.innerHTML = html);
 }
 
 function filterFlagship() {
@@ -1013,8 +1044,8 @@ async function saveFSP() {
 // ── CONTENT ───────────────────────────────────────────────────────────────────
 async function loadContent() {
   setPageActions(`<button class="btn btn-primary" onclick="openAddContent()">+ Add Post</button>`);
-  const tbody = $('ct-tbody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="loading">Loading…</td></tr>';
+  const tbodies = document.querySelectorAll('#ct-tbody');
+  tbodies.forEach(tb => tb.innerHTML = '<tr><td colspan="5" class="loading">Loading…</td></tr>');
   try {
     const snap = await db.collection('content').orderBy('createdAt','desc').get();
     allContent = [];
@@ -1022,27 +1053,30 @@ async function loadContent() {
     renderContent(allContent);
   } catch(e) {
     console.error(e);
-    const tb = $('ct-tbody');
-    if (tb) tb.innerHTML = '<tr><td colspan="5" class="loading" style="color:#d47a7a">Failed to load</td></tr>';
+    tbodies.forEach(tb => tb.innerHTML = '<tr><td colspan="5" class="loading" style="color:#d47a7a">Failed to load</td></tr>');
   }
 }
 
 function renderContent(list) {
-  const tbody = $('ct-tbody');
-  if (!tbody) return;
-  if (!list.length) { tbody.innerHTML = '<tr><td colspan="5" class="loading">No content logged</td></tr>'; return; }
+  const tbodies = document.querySelectorAll('#ct-tbody');
+  if (tbodies.length === 0) return;
   const sClass = { Idea:'b-ghost', Drafting:'b-cold', Scheduled:'b-intake', Posted:'b-delivered', Archived:'b-dead' };
-  tbody.innerHTML = list.map(c => `
-    <tr>
-      <td>${esc(c.topic||'—')}</td>
-      <td><span class="badge ${sClass[c.status]||'b-ghost'}">${esc(c.status||'—')}</span></td>
-      <td class="dim">${esc(c.postedDate||'—')}</td>
-      <td class="dim">${esc(c.notes||'—')}</td>
-      <td onclick="event.stopPropagation()" style="white-space:nowrap">
-        <button class="btn btn-ghost btn-sm" onclick="openEditContent('${esc(c.id)}')">Edit</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteContent('${esc(c.id)}')">Delete</button>
-      </td>
-    </tr>`).join('');
+  
+  const html = !list.length 
+    ? '<tr><td colspan="5" class="loading">No content logged</td></tr>'
+    : list.map(c => `
+        <tr>
+          <td>${esc(c.topic||'—')}</td>
+          <td><span class="badge ${sClass[c.status]||'b-ghost'}">${esc(c.status||'—')}</span></td>
+          <td class="dim">${esc(c.postedDate||'—')}</td>
+          <td class="dim">${esc(c.notes||'—')}</td>
+          <td onclick="event.stopPropagation()" style="white-space:nowrap">
+            <button class="btn btn-ghost btn-sm" onclick="openEditContent('${esc(c.id)}')">Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteContent('${esc(c.id)}')">Delete</button>
+          </td>
+        </tr>`).join('');
+        
+  tbodies.forEach(tb => tb.innerHTML = html);
 }
 
 function filterContent() {
@@ -1273,9 +1307,10 @@ async function deleteRadarEntry(idx) {
 }
 
 async function renderExposureMatrix() {
-  const tbody = $('rv-exposure-tbody');
-  if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="6" class="loading">Calculating…</td></tr>';
+  const tbodies = document.querySelectorAll('#rv-exposure-tbody');
+  if (tbodies.length === 0) return;
+  tbodies.forEach(tb => tb.innerHTML = '<tr><td colspan="6" class="loading">Calculating…</td></tr>');
+  
   try {
     const snap = await db.collection('clients').get();
     const clients = [];
@@ -1318,27 +1353,27 @@ async function renderExposureMatrix() {
     .filter(c => c._red > 0 || c._yellow > 0)
     .sort((a,b) => b._red - a._red || b._yellow - a._yellow);
 
-    if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="loading">No exposures detected — all clients covered</td></tr>';
-      return;
-    }
-    tbody.innerHTML = rows.map(c => `
-      <tr>
-        <td>${esc(c.name||c.id)}</td>
-        <td><span class="badge ${planBadgeClass(c.plan)}">${planLabel(c.plan)}</span></td>
-        <td class="exp-flag-r">${c._red    > 0 ? `🔴 ${c._red}`    : '—'}</td>
-        <td class="exp-flag-y">${c._yellow > 0 ? `🟡 ${c._yellow}` : '—'}</td>
-        <td>${c.maintenanceActive
-          ? '<span class="badge b-delivered">Active</span>'
-          : '<span class="badge b-ghost">None</span>'}</td>
-        <td onclick="event.stopPropagation()">
-          <button class="btn btn-primary btn-sm"
-            onclick="openDetail('${esc(c.id)}');nav('clients')">View</button>
-        </td>
-      </tr>`).join('');
+    const html = !rows.length 
+      ? '<tr><td colspan="6" class="loading">No exposures detected — all clients covered</td></tr>'
+      : rows.map(c => `
+          <tr>
+            <td>${esc(c.name||c.id)}</td>
+            <td><span class="badge ${planBadgeClass(c.plan)}">${planLabel(c.plan)}</span></td>
+            <td class="exp-flag-r">${c._red    > 0 ? `🔴 ${c._red}`    : '—'}</td>
+            <td class="exp-flag-y">${c._yellow > 0 ? `🟡 ${c._yellow}` : '—'}</td>
+            <td>${c.maintenanceActive
+              ? '<span class="badge b-delivered">Active</span>'
+              : '<span class="badge b-ghost">None</span>'}</td>
+            <td onclick="event.stopPropagation()">
+              <button class="btn btn-primary btn-sm"
+                onclick="openDetail('${esc(c.id)}');nav('clients')">View</button>
+            </td>
+          </tr>`).join('');
+          
+    tbodies.forEach(tb => tb.innerHTML = html);
   } catch(e) {
     console.error(e);
-    tbody.innerHTML = '<tr><td colspan="6" class="loading" style="color:#d47a7a">Load error</td></tr>';
+    tbodies.forEach(tb => tb.innerHTML = '<tr><td colspan="6" class="loading" style="color:#d47a7a">Load error</td></tr>');
   }
 }
 
@@ -1369,10 +1404,11 @@ async function loadFinance() {
       byPlan[c.plan].count++;
       byPlan[c.plan].rev += (c.price || PLAN_PRICES[c.plan] || 0);
     });
-    const planTbody = $('fin-by-plan');
-    if (planTbody) {
+    
+    const tbodies = document.querySelectorAll('#fin-by-plan');
+    if (tbodies.length > 0) {
       const rows = Object.entries(byPlan).filter(([,v]) => v.count > 0);
-      planTbody.innerHTML = rows.length
+      const html = rows.length
         ? rows.map(([k,v]) => `<tr>
             <td><span class="badge ${planBadgeClass(k)}">${planLabel(k)}</span></td>
             <td>${v.count}</td>
@@ -1380,24 +1416,25 @@ async function loadFinance() {
             <td>${total > 0 ? Math.round(v.rev/total*100) + '%' : '—'}</td>
           </tr>`).join('')
         : '<tr><td colspan="4" class="loading">No paid clients yet</td></tr>';
+      tbodies.forEach(tb => tb.innerHTML = html);
     }
 
-    const concWarn = $('fin-conc-warn');
-    const concList = $('fin-conc-list');
+    const concWarns = document.querySelectorAll('#fin-conc-warn');
+    const concLists = document.querySelectorAll('#fin-conc-list');
+    
     if (mrr > 0) {
       const rows = maint.map(c => ({ name: c.name||c.id, pct: Math.round(297/mrr*100) }));
       const breach = rows.some(r => r.pct > 30);
-      if (concWarn) concWarn.style.display = breach ? 'block' : 'none';
-      if (concList) {
-        concList.innerHTML = rows.map(r =>
+      concWarns.forEach(w => w.style.display = breach ? 'block' : 'none');
+      const html = rows.map(r =>
           `<div class="conc-row">
             <span>${esc(r.name)}</span>
             <span ${r.pct > 30 ? 'class="conc-flag"' : ''}>${r.pct}%${r.pct>30?' ⚠':''}</span>
           </div>`).join('');
-      }
+      concLists.forEach(l => l.innerHTML = html);
     } else {
-      if (concWarn) concWarn.style.display = 'none';
-      if (concList) concList.innerHTML = '<div class="loading">No maintenance revenue yet</div>';
+      concWarns.forEach(w => w.style.display = 'none');
+      concLists.forEach(l => l.innerHTML = '<div class="loading">No maintenance revenue yet</div>');
     }
   } catch(e) { console.error(e); toast('Finance load failed', 'error'); }
 }
@@ -1433,12 +1470,12 @@ async function saveSettings() {
 }
 
 async function loadAdmins() {
-  const tbody = $('s-admins');
-  if (!tbody) return;
+  const tbodies = document.querySelectorAll('#s-admins');
+  if (tbodies.length === 0) return;
   try {
     const snap = await db.collection('admins').get();
     const admins = []; snap.forEach(d => admins.push({ id: d.id, ...d.data() }));
-    tbody.innerHTML = admins.length
+    const html = admins.length
       ? admins.map(a => `<tr>
           <td>${esc(a.id)}</td>
           <td class="dim">${esc(a.role||'superadmin')}</td>
@@ -1447,6 +1484,7 @@ async function loadAdmins() {
           </td>
         </tr>`).join('')
       : '<tr><td colspan="3" class="loading">No admins</td></tr>';
+    tbodies.forEach(tb => tb.innerHTML = html);
   } catch(e) { console.error(e); toast('Failed to load admins', 'error'); }
 }
 
