@@ -71,11 +71,12 @@ function loadOutreach() {
     snap.forEach(d => allProspects.push({ id: d.id, ...d.data() }));
     
     populateCommandCenter();
+    if (typeof renderDealsBoard === 'function') renderDealsBoard(); // Updates Kanban
     
-    const activeView = qsa('#tab-outreach .view-btn.active')[0]?.textContent?.toLowerCase();
-    if (activeView?.includes('pipeline')) filterProspects();
-    if (activeView?.includes('hot')) renderHot();
-    if (activeView?.includes('follow-up')) renderFollowup();
+    // THE FIX: Unconditionally load The Hunt table and filters
+    filterProspects();
+    populateBatchFilter();
+
   }, (e) => {
     console.error(e);
     toast('Outreach Sync Failed', 'error');
@@ -159,6 +160,92 @@ function renderBatchPerformance() {
       <td>${r.clicks}</td><td>${r.comps}</td><td>${r.conv}</td><td style="color:var(--gold);">${roi}</td>
     </tr>`;
   }).join('');
+}
+
+// ── KANBAN BOARD LOGIC (ACTIVE DEALS) ─────────────────────────────────────────
+function renderDealsBoard() {
+  // Col 1: Magazine | Col 2: Downrange | Col 3: Engaged | Col 4: Decision | Col 5: Won
+  const cols = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+
+  // 1. Process Outreach Prospects
+  allProspects.forEach(p => {
+    if (p.status === 'Dead') return;
+
+    if (p.status === 'Converted') {
+      cols[5].push(p);
+    } else if (p.status === 'Negotiating' || p.scannerCompleted || p.status === 'Hot' || p.hotFlag) {
+      cols[4].push(p); // Decision Desk
+    } else if (p.status === 'Replied' || p.scannerClicked) {
+      cols[3].push(p); // Engaged (Tripwire hit)
+    } else if (p.emailsSent > 0 || p.status === 'Warm') {
+      cols[2].push(p); // Downrange
+    } else {
+      cols[1].push(p); // The Magazine
+    }
+  });
+
+  // 2. Blend Flagship Pipeline into the Board
+  allFlagship.forEach(f => {
+     if (f.status === 'Won') cols[5].push(f);
+     else if (f.status === 'Lost') return;
+     else if (f.status === 'Identified') cols[1].push(f);
+     else cols[4].push(f); // All active Flagship deals sit at the Decision Desk
+  });
+
+  // 3. Render the Cards
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  for (let i = 1; i <= 5; i++) {
+    const el = $('kd-col-' + i);
+    const cnt = $('kd-c' + i);
+    if (!el || !cnt) continue;
+    
+    cnt.innerText = cols[i].length;
+    
+    if (cols[i].length === 0) {
+        el.innerHTML = '<div class="empty" style="padding:20px; border:none;">Empty</div>';
+        continue;
+    }
+
+    // Sort by urgency (Overdue -> Due Today -> Future -> No Date)
+    cols[i].sort((a,b) => (a.nextActionDate || '9999').localeCompare(b.nextActionDate || '9999'));
+
+    el.innerHTML = cols[i].map(c => {
+      const isFlagship = c.priceQuoted !== undefined; 
+      const name = esc(c.founderName || c.name || 'Unknown');
+      const comp = esc(c.company || '—');
+      
+      let flags = '';
+      if (!isFlagship) {
+          if (c.scannerCompleted) flags += '🔥🔥 ';
+          else if (c.scannerClicked || c.hotFlag) flags += '🔥 ';
+      } else {
+          flags += '<span style="color:var(--gold)">◆ </span>'; 
+      }
+
+      const nextDate = c.nextActionDate || '';
+      const isOverdue = nextDate && nextDate < todayStr;
+      const isToday = nextDate === todayStr;
+      
+      let dateStyle = 'color:var(--marble-faint)';
+      let dateText = nextDate || 'No action set';
+      
+      if (isOverdue) { dateStyle = 'color:#d47a7a; font-weight:600;'; dateText = '⚠ ' + dateText; }
+      else if (isToday) { dateStyle = 'color:var(--gold);'; dateText = '★ Today'; }
+
+      const clickFn = isFlagship ? `openFSP('${esc(c.id)}')` : `openPP('${esc(c.id)}')`;
+
+      return `
+        <div class="k-card" onclick="${clickFn}">
+          <div class="k-name">${flags}${name}</div>
+          <div class="k-comp">${comp}</div>
+          <div class="k-meta">
+            <span style="${dateStyle}">${dateText}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
 }
 
 // ── PIPELINE TABLE ────────────────────────────────────────────────────────────
@@ -335,7 +422,6 @@ window.convertLead = async function(leadId) {
       scannerInternalScore: l.scannerInternalScore || null,
       addedAt:              new Date().toISOString(),
       updatedAt:            new Date().toISOString(),
-      // Gate Defaults for Inbound
       legalGapStatus:       'generic',
       personalizedHook:     'Submitted via scanner.'
     };
@@ -756,6 +842,7 @@ async function loadFlagship() {
     allFlagship = [];
     snap.forEach(d => allFlagship.push({ id: d.id, ...d.data() }));
     renderFlagshipTable(allFlagship);
+    if (typeof renderDealsBoard === 'function') renderDealsBoard(); // NEW: Refresh Board with Flagship Deals
   } catch(e) {
     console.error(e);
     const tb = $('fs-tbody');
@@ -834,6 +921,7 @@ async function saveNewFlagship() {
     const ref = await db.collection('flagship').add(data);
     allFlagship.unshift({ id: ref.id, ...data });
     renderFlagshipTable(allFlagship);
+    if (typeof renderDealsBoard === 'function') renderDealsBoard(); // NEW: Refresh Board
     closeModal();
     toast('Flagship prospect added');
   } catch(e) { console.error(e); toast('Save failed', 'error'); }
@@ -917,6 +1005,7 @@ async function saveFSP() {
     const idx = allFlagship.findIndex(f => f.id === currentFlagship.id);
     if (idx !== -1) allFlagship[idx] = currentFlagship;
     renderFlagshipTable(allFlagship);
+    if (typeof renderDealsBoard === 'function') renderDealsBoard(); // NEW: Refresh Board
     toast('Flagship saved');
   } catch(e) { console.error(e); toast('Save failed', 'error'); }
 }
