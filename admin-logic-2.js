@@ -73,7 +73,6 @@ function loadOutreach() {
         allProspects = [];
         snap.forEach(d => allProspects.push({ id: d.id, ...d.data() }));
         
-        // Isolate each render step so a failure in one doesn't kill the others
         try { populateCommandCenter(); } catch(e) { console.error('Command Center Render Error:', e); }
         try { if (typeof renderDealsBoard === 'function') renderDealsBoard(); } catch(e) { console.error('Deals Board Render Error:', e); }
         try { filterProspects(); } catch(e) { console.error('Hunt Pipeline Render Error:', e); }
@@ -174,37 +173,33 @@ function renderBatchPerformance() {
 
 // ── KANBAN BOARD LOGIC (ACTIVE DEALS) ─────────────────────────────────────────
 function renderDealsBoard() {
-  // Col 1: Magazine | Col 2: Downrange | Col 3: Engaged | Col 4: Decision | Col 5: Won
   const cols = { 1: [], 2: [], 3: [], 4: [], 5: [] };
 
-  // 1. Process Outreach Prospects
   allProspects.forEach(p => {
     if (p.status === 'Dead') return;
 
     if (p.status === 'Converted') {
       cols[5].push(p);
     } else if (p.status === 'Negotiating' || p.scannerCompleted || p.status === 'Hot' || p.hotFlag) {
-      cols[4].push(p); // Decision Desk
+      cols[4].push(p); 
     } else if (p.status === 'Replied' || p.scannerClicked) {
-      cols[3].push(p); // Engaged (Tripwire hit)
+      cols[3].push(p); 
     } else if (p.emailsSent > 0 || p.status === 'Warm') {
-      cols[2].push(p); // Downrange
+      cols[2].push(p); 
     } else {
-      cols[1].push(p); // The Magazine
+      cols[1].push(p); 
     }
   });
 
-  // 2. Blend Flagship Pipeline into the Board
   if (allFlagship && Array.isArray(allFlagship)) {
       allFlagship.forEach(f => {
          if (f.status === 'Won') cols[5].push(f);
          else if (f.status === 'Lost') return;
          else if (f.status === 'Identified') cols[1].push(f);
-         else cols[4].push(f); // All active Flagship deals sit at the Decision Desk
+         else cols[4].push(f); 
       });
   }
 
-  // 3. Render the Cards
   const todayStr = new Date().toISOString().split('T')[0];
 
   for (let i = 1; i <= 5; i++) {
@@ -269,13 +264,15 @@ function populateBatchFilter() {
 }
 
 function filterProspects() {
-  const s   = ($('op-search')?.value||'').toLowerCase();
+  const s   = ($('op-search')?.value || '').toLowerCase();
   const st  = $('op-status')?.value  || '';
   const bt  = $('op-batch')?.value   || '';
-  const br  = $('op-branch')?.value  || '';
   const fs  = $('op-funding')?.value || '';
   const sc  = $('op-scanner')?.value || '';
-  const srt = $('op-sort')?.value    || 'nextDate';
+  const gap = $('op-gap')?.value || '';
+  const ai  = $('op-ai')?.value || '';
+  const li  = $('op-li-filter')?.value || '';
+  const srt = $('op-sort')?.value || 'nextDate';
 
   let list = allProspects.filter(p =>
     (!s  || (p.founderName||p.name||'').toLowerCase().includes(s) ||
@@ -283,17 +280,30 @@ function filterProspects() {
              (p.email||'').toLowerCase().includes(s)) &&
     (!st || p.status === st) &&
     (!bt || p.batchNumber === bt) &&
-    (!br || p.followUpBranch === br) &&
     (!fs || p.fundingStage === fs) &&
+    (!li || p.linkedinStatus === li) &&
+    (!gap || p.legalGapStatus === gap) &&
+    (!ai || (ai==='native' && p.aiNative) || (ai==='external' && p.externalAI)) &&
     (!sc || (sc==='clicked'   &&  p.scannerClicked && !p.scannerCompleted) ||
             (sc==='completed' &&  p.scannerCompleted) ||
-            (sc==='none'      && !p.scannerClicked))
+            (sc==='none'      && !p.scannerClicked && !p.scannerCompleted))
   );
 
-  if      (srt === 'dateAdded') list.sort((a,b) => (b.addedAt||'').localeCompare(a.addedAt||''));
-  else if (srt === 'score')     list.sort((a,b) => (b.scannerExternalScore||0) - (a.scannerExternalScore||0));
-  else if (srt === 'company')   list.sort((a,b) => (a.company||'').localeCompare(b.company||''));
-  else list.sort((a,b) => (a.nextActionDate||'9999').localeCompare(b.nextActionDate||'9999'));
+  if (srt === 'dateAdded') {
+      list.sort((a,b) => (b.addedAt||'').localeCompare(a.addedAt||''));
+  } else if (srt === 'score') {
+      list.sort((a,b) => (b.scannerExternalScore||0) - (a.scannerExternalScore||0));
+  } else if (srt === 'company') {
+      list.sort((a,b) => (a.company||'').localeCompare(b.company||''));
+  } else if (srt === 'emailsSent') {
+      list.sort((a,b) => (b.emailsSent||0) - (a.emailsSent||0));
+  } else {
+      list.sort((a,b) => {
+          const dateA = a.nextActionDate || '9999-99-99';
+          const dateB = b.nextActionDate || '9999-99-99';
+          return dateA.localeCompare(dateB);
+      });
+  }
 
   renderPipeline(list);
 }
@@ -303,18 +313,13 @@ function renderPipeline(list) {
   if (tbodies.length === 0) return;
 
   const rows = list.filter(p => p.status !== 'Dead');
-  const sClass = { Cold:'b-cold', Warm:'b-warm', Hot:'b-hot', Replied:'b-intake',
-                   Negotiating:'b-production', Converted:'b-converted' };
+  const sClass = { Cold:'b-cold', Warm:'b-warm', Hot:'b-hot', Replied:'b-intake', Negotiating:'b-production', Converted:'b-converted' };
                    
   const html = !rows.length 
     ? '<tr><td colspan="9" class="loading">No prospects found</td></tr>'
     : rows.map(p => {
         const fire = p.scannerCompleted ? '🔥🔥' : p.scannerClicked ? '🔥' : '';
-        const scan = p.scannerCompleted
-          ? '<span class="badge b-delivered">Completed</span>'
-          : p.scannerClicked
-          ? '<span class="badge b-warm">Clicked</span>'
-          : '<span class="badge b-ghost">—</span>';
+        const scan = p.scannerCompleted ? '<span class="badge b-delivered">Completed</span>' : p.scannerClicked ? '<span class="badge b-warm">Clicked</span>' : '<span class="badge b-ghost">—</span>';
         return `<tr onclick="openPP('${esc(p.id)}')">
           <td>${esc(p.founderName||p.name||'—')}</td>
           <td class="dim">${esc(p.company||'—')}</td>
@@ -466,7 +471,7 @@ window.convertLead = async function(leadId) {
   } catch(e) { console.error(e); toast('Conversion failed', 'error'); }
 };
 
-// ── PROSPECT PANEL ────────────────────────────────────────────────────────────
+// ── PROSPECT PANEL (FULLY EDITABLE) ────────────────────────────────────────────
 function openPP(id) {
   const p = allProspects.find(x => x.id === id);
   if (!p) return;
@@ -499,10 +504,20 @@ function renderPPBody(p) {
   body.innerHTML = `
     <div style="margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border)">
       <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--marble-faint);margin-bottom:8px">Contact Identity</div>
-      <div style="font-size:11px;color:var(--marble-dim);line-height:1.9">
-        Email: <span style="color:var(--marble)">${esc(p.email||'—')}</span><br>
-        Website: <span style="color:var(--marble)">${esc(p.website||'—')}</span><br>
-        LinkedIn: <a href="${esc(p.linkedinUrl||'#')}" target="_blank" style="color:var(--gold)">${esc(p.linkedinUrl||'—')}</a><br>
+      <div class="fi-row" style="margin-bottom:10px">
+         <div class="fg"><label class="fl">Founder Name</label><input type="text" class="fi" id="pp-name-edit" value="${esc(p.founderName||p.name||'')}"></div>
+         <div class="fg"><label class="fl">Company</label><input type="text" class="fi" id="pp-company-edit" value="${esc(p.company||'')}"></div>
+      </div>
+      <div class="fg" style="margin-bottom:10px">
+         <label class="fl">Email (Warning: Changing this will migrate the database ID)</label>
+         <input type="email" class="fi" id="pp-email-edit" value="${esc(p.email||'')}">
+      </div>
+      <div class="fi-row" style="margin-bottom:10px">
+         <div class="fg"><label class="fl">LinkedIn URL</label><input type="text" class="fi" id="pp-linkedin-edit" value="${esc(p.linkedinUrl||'')}"></div>
+         <div class="fg"><label class="fl">Website</label><input type="text" class="fi" id="pp-website-edit" value="${esc(p.website||'')}"></div>
+      </div>
+      <div class="fg"><label class="fl">Batch ID</label><input type="text" class="fi" id="pp-batch-edit" value="${esc(p.batchNumber||'')}"></div>
+      <div style="font-size:11px;color:var(--marble-dim);margin-top:10px">
         Prospect ID: <span style="color:var(--gold);font-family:'Cormorant Garamond',serif;font-size:14px">${esc(p.prospectId||'—')}</span>
       </div>
     </div>
@@ -630,12 +645,28 @@ function renderPPBody(p) {
       </div>
       <button class="btn btn-outline btn-sm" onclick="logEmail()">+ Log Email</button>
     </div>
+
+    <div style="border-top:1px solid rgba(138,58,58,.2); padding-top:16px; margin-top:20px; text-align:center;">
+        <button class="btn btn-danger btn-sm" style="width:100%" onclick="deleteProspect('${p.id}')">Permanently Delete Target</button>
+    </div>
   `;
 }
 
+// ── THE EMAIL MIGRATION & SAVE ENGINE ─────────────────────────────────────────
 async function saveProspect() {
   if (!currentProspect) return;
+  
+  const originalEmail = currentProspect.id;
+  const newEmail = $('pp-email-edit')?.value?.trim().toLowerCase();
+
   const updates = {
+    founderName:          $('pp-name-edit')?.value?.trim()  || '',
+    company:              $('pp-company-edit')?.value?.trim() || '',
+    linkedinUrl:          $('pp-linkedin-edit')?.value?.trim() || '',
+    website:              $('pp-website-edit')?.value?.trim() || '',
+    batchNumber:          $('pp-batch-edit')?.value?.trim() || '',
+    email:                newEmail,
+
     status:               $('pp-status')?.value             || currentProspect.status,
     followUpBranch:       $('pp-branch')?.value             || '',
     fundingStage:         $('pp-funding')?.value            || '',
@@ -649,7 +680,7 @@ async function saveProspect() {
     nextActionDate:       $('pp-next-date')?.value          || '',
     nextAction:           $('pp-next-note')?.value?.trim()  || '',
     notes:                $('pp-notes')?.value?.trim()      || '',
-    // Gate Updates
+    
     jobTitle:             $('pp-title')?.value?.trim()      || '',
     legalGapStatus:       $('pp-gap-status')?.value         || 'generic',
     legalGapAnalysis:     $('pp-gap-text')?.value?.trim()   || '',
@@ -664,12 +695,45 @@ async function saveProspect() {
     updates.archivedAt = new Date().toISOString();
 
   try {
-    await db.collection('prospects').doc(currentProspect.id).set(updates, { merge: true });
-    currentProspect = { ...currentProspect, ...updates };
-    const idx = allProspects.findIndex(p => p.id === currentProspect.id);
+    // If the email (Database ID) has changed, we must migrate the document
+    if (newEmail !== originalEmail) {
+        if (!confirm(`You changed the email from ${originalEmail} to ${newEmail}. This will migrate their database ID. Proceed?`)) {
+            return; 
+        }
+        // Create new document with full merged data
+        const fullData = { ...currentProspect, ...updates, id: newEmail };
+        await db.collection('prospects').doc(newEmail).set(fullData);
+        // Delete the old document
+        await db.collection('prospects').doc(originalEmail).delete();
+        
+        currentProspect = fullData;
+        toast('Target Migrated & Saved');
+    } else {
+        // Standard save
+        await db.collection('prospects').doc(originalEmail).set(updates, { merge: true });
+        currentProspect = { ...currentProspect, ...updates };
+        toast('Prospect saved');
+    }
+    
+    // Update local array immediately so UI doesn't lag
+    const idx = allProspects.findIndex(p => p.id === originalEmail);
     if (idx !== -1) allProspects[idx] = currentProspect;
-    toast('Prospect saved');
+    
   } catch(e) { console.error(e); toast('Save failed', 'error'); }
+}
+
+// ── THE KILL SWITCH ───────────────────────────────────────────────────────────
+async function deleteProspect(id) {
+    if (!confirm(`WARNING: Are you absolutely sure you want to permanently delete this target? This cannot be undone.`)) return;
+    
+    try {
+        await db.collection('prospects').doc(id).delete();
+        closePP();
+        toast('Target Deleted', 'success');
+    } catch(e) {
+        console.error("Delete failed:", e);
+        toast('Failed to delete target', 'error');
+    }
 }
 
 async function logEmail() {
