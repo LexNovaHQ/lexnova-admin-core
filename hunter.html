@@ -307,8 +307,8 @@ FOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
-            // 3. Write to Database
-            await db.collection('prospects').doc(dbEmail).set(prospectData);
+            // 3. Write to Database (Golden Thread ID as the Document Key)
+await db.collection('prospects').doc(newProspectId).set(prospectData);
             
             setPushStatus(`Success! Target locked as ${newProspectId}`);
             
