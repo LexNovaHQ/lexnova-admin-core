@@ -451,7 +451,11 @@ window.convertLead = async function(leadId) {
     if (!leadDoc.exists) { toast('Lead not found', 'error'); return; }
     const l = leadDoc.data();
     
-    const pid  = await genProspectId();
+    // Batch Logic: Month + Alpha
+    const month = String(new Date().getMonth() + 1).padStart(2, '0');
+    const batch = `${month}I`; // 'I' for Inbound
+
+    const pid  = await genProspectId(batch);
     const email = l.email || leadId;
     const prospectData = {
       founderName:          l.name || '',
@@ -462,11 +466,12 @@ window.convertLead = async function(leadId) {
       fundingStage:         '',
       location:             '',
       source:               l.source || 'scanner',
-      batchNumber:          'Inbound',
+      batchNumber:          batch,
       intendedPlan:         'agentic_shield',
       notes:                'Converted from Lead ID: ' + leadId,
       status:               'Replied',
       prospectId:           pid,
+      scannerLink:          `https://lexnovahq.com/scanner.html?pid=${pid}`,
       emailsSent:           0,
       emailLog:             [],
       scannerClicked:       true,
@@ -479,6 +484,7 @@ window.convertLead = async function(leadId) {
       personalizedHook:     'Submitted via scanner.'
     };
     
+    // Write using Prospect ID as Document Name
     await db.collection('prospects').doc(pid).set(prospectData, { merge: true });
     await db.collection('leads').doc(leadId).update({ status: 'converted', convertedAt: new Date().toISOString() });
     
@@ -525,7 +531,6 @@ Funding Stage: ${p.fundingStage || '—'}`;
         toast('Dossier copied to clipboard!');
     } catch (err) {
         console.error('Failed to copy text: ', err);
-        // Fallback for older browsers
         const textArea = document.createElement("textarea");
         textArea.value = text;
         document.body.appendChild(textArea);
@@ -592,7 +597,7 @@ function renderPPBody(p) {
             <input type="text" class="fi" id="pp-scanner-url" readonly value="${scannerLink}" style="font-size:10px; color:var(--gold); width:280px; border-color:var(--gold-mid);">
             <button class="btn btn-outline btn-sm" onclick="copyToClipboard('pp-scanner-url')">Copy Link</button>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="copyDossier('${esc(p.id)}')">⎘ Copy Dossier (No Email)</button>
+        <button class="btn btn-primary btn-sm" onclick="copyDossier('${esc(p.id)}')">⎘ Copy Dossier</button>
     </div>
 
     <div style="margin-bottom:18px; padding:16px; background:rgba(197,160,89,0.05); border:1px solid var(--gold-mid); border-radius:4px;">
@@ -617,7 +622,7 @@ function renderPPBody(p) {
          <div class="fg"><label class="fl">Company</label><input type="text" class="fi" id="pp-company-edit" value="${esc(p.company||'')}"></div>
       </div>
       <div class="fg" style="margin-bottom:10px">
-         <label class="fl">Email (Warning: Changing this migrates database ID)</label>
+         <label class="fl">Email</label>
          <input type="email" class="fi" id="pp-email-edit" value="${esc(p.email||'')}">
       </div>
       <div class="fi-row" style="margin-bottom:10px">
@@ -664,7 +669,7 @@ function renderPPBody(p) {
     <div style="margin-bottom:18px">
       <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--marble-faint);margin-bottom:8px">Status & Routing</div>
       <div class="fi-row" style="margin-bottom:10px">
-        <div class="fg"><label class="fl">Status (Selecting Converted will migrate to Factory)</label>
+        <div class="fg"><label class="fl">Status</label>
           <select class="fi" id="pp-status" style="border-color:var(--gold); color:var(--gold);">
             ${sel(['Cold','Warm','Hot','Replied','Negotiating','Converted','Dead'], p.status)}
           </select>
@@ -706,14 +711,6 @@ function renderPPBody(p) {
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
           <input type="checkbox" id="pp-scomp" ${p.scannerCompleted?'checked':''}> Completed 🔥🔥
         </label>
-      </div>
-      <div class="fi-row">
-        <div class="fg"><label class="fl">Ext Score</label>
-          <input type="number" class="fi" id="pp-ext" value="${p.scannerExternalScore||''}">
-        </div>
-        <div class="fg"><label class="fl">Int Score</label>
-          <input type="number" class="fi" id="pp-int" value="${p.scannerInternalScore||''}">
-        </div>
       </div>
     </div>
 
@@ -835,7 +832,7 @@ async function saveProspect() {
         updates.notes = (updates.notes || '') + `\n[SYSTEM] Deal Closed. Data migrated to Client ID: ${clientId}`;
     }
 
-    // Because the Document ID is the prospectId, we update it directly!
+    // TARGET DOCUMENT BY PROSPECT ID (THE KEY)
     const docKey = currentProspect.prospectId || currentProspect.id;
     await db.collection('prospects').doc(docKey).set(updates, { merge: true });
     
@@ -869,9 +866,13 @@ async function logEmail() {
     type:  $('pp-log-type')?.value  || 'Cold Email',
     notes: $('pp-log-notes')?.value?.trim() || ''
   };
+  
+  // LOG AGAINST PROSPECT ID KEY
+  const docKey = currentProspect.prospectId || currentProspect.id;
   const newCount = (currentProspect.emailsSent||0) + 1;
+  
   try {
-    await db.collection('prospects').doc(currentProspect.id).update({
+    await db.collection('prospects').doc(docKey).update({
       emailLog:   firebase.firestore.FieldValue.arrayUnion(entry),
       emailsSent: newCount,
       updatedAt:  new Date().toISOString()
@@ -893,18 +894,29 @@ async function logEmail() {
   } catch(e) { console.error(e); toast('Log failed', 'error'); }
 }
 
-async function genProspectId() {
+async function genProspectId(batchCode) {
   try {
-    const snap = await db.collection('prospects').get();
+    const month = String(new Date().getMonth() + 1).padStart(2, '0');
+    const searchBatch = batchCode || `${month}A`;
+    const prefix = `LN-P-AI-26-${searchBatch}-`;
+    
+    // Find Highest ID in this SPECIFIC batch
+    const snap = await db.collection('prospects')
+        .where('prospectId', '>=', prefix)
+        .where('prospectId', '<=', prefix + '\uf8ff')
+        .get();
+        
     let max = 0;
     snap.forEach(d => {
-      const m = (d.data().prospectId||'').match(/LN-P-[A-Z]+-\d{2}-[0-9A-Z]+-(\d+)/);
-      if (m) max = Math.max(max, parseInt(m[1], 10));
+      const pid = d.data().prospectId || '';
+      const parts = pid.split('-');
+      const serialStr = parts[parts.length - 1];
+      const serialNum = parseInt(serialStr, 10);
+      if (!isNaN(serialNum) && serialNum > max) max = serialNum;
     });
-    // Month + Alpha format (e.g. 03A)
-    const month = String(new Date().getMonth() + 1).padStart(2, '0');
-    return `LN-P-AI-26-${month}A-${String(max + 1).padStart(3,'0')}`;
-  } catch { return 'LN-P-AI-26-03A-001'; }
+    
+    return `${prefix}${String(max + 1).padStart(3,'0')}`;
+  } catch { return `LN-P-AI-26-03A-001`; }
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -912,7 +924,9 @@ async function genProspectId() {
 // ════════════════════════════════════════════════════════════════════════
 function openAddProspect() {
   const planOpts = Object.entries(PLANS).map(([k,v]) => `<option value="${k}">${v}</option>`).join('');
-  
+  const month = String(new Date().getMonth() + 1).padStart(2, '0');
+  const defaultBatch = `${month}A`;
+
   openModal('Initialize Target Acquisition (Manual Fallback)', `
   <div class="modal-grid">
       <div>
@@ -944,19 +958,6 @@ function openAddProspect() {
                       <option value="Other">Other</option>
                   </select></div>
           </div>
-          <div class="fi-row">
-              <div class="fg"><label class="fl">Headcount</label>
-                  <select class="fi" id="ap-size">
-                      <option value="1-10">1-10 (Sweet Spot)</option>
-                      <option value="11-50">11-50 (Valid)</option>
-                      <option value="51+">51+ (Risk)</option>
-                  </select></div>
-              <div class="fg"><label class="fl">Funding</label>
-                  <select class="fi" id="ap-fund">
-                      <option>Pre-seed</option><option>Seed</option>
-                      <option>Series A</option><option>Series B+</option><option>Bootstrapped</option>
-                  </select></div>
-          </div>
       </div>
 
       <div>
@@ -976,26 +977,16 @@ function openAddProspect() {
                   <option value="ai-lite">🔵 AI-Lite (Missing Waivers)</option>
                   <option value="protected">⚪ Protected (Low Priority)</option>
               </select></div>
-          <div class="fg"><label class="fl">Legal Gap Analysis (The "Why")</label>
-              <textarea class="fi" id="ap-gap-text" rows="2" placeholder="e.g. Missing §14 agent liability waiver..."></textarea></div>
           
           <div class="fg"><label class="fl" style="color:var(--gold)">Personalized Hook (The Spear) *</label>
               <textarea class="fi" id="ap-hook" rows="3" style="border-color:var(--gold-mid)" placeholder="Saw that your agents execute [X]..."></textarea></div>
 
           <div class="section-sub" style="margin-top:20px">Gate 3: Post-Reveal & Logistics</div>
           <div class="fi-row">
-              <div class="fg"><label class="fl">Batch ID</label>
-                  <input type="text" class="fi" id="ap-batch" value="03A"></div>
+              <div class="fg"><label class="fl">Batch ID (MM-Alpha)</label>
+                  <input type="text" class="fi" id="ap-batch" value="${defaultBatch}"></div>
               <div class="fg"><label class="fl">Intended Plan</label>
                   <select class="fi" id="ap-plan">${planOpts}</select></div>
-          </div>
-          <div style="display:flex; gap:20px; flex-wrap:wrap;">
-              <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
-                  <input type="checkbox" id="ap-chk-verify"> Email Verified
-              </label>
-              <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
-                  <input type="checkbox" id="ap-chk-direct"> Direct Email
-              </label>
           </div>
       </div>
   </div>
@@ -1008,12 +999,13 @@ function openAddProspect() {
 async function saveNewProspect() {
   const email = $('ap-email')?.value?.trim().toLowerCase();
   const hook  = $('ap-hook')?.value?.trim();
+  const batch = $('ap-batch')?.value?.trim() || '03A';
 
   if (!email) { toast('Email is required', 'error'); return; }
   if (!hook) { toast('Personalized Hook (The Spear) is mandatory.', 'error'); return; }
 
   try {
-    const pid  = await genProspectId();
+    const pid  = await genProspectId(batch);
     const data = {
       founderName:      $('ap-name')?.value?.trim()    || '',
       email,
@@ -1022,27 +1014,17 @@ async function saveNewProspect() {
       website:          $('ap-web')?.value?.trim()     || '',
       jobTitle:         $('ap-title')?.value?.trim()   || '',
       geography:        $('ap-geo')?.value             || 'US',
-      headcount:        $('ap-size')?.value            || '1-10',
-      fundingStage:     $('ap-fund')?.value            || 'Seed',
-      
+      batchNumber:      batch,
       aiNative:         $('ap-chk-native')?.checked    || false,
       externalAI:       $('ap-chk-ext')?.checked       || false,
       legalGapStatus:   $('ap-gap-status')?.value      || 'generic',
-      legalGapAnalysis: $('ap-gap-text')?.value?.trim() || '',
       personalizedHook: hook,
       scannerLink:      `https://lexnovahq.com/scanner.html?pid=${pid}`,
-      
-      emailVerified:    $('ap-chk-verify')?.checked    || false,
-      directEmail:      $('ap-chk-direct')?.checked    || false,
-
-      batchNumber:      $('ap-batch')?.value?.trim()   || '03A',
       intendedPlan:     $('ap-plan')?.value            || 'agentic_shield',
       status:           'Cold',
       prospectId:       pid,
       emailsSent:       0,
       emailLog:         [],
-      scannerClicked:   false,
-      scannerCompleted: false,
       addedAt:          new Date().toISOString(),
       updatedAt:        new Date().toISOString()
     };
@@ -1052,7 +1034,7 @@ async function saveNewProspect() {
         data.hotFlag = true;
     }
 
-    // Write using pid as Doc ID
+    // CREATE DOCUMENT WITH PROSPECT ID AS THE NAME
     await db.collection('prospects').doc(pid).set(data, { merge: true });
     allProspects.push({ id: pid, ...data });
     closeModal();
