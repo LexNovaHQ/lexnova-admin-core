@@ -214,45 +214,9 @@ tbody td.dim{color:var(--marble-dim)}
 #toast.success{background:rgba(90,138,106,.1);border-color:var(--green);color:#7ab88a}
 #toast.error{background:rgba(138,58,58,.1);border-color:var(--red);color:#d47a7a}
 
-/* ── DASHBOARD SPECIFIC ─────────────────────────────────── */
-.capacity-bar{height:6px;background:var(--surface2);border:1px solid var(--border);margin:6px 0}
-.capacity-fill{height:100%;background:var(--gold);transition:width .5s}
-.ritual-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.ritual-item{background:var(--surface2);border:1px solid var(--border);padding:12px 14px}
-.ritual-label{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--marble-dim);margin-bottom:6px}
-.ritual-input{width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--marble);font-size:18px;font-family:'Cormorant Garamond',serif;padding:2px 0;outline:none}
-.ritual-input:focus{border-bottom-color:var(--gold)}
-
-/* ── OUTREACH SPECIFIC ──────────────────────────────────── */
-.pipeline-funnel{display:flex;gap:0}
-.pf-stage{flex:1;padding:12px 8px;background:var(--surface);border:1px solid var(--border);text-align:center;border-left:none}
-.pf-stage:first-child{border-left:1px solid var(--border)}
-.pf-stage .pf-num{font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--marble);display:block}
-.pf-stage .pf-label{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--marble-dim);display:block;margin-top:2px}
-.action-queue{background:var(--surface);border:1px solid var(--border)}
-.aq-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid rgba(197,160,89,.05);font-size:11px}
-.aq-row:last-child{border-bottom:none}
-.aq-count{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--gold)}
-.email-counter{display:flex;gap:16px}
-.ec-block{flex:1;background:var(--surface);border:1px solid var(--border);padding:14px}
-.ec-label{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--marble-dim);margin-bottom:6px}
-.ec-val{font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--marble)}
-.ec-limit{font-size:10px;color:var(--marble-faint)}
-.batch-tbl{width:100%;border-collapse:collapse;font-size:11px}
-.batch-tbl th{padding:7px 10px;font-size:8px;letter-spacing:.15em;text-transform:uppercase;color:var(--marble-dim);text-align:left;border-bottom:1px solid var(--border)}
-.batch-tbl td{padding:8px 10px;border-bottom:1px solid rgba(197,160,89,.04);color:var(--marble)}
-
-/* ── RADAR SPECIFIC ─────────────────────────────────────── */
-.radar-entry{background:var(--surface);border:1px solid var(--border);padding:14px 16px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
-.radar-title{font-size:12px;color:var(--marble);margin-bottom:3px}
-.radar-meta{font-size:9px;color:var(--marble-faint)}
-.exp-flag-r{font-size:10px;color:#d47a7a}
-.exp-flag-y{font-size:10px;color:#c4a840}
-
 /* ── MISC ─────────────────────────────────────── */
 .loading{color:var(--marble-faint);font-size:11px;padding:40px;text-align:center;letter-spacing:.1em}
 .empty{color:var(--marble-faint);font-size:11px;padding:40px;text-align:center;border:1px solid var(--border)}
-/* Hide elements safely needed by JS */
 .js-hidden{display:none;}
 </style>
 </head>
@@ -264,11 +228,11 @@ tbody td.dim{color:var(--marble-dim)}
     <div class="login-sub">Admin Console</div>
     <div class="fg">
       <label>Email</label>
-      <input type="email" id="loginEmail" placeholder="your@email.com" onkeydown="if(event.key==='Enter')login()">
+      <input type="email" id="loginEmail" placeholder="your@email.com">
     </div>
     <div class="fg">
       <label>Password</label>
-      <input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
+      <input type="password" id="loginPassword" placeholder="••••••••">
     </div>
     <div id="loginError"></div>
     <button class="btn btn-primary btn-full" onclick="login()">Access Console</button>
@@ -276,41 +240,19 @@ tbody td.dim{color:var(--marble-dim)}
 </div>
 
 <div id="adminPanel">
-
   <div id="sidebar">
-    <div class="sb-logo">
-      <div class="sb-logo-name">Lex Nova</div>
-      <div class="sb-logo-sub">Command Center</div>
-    </div>
-
+    <div class="sb-logo"><div class="sb-logo-name">Lex Nova</div></div>
     <div class="sb-section">Phase 1: Hunting</div>
-    <div class="nav-item active" data-tab="dashboard" onclick="nav('dashboard')">
-      <span class="nav-icon">▣</span> Command Center
-    </div>
-    <div class="nav-item" data-tab="hunt" onclick="nav('hunt')">
-      <span class="nav-icon">🎯</span> The Hunt
-    </div>
-
+    <div class="nav-item active" data-tab="dashboard" onclick="nav('dashboard')"><span class="nav-icon">▣</span> Command Center</div>
+    <div class="nav-item" data-tab="hunt" onclick="nav('hunt')"><span class="nav-icon">🎯</span> The Hunt</div>
     <div class="sb-section">Phase 2: Closing</div>
-    <div class="nav-item" data-tab="deals" onclick="nav('deals')">
-      <span class="nav-icon">🔥</span> Active Deals
-    </div>
-
+    <div class="nav-item" data-tab="deals" onclick="nav('deals')"><span class="nav-icon">🔥</span> Active Deals</div>
     <div class="sb-section">Phase 3: Building</div>
-    <div class="nav-item" data-tab="factory" onclick="nav('factory')">
-      <span class="nav-icon">⚡</span> The Factory
-    </div>
-
+    <div class="nav-item" data-tab="factory" onclick="nav('factory')"><span class="nav-icon">⚡</span> The Factory</div>
     <div class="sb-section">Phase 4: Expanding</div>
-    <div class="nav-item" data-tab="syndicate" onclick="nav('syndicate')">
-      <span class="nav-icon">🛡️</span> The Syndicate
-    </div>
-
+    <div class="nav-item" data-tab="syndicate" onclick="nav('syndicate')"><span class="nav-icon">🛡️</span> The Syndicate</div>
     <div class="sb-section">System</div>
-    <div class="nav-item" data-tab="engine" onclick="nav('engine')">
-      <span class="nav-icon">⚙️</span> Engine Room
-    </div>
-
+    <div class="nav-item" data-tab="engine" onclick="nav('engine')"><span class="nav-icon">⚙️</span> Engine Room</div>
     <div class="sb-footer">
       <div class="admin-id" id="adminEmail">—</div>
       <button class="btn btn-outline btn-sm btn-full" onclick="signOut()">Sign Out</button>
@@ -318,694 +260,79 @@ tbody td.dim{color:var(--marble-dim)}
   </div>
 
   <div id="main">
-
-    <div id="alertStrip" class="hidden"></div>
-
     <div class="page-header">
       <div class="page-header-row">
-        <div>
-          <div class="page-title" id="pageTitle">Dashboard</div>
-          <div class="page-sub" id="pageSub">Command center</div>
-        </div>
-        <div id="pageActions" style="padding-bottom:16px"></div>
+        <div><div class="page-title" id="pageTitle">Dashboard</div><div class="page-sub" id="pageSub">Command center</div></div>
+        <div id="pageActions"></div>
       </div>
     </div>
 
     <div id="tab-dashboard" class="tab-content active">
-      <div class="card-grid card-grid-4" style="margin-bottom:20px">
-        <div class="card card-gold">
-          <div class="card-label">Monthly Recurring Rev</div>
-          <div class="card-value" id="d-mrr">$0</div>
-          <div class="card-sub" id="d-mrr-sub">0 active maintenance</div>
-        </div>
-        <div class="card">
-          <div class="card-label">Capacity / Bandwidth</div>
-          <div class="card-value" id="d-cap-current">0</div>
-          <div class="capacity-bar"><div class="capacity-fill" id="d-cap-bar" style="width:0%"></div></div>
-          <div style="font-size:9px;color:var(--marble-dim)" id="d-cap-label">0 / 0 slots</div>
-        </div>
-        <div class="card card-gold" style="border-color:rgba(212,122,122,0.4); background:rgba(212,122,122,0.05);">
-          <div class="card-label" style="color:#d47a7a;">Actionable Gaps</div>
-          <div class="card-value" id="d-gaps" style="color:#d47a7a;">0</div>
-          <div class="card-sub" style="color:rgba(212,122,122,0.7);" id="d-gaps-sub">$0 Upsell Pipeline</div>
-        </div>
-        <div class="card" style="border-color:rgba(212,122,122,0.4);">
-          <div class="card-label" style="color:#d47a7a;">SLA Critical</div>
-          <div class="card-value" id="d-sla-crit" style="color:#d47a7a;">0</div>
-          <div class="card-sub" style="color:rgba(212,122,122,0.7);">Builds < 12h remaining</div>
-        </div>
-      </div>
-
-      <div class="card-grid card-grid-4" style="margin-bottom:20px">
-        <div class="ec-block">
-          <div class="ec-label">Total Emails Sent</div>
-          <div class="ec-val" id="oc-emails-all">0</div>
-          <div class="ec-limit">All time outbound</div>
-        </div>
-        <div class="ec-block">
-          <div class="ec-label">Scanner Clicks</div>
-          <div class="ec-val" id="oc-clicks-all" style="color:var(--gold)">0</div>
-          <div class="ec-limit" id="oc-click-rate">—% click rate</div>
-        </div>
-        <div class="ec-block">
-          <div class="ec-label">Scanner Completions</div>
-          <div class="ec-val" id="oc-comps-all" style="color:#d4a850">0</div>
-          <div class="ec-limit" id="oc-comp-rate">—% completion rate</div>
-        </div>
-        <div class="ec-block">
-          <div class="ec-label">Converted (Paid)</div>
-          <div class="ec-val" id="oc-paid-all" style="color:var(--green)">0</div>
-          <div class="ec-limit" id="oc-close-rate">—% close rate</div>
-        </div>
-      </div>
-
-      <div class="card-grid card-grid-2" style="margin-bottom:20px">
-        <div>
-          <div class="section-title" style="margin-top:0">The Scanner Funnel (Inbound)</div>
-          <div class="pipeline-funnel">
-            <div class="pf-stage"><span class="pf-num" id="sf-clicks">0</span><span class="pf-label">Clicked</span></div>
-            <div class="pf-stage"><span class="pf-num" id="sf-comps">0</span><span class="pf-label">Completed</span></div>
-            <div class="pf-stage" style="background:var(--gold-dim); border-color:var(--gold);"><span class="pf-num" style="color:var(--gold);" id="sf-paid">0</span><span class="pf-label" style="color:var(--gold);">Paid</span></div>
-          </div>
-          <div style="text-align:right; font-size:10px; color:var(--marble-dim); margin-top:4px;" id="sf-rate">— Conversion</div>
-        </div>
-        <div>
-          <div class="section-title" style="margin-top:0">Outreach Pipeline (Outbound)</div>
-          <div class="pipeline-funnel">
-            <div class="pf-stage"><span class="pf-num" id="of-cold">0</span><span class="pf-label">Cold</span></div>
-            <div class="pf-stage"><span class="pf-num" id="of-warm">0</span><span class="pf-label">Warm</span></div>
-            <div class="pf-stage"><span class="pf-num" id="of-hot">0</span><span class="pf-label">Hot</span></div>
-            <div class="pf-stage"><span class="pf-num" id="of-replied">0</span><span class="pf-label">Replied</span></div>
-            <div class="pf-stage"><span class="pf-num" id="of-neg">0</span><span class="pf-label">Negotiating</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card-grid card-grid-2" style="margin-bottom:20px">
-        <div>
-          <div class="section-title" style="margin-top:0; color:#d47a7a;">SLA Danger Zone</div>
-          <div class="section-sub">Active builds nearing 48h deadline</div>
-          <div class="tbl-wrap" style="border-color:rgba(212,122,122,0.3);">
-            <table>
-              <thead><tr><th>Client</th><th>Status</th><th>Time Left</th></tr></thead>
-              <tbody id="d-sla-table"><tr><td colspan="3" class="loading">Calculating...</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-        <div>
-          <div class="section-title" style="margin-top:0">Today's Actions</div>
-          <div class="action-queue">
-            <div class="aq-row"><span>Follow-Ups Due Today</span><span class="aq-count" id="aq-today">0</span></div>
-            <div class="aq-row"><span>Follow-Ups Overdue</span><span class="aq-count cd-over" id="aq-over">0</span></div>
-            <div class="aq-row"><span>LinkedIn Pending</span><span class="aq-count" id="aq-li">0</span></div>
-            <div class="aq-row"><span>Unmatched Inbound</span><span class="aq-count" id="aq-inbound">0</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-top:24px">
-        <div class="section-title">Sunday Ritual</div>
-        <div class="section-sub">Weekly operating metrics — Input the manual data, the engine does the rest.</div>
-        <div class="card-grid card-grid-2">
-          <div class="ritual-grid">
-            <div class="ritual-item">
-              <div class="ritual-label" style="color:var(--gold);">Outreach Volume Sent</div>
-              <input class="ritual-input" id="r-outreach" type="number" placeholder="0" onchange="if(typeof saveRitual==='function') saveRitual()">
-              <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Manual: Check Instantly/Lemlist</div>
-            </div>
-            <div class="ritual-item">
-              <div class="ritual-label" style="color:var(--gold);">Replies Received</div>
-              <input class="ritual-input" id="r-replies" type="number" placeholder="0" onchange="if(typeof saveRitual==='function') saveRitual()">
-              <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Manual: Total valid responses</div>
-            </div>
-          </div>
-          <div class="ritual-grid">
-            <div class="ritual-item" style="background:transparent; border-style:dashed;">
-              <div class="ritual-label">Scanner Forms (Week)</div>
-              <div class="card-value" id="r-auto-forms" style="font-size:24px;">0</div>
-            </div>
-            <div class="ritual-item" style="background:transparent; border-style:dashed;">
-              <div class="ritual-label">Deals Closed (Week)</div>
-              <div class="card-value" id="r-auto-deals" style="font-size:24px;">0</div>
-            </div>
-            <div class="ritual-item" style="background:transparent; border-style:dashed; grid-column:span 2;">
-              <div class="ritual-label">Pipeline Value</div>
-              <div class="card-value" id="r-auto-pipe" style="font-size:24px; color:var(--gold);">$0</div>
-              <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Total active outreach + flagship value</div>
-            </div>
-          </div>
-        </div>
+      <div class="card-grid card-grid-4">
+        <div class="card"><div class="card-label">MRR</div><div class="card-value" id="d-mrr">$0</div></div>
+        <div class="card"><div class="card-label">Capacity</div><div class="card-value" id="d-cap-current">0</div></div>
+        <div class="card"><div class="card-label">Action Gaps</div><div class="card-value" id="d-gaps">0</div></div>
+        <div class="card"><div class="card-label">SLA Crit</div><div class="card-value" id="d-sla-crit" style="color:#d47a7a">0</div></div>
       </div>
     </div>
 
     <div id="tab-hunt" class="tab-content">
-      <div class="filter-bar" style="margin-bottom:20px; justify-content:space-between;">
-        <div style="display:flex; gap:10px; align-items:center;">
-          <input type="text" class="fi" placeholder="Search targets…" id="op-search" oninput="if(typeof filterProspects==='function') filterProspects()">
-          <select class="fi" id="op-batch" onchange="if(typeof filterProspects==='function') filterProspects()"><option value="">All Batches</option></select>
-          <select class="fi" id="op-status" onchange="if(typeof filterProspects==='function') filterProspects()">
-             <option value="">All Status</option><option>Cold</option><option>Warm</option><option>Hot</option><option>Replied</option><option>Negotiating</option><option>Converted</option><option>Dead</option>
-          </select>
-          <select class="fi" id="op-branch" onchange="if(typeof filterProspects==='function') filterProspects()"><option value="">All Branches</option><option>2A</option><option>2B</option><option>2C</option><option>2D</option></select>
-          <select class="fi" id="op-funding" onchange="if(typeof filterProspects==='function') filterProspects()"><option value="">All Stages</option><option>Pre-seed</option><option>Seed</option><option>Series A</option><option>Series B+</option><option>Bootstrapped</option></select>
-          <select class="fi" id="op-scanner" onchange="if(typeof filterProspects==='function') filterProspects()"><option value="">Scanner: All</option><option value="clicked">Clicked</option><option value="completed">Completed</option><option value="none">Not Yet</option></select>
-          <select class="fi" id="op-sort" onchange="if(typeof filterProspects==='function') filterProspects()">
-            <option value="nextDate">Next Action Date</option>
-            <option value="dateAdded">Date Added</option>
-            <option value="score">Scanner Score</option>
-            <option value="company">Company A-Z</option>
-          </select>
-        </div>
-        <button class="btn btn-primary" onclick="if(typeof openAddProspect==='function') openAddProspect()">+ Add Prospect</button>
-      </div>
-
+      <div class="filter-bar"><input type="text" class="fi" placeholder="Search targets…" id="op-search" oninput="filterProspects()"></div>
       <div class="tbl-wrap">
         <table>
-          <thead>
-            <tr><th>Prospect</th><th>Company</th><th>Batch</th><th>Status</th><th>Branch</th><th>Scanner</th><th>LinkedIn</th><th>Next Action</th><th>Emails Sent</th></tr>
-          </thead>
-          <tbody id="op-tbody"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
-        </table>
-      </div>
-
-      <div class="section-title" style="margin-top:32px;">Batch Performance</div>
-      <div class="tbl-wrap">
-        <table class="batch-tbl">
-          <thead>
-            <tr><th>Batch</th><th>Prospects</th><th>Emails Sent</th><th>Clicks</th><th>Completions</th><th>Conversions</th><th>ROI (Close %)</th></tr>
-          </thead>
-          <tbody id="oc-batches"><tr><td colspan="7" class="loading">No batches yet</td></tr></tbody>
+          <thead><tr><th>Prospect</th><th>Company</th><th>Batch</th><th>Status</th><th>Scanner</th><th>LinkedIn</th><th>Next Action</th></tr></thead>
+          <tbody id="op-tbody"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
         </table>
       </div>
     </div>
 
     <div id="tab-deals" class="tab-content">
-      <div class="view-btns" style="margin-bottom:20px">
-        <button class="view-btn active" onclick="document.getElementById('tab-deals').querySelector('.k-wrap').classList.remove('hidden'); document.getElementById('tab-deals-legacy').classList.add('hidden');">The War Board</button>
-        <button class="view-btn" onclick="document.getElementById('tab-deals').querySelector('.k-wrap').classList.add('hidden'); document.getElementById('tab-deals-legacy').classList.remove('hidden');">Legacy Data Views</button>
-      </div>
-
       <div class="k-wrap">
-        <div class="k-col">
-          <div class="k-head"><span class="k-title">The Magazine</span><span class="k-count" id="kd-c1">0</span></div>
-          <div class="k-body" id="kd-col-1"><div class="loading">Logic mapping pending...</div></div>
-        </div>
-        <div class="k-col">
-          <div class="k-head"><span class="k-title">Downrange</span><span class="k-count" id="kd-c2">0</span></div>
-          <div class="k-body" id="kd-col-2"></div>
-        </div>
-        <div class="k-col">
-          <div class="k-head"><span class="k-title" style="color:#d4a850">Engaged (Tripwire)</span><span class="k-count" id="kd-c3">0</span></div>
-          <div class="k-body" id="kd-col-3"></div>
-        </div>
-        <div class="k-col">
-          <div class="k-head"><span class="k-title" style="color:#d47a7a">Decision Desk</span><span class="k-count" id="kd-c4">0</span></div>
-          <div class="k-body" id="kd-col-4"></div>
-        </div>
-        <div class="k-col" style="border-color:var(--gold-mid)">
-          <div class="k-head" style="background:var(--gold-dim)"><span class="k-title" style="color:var(--gold)">Closed Won</span><span class="k-count" id="kd-c5">0</span></div>
-          <div class="k-body" id="kd-col-5"></div>
-        </div>
-      </div>
-
-      <div id="tab-deals-legacy" class="hidden">
-        <div class="section-title">Flagship Pipeline</div>
-        <div class="tbl-wrap" style="margin-bottom:20px">
-          <table>
-            <thead><tr><th>Name</th><th>Company</th><th>Status</th><th>Price Quoted</th><th>Follow-Up Deadline</th><th>Next Step</th><th>Added</th></tr></thead>
-            <tbody id="fs-tbody"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
-          </table>
-        </div>
-        <div class="section-title">Inbound Scanner Leads</div>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th>Name</th><th>Email</th><th>Company</th><th>Type</th><th>Status</th><th>Source</th><th>Ext Score</th><th>Int Score</th><th>Date</th><th>Actions</th></tr></thead>
-            <tbody id="l-tbody"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
-          </table>
-        </div>
+        <div class="k-col"><div class="k-head"><span class="k-title">The Magazine</span><span class="k-count" id="kd-c1">0</span></div><div class="k-body" id="kd-col-1"></div></div>
+        <div class="k-col"><div class="k-head"><span class="k-title">Downrange</span><span class="k-count" id="kd-c2">0</span></div><div class="k-body" id="kd-col-2"></div></div>
+        <div class="k-col"><div class="k-head"><span class="k-title">Engaged</span><span class="k-count" id="kd-c3">0</span></div><div class="k-body" id="kd-col-3"></div></div>
+        <div class="k-col"><div class="k-head"><span class="k-title">Decision</span><span class="k-count" id="kd-c4">0</span></div><div class="k-body" id="kd-col-4"></div></div>
+        <div class="k-col"><div class="k-head"><span class="k-title">Won</span><span class="k-count" id="kd-c5">0</span></div><div class="k-body" id="kd-col-5"></div></div>
       </div>
     </div>
 
     <div id="tab-factory" class="tab-content">
-      <div class="view-btns" style="margin-bottom:20px">
-        <button class="view-btn active" onclick="document.getElementById('fac-board').classList.remove('hidden'); document.getElementById('fac-table').classList.add('hidden'); this.classList.add('active'); this.nextElementSibling.classList.remove('active');">SOP Delivery Board</button>
-        <button class="view-btn" onclick="document.getElementById('fac-board').classList.add('hidden'); document.getElementById('fac-table').classList.remove('hidden'); this.classList.add('active'); this.previousElementSibling.classList.remove('active');">SLA Table View</button>
-      </div>
-
-      <div id="fac-board" class="k-wrap">
-        <div class="k-col">
-          <div class="k-head"><span class="k-title">Intake Holding</span><span class="k-count" id="kf-c1">0</span></div>
-          <div class="k-body" id="kf-col-1"><div class="loading">Logic mapping pending...</div></div>
-        </div>
-        <div class="k-col">
-          <div class="k-head"><span class="k-title">The Forge</span><span class="k-count" id="kf-c2">0</span></div>
-          <div class="k-body" id="kf-col-2"></div>
-        </div>
-        <div class="k-col">
-          <div class="k-head"><span class="k-title" style="color:#d47a7a">Pre-Flight Review</span><span class="k-count" id="kf-c3">0</span></div>
-          <div class="k-body" id="kf-col-3"></div>
-        </div>
-        <div class="k-col">
-          <div class="k-head"><span class="k-title" style="color:var(--green)">Portal & Delivery</span><span class="k-count" id="kf-c4">0</span></div>
-          <div class="k-body" id="kf-col-4"></div>
-        </div>
-      </div>
-
-      <div id="fac-table" class="hidden">
-        <div class="filter-bar">
-          <input type="text" class="fi" placeholder="Search name or email…" id="c-search" oninput="if(typeof filterClients==='function') filterClients()">
-        </div>
-        <div class="tbl-wrap">
-          <table>
-            <thead>
-              <tr><th>Client</th><th>Company</th><th>Plan</th><th>Status</th><th>SLA Clock</th><th>EL Accepted</th><th>Reg. Jurisdiction</th><th>Radar</th><th>Submitted</th></tr>
-            </thead>
-            <tbody id="c-tbody"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
-          </table>
-        </div>
+      <div class="k-wrap">
+        <div class="k-col"><div class="k-head"><span class="k-title">Intake</span><span class="k-count" id="kf-c1">0</span></div><div class="k-body" id="kf-col-1"></div></div>
+        <div class="k-col"><div class="k-head"><span class="k-title">Forge</span><span class="k-count" id="kf-c2">0</span></div><div class="k-body" id="kf-col-2"></div></div>
+        <div class="k-col"><div class="k-head"><span class="k-title">Review</span><span class="k-count" id="kf-c3">0</span></div><div class="k-body" id="kf-col-3"></div></div>
+        <div class="k-col"><div class="k-head"><span class="k-title">Delivery</span><span class="k-count" id="kf-c4">0</span></div><div class="k-body" id="kf-col-4"></div></div>
       </div>
     </div>
-
-    <div id="tab-syndicate" class="tab-content">
-      <div class="section-title" style="margin-top:0">Client Exposure Matrix (The Upsell Radar)</div>
-      <div style="font-size:10px;color:var(--marble-dim);margin-bottom:14px;letter-spacing:.08em">
-        Clients with at least one 🔴 Exposed or 🟡 Scheduled regulation. Target these for $497 Gap Reviews.
-      </div>
-      <div class="tbl-wrap" style="margin-bottom:32px">
-        <table>
-          <thead><tr><th>Client</th><th>Plan</th><th>🔴 Exposed</th><th>🟡 Scheduled</th><th>Maintenance</th><th>Action</th></tr></thead>
-          <tbody id="rv-exposure-tbody"><tr><td colspan="6" class="loading">Calculating…</td></tr></tbody>
-        </table>
-      </div>
-
-      <div class="card-grid card-grid-2">
-        <div>
-          <div class="section-title" style="margin-top:0">Active Shields (Maintenance)</div>
-          <div id="fin-conc-list"><div class="loading">Loading…</div></div>
-        </div>
-        <div>
-          <div class="section-title" style="margin-top:0">The Referral Engine</div>
-          <div class="tbl-wrap">
-            <div class="empty">Referral tracking maps to Detail Panel.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div id="tab-engine" class="tab-content">
-      <div class="view-btns" style="margin-bottom:20px">
-        <button class="view-btn active" onclick="setEngineView('finance', this)">Finance</button>
-        <button class="view-btn" onclick="setEngineView('radar', this)">Regulation DB</button>
-        <button class="view-btn" onclick="setEngineView('content', this)">Content</button>
-        <button class="view-btn" onclick="setEngineView('settings', this)">Settings</button>
-      </div>
-
-      <div id="ev-finance">
-        <div class="card-grid card-grid-4" style="margin-bottom:20px">
-          <div class="card card-gold"><div class="card-label">MRR</div><div class="card-value" id="fin-mrr">$0</div><div class="card-sub" id="fin-mrr-sub">Maintenance only</div></div>
-          <div class="card"><div class="card-label">ARR</div><div class="card-value" id="fin-arr">$0</div><div class="card-sub">MRR × 12</div></div>
-          <div class="card"><div class="card-label">Total Collected</div><div class="card-value" id="fin-total">$0</div><div class="card-sub" id="fin-total-sub">All time</div></div>
-          <div class="card"><div class="card-label">Avg Deal Value</div><div class="card-value" id="fin-avg">$0</div><div class="card-sub">Per client</div></div>
-        </div>
-        <div class="section-title">Revenue by Plan</div>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th>Plan</th><th>Clients</th><th>Revenue</th><th>% of Total</th></tr></thead>
-            <tbody id="fin-by-plan"><tr><td colspan="4" class="loading">Loading…</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div id="ev-radar" class="hidden">
-        <button class="btn btn-primary" style="margin-bottom:16px" onclick="if(typeof openAddRegulation==='function') openAddRegulation()">+ Add Regulation</button>
-        <div id="rv-list"><div class="loading">Loading regulations…</div></div>
-      </div>
-
-      <div id="ev-content" class="hidden">
-        <button class="btn btn-primary" style="margin-bottom:16px" onclick="if(typeof openAddContent==='function') openAddContent()">+ Add Post</button>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th>Topic</th><th>Status</th><th>Posted</th><th>Notes</th><th>Actions</th></tr></thead>
-            <tbody id="ct-tbody"><tr><td colspan="5" class="loading">Loading...</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div id="ev-settings" class="hidden">
-        <div class="card-grid card-grid-2">
-          <div>
-            <div class="section-title" style="margin-top:0">Webhook URLs</div>
-            <div class="fg"><label class="fl">Scenario 2 (Checkout)</label><input type="text" id="wh-s2" class="fi"></div>
-            <div class="fg"><label class="fl">Scenario 3 (Post-Payment)</label><input type="text" id="wh-s3" class="fi"></div>
-            <div class="fg"><label class="fl">Scenario 4 (Delivery)</label><input type="text" id="wh-s4" class="fi"></div>
-            <div class="fg"><label class="fl">Capacity Cap</label><input type="number" id="s-capacity" class="fi"></div>
-            <button class="btn btn-primary" onclick="if(typeof saveSettings==='function') saveSettings()">Save Settings</button>
-          </div>
-          <div>
-            <div class="section-title" style="margin-top:0">Admin Access</div>
-            <div class="tbl-wrap" style="margin-bottom:14px">
-              <table><thead><tr><th>Email</th><th>Role</th><th>Action</th></tr></thead><tbody id="s-admins"><tr><td colspan="3" class="loading">Loading…</td></tr></tbody></table>
-            </div>
-            <div class="fi-row" style="margin-bottom:10px">
-              <input type="email" id="s-new-admin" class="fi" placeholder="email@domain.com">
-              <select id="s-new-role" class="fi"><option value="superadmin">Superadmin</option><option value="architect">Architect</option><option value="va">VA</option></select>
-            </div>
-            <button class="btn btn-outline" onclick="if(typeof addAdmin==='function') addAdmin()">+ Add Admin</button>
-          </div>
-        </div>
-      </div>
-
-      <script>
-        function setEngineView(view, el) {
-          document.querySelectorAll('#tab-engine .view-btn').forEach(b => b.classList.remove('active'));
-          el.classList.add('active');
-          ['finance','radar','content','settings'].forEach(v => {
-            document.getElementById('ev-' + v).classList.toggle('hidden', v !== view);
-          });
-        }
-      </script>
-    </div>
-
-    <div class="js-hidden">
-      <tbody id="oh-tbody"></tbody>
-      <tbody id="ofu-tbody"></tbody>
-      <tbody id="oin-tbody"></tbody>
-      <tbody id="od-tbody"></tbody>
-      <tbody id="d-recent-clients"></tbody>
-      <span id="oc-avg-fu"></span>
-      <input id="r-tally">
-      <div id="fin-conc-warn"></div>
-    </div>
-
   </div>
 </div>
 
-<div id="detailPanel">
-  <div class="detail-header">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div>
-        <div class="detail-name" id="dp-name">—</div>
-        <div class="detail-meta" id="dp-email">—</div>
-        <div class="detail-plan-badge" id="dp-plan">—</div>
-      </div>
-      <button class="btn btn-outline btn-sm" onclick="closeDetail()">✕ Close</button>
-    </div>
-  </div>
-  
-  <div class="sub-tabs">
-    <div class="sub-tab active" onclick="detailTab('overview',this)">Overview</div>
-    <div class="sub-tab" onclick="detailTab('intake',this)">Intake</div>
-    <div class="sub-tab" onclick="detailTab('checklist',this)">Checklist</div>
-    <div class="sub-tab" onclick="detailTab('documents',this)">Documents</div>
-    <div class="sub-tab" onclick="detailTab('radar',this)">Radar</div>
-    <div class="sub-tab" onclick="detailTab('gap',this)">Gap Review</div>
-    <div class="sub-tab" onclick="detailTab('financials',this)">Financials</div>
-    <div class="sub-tab" onclick="detailTab('activity',this)">Activity</div>
-    <div class="sub-tab" onclick="detailTab('referrals',this)">The Syndicate</div>
-    <div class="sub-tab" onclick="detailTab('debrief',this)">Debrief</div>
-  </div>
-  
-  <div class="detail-body">
-    <div id="dt-overview" class="detail-section">
-      <div class="el-lock" id="dp-el-lock">⚠ Engagement Letter not accepted — production locked until EL is confirmed.</div>
-      <div class="el-status-block">
-        <div class="el-status-row"><span class="mono" style="font-size:8px">Pre-Payment EL</span><span id="dp-el-status" class="el-status-miss">Not Accepted</span></div>
-        <div class="el-status-row" style="margin-top:6px"><span class="mono" style="font-size:8px">Full EL (Post-Intake)</span><span id="dp-el-full" class="el-status-miss">Not Generated</span></div>
-      </div>
-      <div class="fg">
-        <label class="fl">Engagement Reference</label>
-        <div class="eng-ref" id="dp-ref">—</div>
-      </div>
-      <div class="fg">
-        <label class="fl">Status</label>
-        <select class="fi" id="dp-status" onchange="if(typeof onStatusChange==='function') onStatusChange(this.value)">
-          <option value="pending_payment">Pending Payment</option>
-          <option value="payment_received">Payment Received</option> 
-          <option value="intake_received">Intake Received</option>
-          <option value="under_review">Under Review</option>
-          <option value="in_production">In Production</option>
-          <option value="delivered">Delivered</option>
-        </select>
-      </div>
-      <div id="dp-countdowns" style="margin-bottom:14px"></div>
-      <div class="fi-row">
-        <div class="fg">
-          <label class="fl">Registration Jurisdiction</label>
-          <select class="fi" id="dp-reg-jur">
-            <option value="">— Select —</option>
-            <option value="us">United States</option><option value="eu">European Union</option>
-            <option value="uk">United Kingdom</option><option value="ca">Canada</option>
-            <option value="au">Australia</option><option value="sg">Singapore</option>
-            <option value="ae">UAE</option><option value="in">India</option><option value="global">Global</option>
-          </select>
-        </div>
-        <div class="fg">
-          <label class="fl">Plan</label>
-          <select class="fi" id="dp-plan-sel">
-            <option value="agentic_shield">Agentic Shield</option>
-            <option value="workplace_shield">Workplace Shield</option>
-            <option value="complete_stack">Complete Stack</option>
-            <option value="flagship">Flagship</option>
-          </select>
-        </div>
-      </div>
-      <div class="fg">
-        <label class="fl">Operating Jurisdictions</label>
-        <div class="j-wrap" id="dp-op-jurs"></div>
-      </div>
-      <div class="fg">
-        <label class="fl">Admin Notes</label>
-        <textarea class="fi" id="dp-notes" rows="3" placeholder="Internal notes…"></textarea>
-      </div>
-      <button class="btn btn-primary" onclick="if(typeof saveOverview==='function') saveOverview()">Save Overview</button>
-    </div>
-
-    <div id="dt-intake" class="detail-section hidden">
-      <div id="dp-intake-content"><div class="loading">No intake data submitted yet</div></div>
-    </div>
-
-    <div id="dt-checklist" class="detail-section hidden">
-      <div id="dp-el-lock-chk" class="el-lock">⚠ EL not accepted. Cannot begin production.</div>
-      <div id="dp-checklist-items"></div>
-      <button class="btn btn-primary" style="margin-top:14px" onclick="if(typeof saveChecklist==='function') saveChecklist()">Save Checklist</button>
-    </div>
-
-    <div id="dt-documents" class="detail-section hidden">
-      <div class="fg" style="margin-bottom:20px; padding-bottom:14px; border-bottom:1px solid var(--border);">
-        <label class="fl" style="color:var(--gold);">Delivery Walkthrough Video (Clipchamp/Loom)</label>
-        <input type="text" id="doc-video-link" class="fi" placeholder="https://clipchamp.com/watch/...">
-      </div>
-      <div style="display:flex; gap:10px; margin-bottom: 24px;">
-        <button class="btn btn-outline" onclick="if(typeof generateELForDelivery==='function') generateELForDelivery()">+ Draft Stage 2 EL</button>
-        <button class="btn btn-outline" onclick="if(typeof addDocRow==='function') addDocRow()">+ Add Custom Document</button>
-      </div>
-      <div id="docsContainer"></div>
-      <button class="btn btn-primary btn-full" style="margin-top:14px" onclick="if(typeof saveDocuments==='function') saveDocuments()">Deliver All & Close SLA</button>
-    </div>
-
-    <div id="dt-radar" class="detail-section hidden">
-      <div id="dp-radar-list"><div class="loading">Loading radar…</div></div>
-    </div>
-
-    <div id="dt-gap" class="detail-section hidden">
-      <div class="card card-gold" style="margin-bottom:16px; padding:12px 16px;">
-        <div class="card-label">Gap Review Price</div>
-        <div class="card-value" style="font-size:24px;">$497</div>
-        <div class="card-sub">Flat fee for post-delivery compliance updates</div>
-      </div>
-      <div class="fg">
-        <label class="fl">Gap Review Status</label>
-        <select class="fi" id="dp-gap-status">
-          <option value="">None</option>
-          <option value="requested">Requested</option>
-          <option value="invoiced">Invoiced</option>
-          <option value="paid">Paid</option>
-          <option value="delivered">Delivered</option>
-        </select>
-      </div>
-      <div class="fg">
-        <label class="fl">Scope Summary</label>
-        <textarea class="fi" id="dp-gap-scope" rows="4" placeholder="Describe the gap and what the review covers…"></textarea>
-      </div>
-      <div class="fg">
-        <label class="fl">Invoice URL</label>
-        <input type="text" class="fi" id="dp-gap-invoice" placeholder="https://…">
-      </div>
-      <button class="btn btn-primary" onclick="if(typeof saveGap==='function') saveGap()">Save Gap Review</button>
-    </div>
-
-    <div id="dt-financials" class="detail-section hidden">
-      <div class="card" style="margin-bottom:14px">
-        <div class="card-label">Plan Price</div>
-        <div class="card-value" id="dp-price">—</div>
-      </div>
-      <div class="fg">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <label class="fl" style="margin:0">Maintenance Active</label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-            <input type="checkbox" id="dp-maint" onchange="if(typeof toggleMaint==='function') toggleMaint(this.checked)">
-            <span style="font-size:10px;color:var(--marble-dim)">$297/month</span>
-          </label>
-        </div>
-      </div>
-      <div class="fg" id="dp-maint-fields" style="display:none">
-        <div class="fi-row">
-          <div>
-            <label class="fl">Subscription ID</label>
-            <input type="text" class="fi" id="dp-maint-id" placeholder="PayPal sub ID…">
-          </div>
-          <div>
-            <label class="fl">Started</label>
-            <input type="date" class="fi" id="dp-maint-start">
-          </div>
-        </div>
-        <button class="btn btn-outline btn-sm" onclick="if(typeof saveMaint==='function') saveMaint()">Save Maintenance</button>
-      </div>
-    </div>
-
-    <div id="dt-activity" class="detail-section hidden">
-      <div id="dp-activity-log" style="margin-bottom:16px"></div>
-      <div class="fg">
-        <label class="fl">Add Note</label>
-        <textarea class="fi" id="dp-new-note" rows="2" placeholder="Activity note…"></textarea>
-      </div>
-      <button class="btn btn-outline" onclick="if(typeof addActivityNote==='function') addActivityNote()">+ Log Note</button>
-    </div>
-
-    <div id="dt-referrals" class="detail-section hidden">
-      <div class="section-title" style="margin-top:0">The Syndicate</div>
-      <div class="section-sub">Network targets submitted by this client. Reward them when these convert.</div>
-      <div id="dp-ref-list" style="margin-top:16px; margin-bottom: 24px; display:flex; flex-direction:column; gap:12px;"></div>
-      <div class="section-title" style="font-size:14px;margin-top:0; border-top:1px solid var(--border); padding-top:16px;">Manual Add Referral</div>
-      <div class="fi-row3" style="margin-top:10px">
-        <div class="fg"><label class="fl">Company</label><input type="text" class="fi" id="dp-ref-co" placeholder="Company name"></div>
-        <div class="fg"><label class="fl">Email</label><input type="email" class="fi" id="dp-ref-email" placeholder="contact@…"></div>
-        <div class="fg"><label class="fl">Date</label><input type="date" class="fi" id="dp-ref-date"></div>
-      </div>
-      <button class="btn btn-outline" onclick="if(typeof addReferral==='function') addReferral()">+ Add Referral</button>
-    </div>
-
-    <div id="dt-debrief" class="detail-section hidden">
-      <div class="section-title" style="margin-top:0">Deployment Debrief</div>
-      <div class="section-sub">Post-delivery experience feedback and testimonials.</div>
-      <div id="dp-debrief-content" style="margin-top:16px;"></div>
-    </div>
-
-  </div>
-</div>
-
-<div id="prospectPanel">
-  <div class="pp-header">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div>
-        <div class="pp-name" id="pp-name">—</div>
-        <div class="pp-meta" id="pp-meta">—</div>
-      </div>
-      <button class="btn btn-outline btn-sm" onclick="if(typeof closePP==='function') closePP()">✕</button>
-    </div>
-  </div>
-  <div class="pp-body" id="pp-body"></div>
-</div>
-
-<div id="flagshipPanel">
-  <div class="pp-header" style="padding:20px 20px 14px;border-bottom:1px solid var(--border);flex-shrink:0">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div>
-        <div class="pp-name" id="fsp-name">—</div>
-        <div class="pp-meta" id="fsp-meta">—</div>
-      </div>
-      <button class="btn btn-outline btn-sm" onclick="if(typeof closeFSP==='function') closeFSP()">✕</button>
-    </div>
-  </div>
-  <div class="pp-body" id="fsp-body"></div>
-</div>
-
-<div id="overlay" onclick="if(typeof closeModal==='function') closeModal()"></div>
-
-<div id="modal">
-  <div class="modal-header">
-    <div class="modal-title" id="modalTitle">—</div>
-    <button class="btn btn-ghost" onclick="if(typeof closeModal==='function') closeModal()">✕</button>
-  </div>
-  <div class="modal-body" id="modalBody"></div>
-  <div class="modal-footer" id="modalFooter"></div>
-</div>
-
+<div id="detailPanel">...</div>
+<div id="prospectPanel">...</div>
+<div id="flagshipPanel">...</div>
+<div id="overlay" onclick="closeModal()"></div>
+<div id="modal">...</div>
 <div id="toast"></div>
-
-<script>
-  window._originalNav = window.nav;
-  window.nav = function(tab) {
-      document.querySelectorAll('.tab-content').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('.nav-item').forEach(l => l.classList.remove('active'));
-      const tabEl = document.getElementById('tab-' + tab);
-      if (tabEl) tabEl.classList.add('active');
-      const navEl = document.querySelector('.nav-item[data-tab="' + tab + '"]');
-      if (navEl) navEl.classList.add('active');
-      
-      if (tab === 'dashboard' && typeof loadDashboard === 'function') loadDashboard();
-      if (tab === 'hunt' && typeof loadOutreach === 'function') loadOutreach();
-      if (tab === 'deals' && typeof loadOutreach === 'function') { loadOutreach(); if(typeof loadFlagship==='function') loadFlagship(); }
-      if (tab === 'factory' && typeof loadClients === 'function') loadClients();
-      if (tab === 'syndicate' && typeof loadRadar === 'function') loadRadar();
-      if (tab === 'engine' && typeof loadFinance === 'function') { loadFinance(); if(typeof loadContent==='function') loadContent(); if(typeof loadSettings==='function') loadSettings(); }
-  };
-</script>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-
 <script>
-firebase.initializeApp({
-  apiKey:             "AIzaSyDO4s_W8_87XnsLnuAfyUqgsF8BgaHRYWA",
-  authDomain:         "lexnova-hq.firebaseapp.com",
-  projectId:         "lexnova-hq",
-  storageBucket:     "lexnova-hq.firebasestorage.app",
-  messagingSenderId: "539475214055",
-  appId:             "1:539475214055:web:c01a99ec94ff073a9b6c42"
-});
-const auth = firebase.auth();
-const db   = firebase.firestore();
-
-function login() {
-  const email = document.getElementById('loginEmail').value.trim();
-  const pass  = document.getElementById('loginPassword').value;
-  const err   = document.getElementById('loginError');
-  err.style.display = 'none';
-  auth.signInWithEmailAndPassword(email, pass).catch(e => {
-    err.textContent = 'Invalid credentials.';
-    err.style.display = 'block';
-  });
-}
+firebase.initializeApp({ apiKey:"AIzaSyDO4s_W8_87XnsLnuAfyUqgsF8BgaHRYWA", authDomain:"lexnova-hq.firebaseapp.com", projectId:"lexnova-hq", appId:"1:539475214055:web:c01a99ec94ff073a9b6c42" });
+const auth = firebase.auth(); const db = firebase.firestore();
+function login() { auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value); }
 function signOut() { auth.signOut(); }
 </script>
-
 <script src="admin-logic-1.js?v=999"></script>
 <script src="admin-logic-2.js?v=999"></script>
-
 <script>
-auth.onAuthStateChanged(async u => {
-  if (!u) {
-    document.getElementById('loginScreen').style.display = 'flex';
-    document.getElementById('adminPanel').classList.remove('active');
-    return;
-  }
-  const snap = await db.collection('admins').doc(u.email).get();
-  if (!snap.exists) {
-    await auth.signOut();
-    const err = document.getElementById('loginError');
-    err.textContent = 'Access denied.';
-    err.style.display = 'block';
-    return;
-  }
+auth.onAuthStateChanged(u => {
+  if (!u) { document.getElementById('loginScreen').style.display='flex'; return; }
   document.getElementById('adminEmail').textContent = u.email;
-  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('loginScreen').style.display='none';
   document.getElementById('adminPanel').classList.add('active');
-  
-  if (typeof init === 'function') init();
+  init(); // Calls Logic 1 init
 });
 </script>
-
 </body>
 </html>
