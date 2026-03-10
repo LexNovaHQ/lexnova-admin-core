@@ -140,6 +140,21 @@ tbody td.dim{color:var(--marble-dim)}
 .tbl-empty{padding:40px;text-align:center;font-size:11px;color:var(--marble-faint);border:1px solid var(--border)}
 .hot-flag{font-size:12px;margin-left:4px}
 
+/* ── KANBAN BOARDS (NEW UI) ─────────────────────────────── */
+.k-wrap { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 20px; height: calc(100vh - 200px); align-items: flex-start; }
+.k-col { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; min-width: 280px; width: 280px; display: flex; flex-direction: column; max-height: 100%; flex-shrink: 0; }
+.k-head { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--surface); border-radius: 4px 4px 0 0; }
+.k-title { font-family: 'Cormorant Garamond', serif; font-size: 16px; color: var(--gold); }
+.k-count { font-size: 10px; background: var(--gold-dim); padding: 2px 6px; border-radius: 12px; color: var(--gold); }
+.k-body { padding: 12px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 10px; min-height: 100px; }
+.k-card { background: var(--surface); border: 1px solid var(--border2); padding: 12px; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
+.k-card:hover { border-color: var(--gold); box-shadow: 0 4px 12px rgba(0,0,0,0.5); transform: translateY(-2px); }
+.k-name { font-size: 12px; color: var(--marble); font-weight: 600; margin-bottom: 4px; }
+.k-comp { font-size: 10px; color: var(--marble-dim); margin-bottom: 8px; }
+.k-meta { display: flex; justify-content: space-between; align-items: center; font-size: 9px; padding-top: 8px; border-top: 1px solid rgba(197,160,89,0.1); }
+.k-date-red { color: #d47a7a; }
+.k-date-gold { color: var(--gold); }
+
 /* ── FILTER BAR ─────────────────────────────────────────── */
 .filter-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
 .filter-bar .fi{width:auto;padding:6px 10px;font-size:11px}
@@ -238,12 +253,14 @@ tbody td.dim{color:var(--marble-dim)}
 /* ── MODAL ──────────────────────────────────────────────── */
 #overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:250}
 #overlay.open{display:block}
-#modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border2);width:520px;max-width:95vw;max-height:85vh;display:none;z-index:260;flex-direction:column}
+/* WIDE MODAL FOR WAR ROOM */
+#modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border2);width:900px;max-width:95vw;max-height:90vh;display:none;z-index:260;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,0.8);}
 #modal.open{display:flex}
 .modal-header{padding:20px 20px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
 .modal-title{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--marble)}
 .modal-body{flex:1;overflow-y:auto;padding:20px}
 .modal-footer{padding:16px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0}
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;}
 
 /* ── TOAST ──────────────────────────────────────────────── */
 #toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;font-size:11px;border:1px solid;display:none;z-index:999;letter-spacing:.05em}
@@ -330,42 +347,35 @@ tbody td.dim{color:var(--marble-dim)}
   <div id="sidebar">
     <div class="sb-logo">
       <div class="sb-logo-name">Lex Nova</div>
-      <div class="sb-logo-sub">Admin Console</div>
+      <div class="sb-logo-sub">Command Center</div>
     </div>
 
-    <div class="sb-section">Operations</div>
-    <div class="nav-item active" data-tab="dashboard"  onclick="nav('dashboard')">
-      <span class="nav-icon">▣</span> Dashboard
+    <div class="sb-section">Phase 1: Hunting</div>
+    <div class="nav-item active" data-tab="dashboard" onclick="nav('dashboard')">
+      <span class="nav-icon">▣</span> Command Center
     </div>
-    <div class="nav-item" data-tab="clients"   onclick="nav('clients')">
-      <span class="nav-icon">◈</span> Clients
-    </div>
-    <div class="nav-item" data-tab="leads"     onclick="nav('leads')">
-      <span class="nav-icon">◎</span> Leads
-      <span class="nav-badge hidden" id="leads-badge">0</span>
+    <div class="nav-item" data-tab="hunt" onclick="nav('hunt')">
+      <span class="nav-icon">🎯</span> The Hunt
     </div>
 
-    <div class="sb-section">Acquisition</div>
-    <div class="nav-item" data-tab="outreach"  onclick="nav('outreach')">
-      <span class="nav-icon">⊕</span> Outreach
+    <div class="sb-section">Phase 2: Closing</div>
+    <div class="nav-item" data-tab="deals" onclick="nav('deals')">
+      <span class="nav-icon">🔥</span> Active Deals
     </div>
-    <div class="nav-item" data-tab="flagship"  onclick="nav('flagship')">
-      <span class="nav-icon">◆</span> Flagship
+
+    <div class="sb-section">Phase 3: Building</div>
+    <div class="nav-item" data-tab="factory" onclick="nav('factory')">
+      <span class="nav-icon">⚡</span> The Factory
+    </div>
+
+    <div class="sb-section">Phase 4: Expanding</div>
+    <div class="nav-item" data-tab="syndicate" onclick="nav('syndicate')">
+      <span class="nav-icon">🛡️</span> The Syndicate
     </div>
 
     <div class="sb-section">System</div>
-    <div class="nav-item" data-tab="content"   onclick="nav('content')">
-      <span class="nav-icon">◉</span> Content
-    </div>
-    <div class="nav-item" data-tab="radar"     onclick="nav('radar')">
-      <span class="nav-icon">⊛</span> Radar
-      <span class="nav-badge hidden" id="radar-badge">0</span>
-    </div>
-    <div class="nav-item" data-tab="finance"   onclick="nav('finance')">
-      <span class="nav-icon">$</span> Finance
-    </div>
-    <div class="nav-item" data-tab="settings"  onclick="nav('settings')">
-      <span class="nav-icon">⚙</span> Settings
+    <div class="nav-item" data-tab="engine" onclick="nav('engine')">
+      <span class="nav-icon">⚙️</span> Engine Room
     </div>
 
     <div class="sb-footer">
@@ -382,7 +392,7 @@ tbody td.dim{color:var(--marble-dim)}
       <div class="page-header-row">
         <div>
           <div class="page-title" id="pageTitle">Dashboard</div>
-          <div class="page-sub"  id="pageSub">Command center</div>
+          <div class="page-sub" id="pageSub">Command center</div>
         </div>
         <div id="pageActions" style="padding-bottom:16px"></div>
       </div>
@@ -500,351 +510,231 @@ tbody td.dim{color:var(--marble-dim)}
       </div>
 
     </div>
-    
-    <div id="tab-clients" class="tab-content">
-      <div class="filter-bar">
-        <input type="text" class="fi" placeholder="Search name or email…" id="c-search" oninput="filterClients()">
-        <select class="fi" id="c-status" onchange="filterClients()">
-          <option value="">All Statuses</option>
-         <option value="pending_payment">Pending Payment</option>
-         <option value="payment_received">Payment Received</option> 
-          <option value="intake_received">Intake Received</option>
-          <option value="under_review">Under Review</option>
-          <option value="in_production">In Production</option>
-          <option value="delivered">Delivered</option>
-        </select>
-        <select class="fi" id="c-plan" onchange="filterClients()">
-          <option value="">All Plans</option>
-          <option value="agentic_shield">Agentic Shield</option>
-          <option value="workplace_shield">Workplace Shield</option>
-          <option value="complete_stack">Complete Stack</option>
-          <option value="flagship">Flagship</option>
-        </select>
-        <select class="fi" id="c-sort" onchange="filterClients()">
-          <option value="date_desc">Newest First</option>
-          <option value="date_asc">Oldest First</option>
-          <option value="status">By Status</option>
-          <option value="plan">By Plan</option>
-        </select>
-      </div>
-      <div class="tbl-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Client</th><th>Company</th><th>Plan</th><th>Status</th><th>SLA Clock</th>
-              <th>EL Accepted</th><th>Reg. Jurisdiction</th><th>Radar</th><th>Submitted</th>
-            </tr>
-          </thead>
-          <tbody id="c-tbody"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-    
-    <div id="tab-leads" class="tab-content">
-      <div class="filter-bar">
-        <input type="text" class="fi" placeholder="Search name or email…" id="l-search" oninput="filterLeads()">
-        <select class="fi" id="l-type" onchange="filterLeads()">
-          <option value="">All Types</option>
-          <option value="warm_lead">Warm (Scanner)</option>
-          <option value="hot_lead">Hot (Checkout)</option>
-          <option value="ghost_lead">Ghost (Exit)</option>
-        </select>
-        <select class="fi" id="l-source" onchange="filterLeads()">
-          <option value="">All Sources</option>
-          <option value="scanner">Scanner</option>
-          <option value="scanner_exit">Scanner Exit</option>
-          <option value="apply">Apply Page</option>
-          <option value="cold_email">Cold Email</option>
-          <option value="linkedin">LinkedIn</option>
-          <option value="direct">Direct</option>
-        </select>
-        <select class="fi" id="l-sort" onchange="filterLeads()">
-          <option value="date_desc">Newest First</option>
-          <option value="score_desc">Highest Score</option>
-        </select>
-      </div>
-      <div class="tbl-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th><th>Email</th><th>Company</th><th>Type</th>
-              <th>Status</th><th>Source</th><th>Ext Score</th><th>Int Score</th><th>Date</th><th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="l-tbody"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-    
-<div id="tab-outreach" class="tab-content">
-      <div class="filter-bar" style="margin-bottom:20px">
-        <div class="view-btns">
-          <button class="view-btn active" onclick="setOutreachView('command',this)">Command</button>
-          <button class="view-btn" onclick="setOutreachView('pipeline',this)">Pipeline</button>
-          <button class="view-btn" onclick="setOutreachView('hot',this)">🔥 Hot Signals</button>
-          <button class="view-btn" onclick="setOutreachView('followup',this)">Follow-Up Due</button>
-          <button class="view-btn" onclick="setOutreachView('inbound',this)">Inbound</button>
-          <button class="view-btn" onclick="setOutreachView('dead',this)">Dead</button>
-        </div>
-        <button class="btn btn-primary" style="margin-left:auto" onclick="openAddProspect()">+ Add Prospect</button>
-      </div>
 
-      <div id="ov-command">
-        <div class="card-grid card-grid-4" style="margin-bottom:20px">
-          <div class="ec-block">
-            <div class="ec-label">Total Emails Sent</div>
-            <div class="ec-val" id="oc-emails-all">0</div>
-            <div class="ec-limit">All time outbound</div>
-          </div>
-          <div class="ec-block">
-            <div class="ec-label">Scanner Clicks</div>
-            <div class="ec-val" id="oc-clicks-all" style="color:var(--gold)">0</div>
-            <div class="ec-limit" id="oc-click-rate">—% click rate</div>
-          </div>
-          <div class="ec-block">
-            <div class="ec-label">Scanner Completions</div>
-            <div class="ec-val" id="oc-comps-all" style="color:#d4a850">0</div>
-            <div class="ec-limit" id="oc-comp-rate">—% completion rate</div>
-          </div>
-          <div class="ec-block">
-            <div class="ec-label">Converted (Paid)</div>
-            <div class="ec-val" id="oc-paid-all" style="color:var(--green)">0</div>
-            <div class="ec-limit" id="oc-close-rate">—% close rate</div>
-          </div>
-        </div>
-
-        <div class="card-grid card-grid-2" style="margin-bottom:20px">
-          <div>
-            <div class="section-title" style="margin-top:0">Pipeline Funnel</div>
-            <div class="pipeline-funnel" id="oc-funnel">
-              <div class="pf-stage"><span class="pf-num" id="ocf-cold">0</span><span class="pf-label">Cold</span></div>
-              <div class="pf-stage"><span class="pf-num" id="ocf-warm">0</span><span class="pf-label">Warm</span></div>
-              <div class="pf-stage"><span class="pf-num" id="ocf-hot">0</span><span class="pf-label">Hot</span></div>
-              <div class="pf-stage"><span class="pf-num" id="ocf-replied">0</span><span class="pf-label">Replied</span></div>
-              <div class="pf-stage"><span class="pf-num" id="ocf-neg">0</span><span class="pf-label">Negotiating</span></div>
-              <div class="pf-stage"><span class="pf-num" id="ocf-conv">0</span><span class="pf-label">Converted</span></div>
-            </div>
-          </div>
-          <div>
-            <div class="section-title" style="margin-top:0">Today's Actions</div>
-            <div class="action-queue">
-              <div class="aq-row"><span>Follow-Ups Due Today</span><span class="aq-count" id="aq-today">0</span></div>
-              <div class="aq-row"><span>Follow-Ups Overdue</span><span class="aq-count cd-over" id="aq-over">0</span></div>
-              <div class="aq-row"><span>LinkedIn Pending</span><span class="aq-count" id="aq-li">0</span></div>
-              <div class="aq-row"><span>Unmatched Inbound</span><span class="aq-count" id="aq-inbound">0</span></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="section-title">Batch Performance</div>
-        <div class="tbl-wrap">
-          <table class="batch-tbl">
-            <thead>
-              <tr><th>Batch</th><th>Prospects</th><th>Emails Sent</th><th>Clicks</th><th>Completions</th><th>Conversions</th><th>ROI (Close %)</th></tr>
-            </thead>
-            <tbody id="oc-batches"><tr><td colspan="7" class="loading">No batches yet</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div id="ov-pipeline" class="hidden">
-        <div class="filter-bar">
-          <input type="text" class="fi" placeholder="Search…" id="op-search" oninput="filterProspects()">
-          <select class="fi" id="op-status" onchange="filterProspects()"><option value="">All Status</option><option>Cold</option><option>Warm</option><option>Hot</option><option>Replied</option><option>Negotiating</option><option>Converted</option><option>Dead</option></select>
-          <select class="fi" id="op-batch" onchange="filterProspects()"><option value="">All Batches</option></select>
-          <select class="fi" id="op-branch" onchange="filterProspects()"><option value="">All Branches</option><option>2A</option><option>2B</option><option>2C</option><option>2D</option></select>
-          <select class="fi" id="op-funding" onchange="filterProspects()"><option value="">All Stages</option><option>Pre-seed</option><option>Seed</option><option>Series A</option><option>Series B+</option><option>Bootstrapped</option></select>
-          <select class="fi" id="op-scanner" onchange="filterProspects()"><option value="">Scanner: All</option><option value="clicked">Clicked</option><option value="completed">Completed</option><option value="none">Not Yet</option></select>
-          <select class="fi" id="op-sort" onchange="filterProspects()">
-            <option value="nextDate">Next Action Date</option>
-            <option value="dateAdded">Date Added</option>
-            <option value="score">Scanner Score</option>
-            <option value="company">Company A-Z</option>
+    <div id="tab-hunt" class="tab-content">
+      <div class="filter-bar" style="margin-bottom:20px; justify-content:space-between;">
+        <div style="display:flex; gap:10px;">
+          <input type="text" class="fi" placeholder="Search targets…" id="op-search" oninput="if(typeof filterProspects==='function') filterProspects()">
+          <select class="fi" id="op-batch" onchange="if(typeof filterProspects==='function') filterProspects()"><option value="">All Batches</option></select>
+          <select class="fi" id="op-status" onchange="if(typeof filterProspects==='function') filterProspects()">
+             <option value="">All Status</option><option>Cold</option><option>Warm</option><option>Hot</option><option>Replied</option><option>Dead</option>
           </select>
         </div>
+        <button class="btn btn-primary" onclick="if(typeof openAddProspect==='function') openAddProspect()">+ Add Prospect</button>
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>Prospect</th><th>Company</th><th>Batch</th><th>Status</th><th>Branch</th><th>Scanner</th><th>LinkedIn</th><th>Next Action</th><th>Emails Sent</th></tr>
+          </thead>
+          <tbody id="op-tbody"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="section-title" style="margin-top:32px;">Batch Performance</div>
+      <div class="tbl-wrap">
+        <table class="batch-tbl">
+          <thead>
+            <tr><th>Batch</th><th>Prospects</th><th>Emails Sent</th><th>Clicks</th><th>Completions</th><th>Conversions</th><th>ROI (Close %)</th></tr>
+          </thead>
+          <tbody id="oc-batches"><tr><td colspan="7" class="loading">No batches yet</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="tab-deals" class="tab-content">
+      <div class="view-btns" style="margin-bottom:20px">
+        <button class="view-btn active" onclick="document.getElementById('tab-deals').querySelector('.k-wrap').classList.remove('hidden'); document.getElementById('tab-deals-legacy').classList.add('hidden');">The War Board</button>
+        <button class="view-btn" onclick="document.getElementById('tab-deals').querySelector('.k-wrap').classList.add('hidden'); document.getElementById('tab-deals-legacy').classList.remove('hidden');">Legacy Data Views</button>
+      </div>
+
+      <div class="k-wrap">
+        <div class="k-col">
+          <div class="k-head"><span class="k-title">The Magazine</span><span class="k-count" id="kd-c1">0</span></div>
+          <div class="k-body" id="kd-col-1"><div class="loading">Logic mapping pending...</div></div>
+        </div>
+        <div class="k-col">
+          <div class="k-head"><span class="k-title">Downrange</span><span class="k-count" id="kd-c2">0</span></div>
+          <div class="k-body" id="kd-col-2"></div>
+        </div>
+        <div class="k-col">
+          <div class="k-head"><span class="k-title" style="color:#d4a850">Engaged (Tripwire)</span><span class="k-count" id="kd-c3">0</span></div>
+          <div class="k-body" id="kd-col-3"></div>
+        </div>
+        <div class="k-col">
+          <div class="k-head"><span class="k-title" style="color:#d47a7a">Decision Desk</span><span class="k-count" id="kd-c4">0</span></div>
+          <div class="k-body" id="kd-col-4"></div>
+        </div>
+        <div class="k-col" style="border-color:var(--gold-mid)">
+          <div class="k-head" style="background:var(--gold-dim)"><span class="k-title" style="color:var(--gold)">Closed Won</span><span class="k-count" id="kd-c5">0</span></div>
+          <div class="k-body" id="kd-col-5"></div>
+        </div>
+      </div>
+
+      <div id="tab-deals-legacy" class="hidden">
+        <div class="section-title">Flagship Pipeline</div>
+        <div class="tbl-wrap" style="margin-bottom:20px">
+          <table>
+            <thead><tr><th>Name</th><th>Company</th><th>Status</th><th>Price Quoted</th><th>Follow-Up Deadline</th><th>Next Step</th><th>Added</th></tr></thead>
+            <tbody id="fs-tbody"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="section-title">Inbound Scanner Leads</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Email</th><th>Company</th><th>Type</th><th>Status</th><th>Source</th><th>Ext Score</th><th>Int Score</th><th>Date</th><th>Actions</th></tr></thead>
+            <tbody id="l-tbody"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
+          </table>
+        </div>
+        
+        <div class="hidden">
+          <tbody id="oh-tbody"></tbody>
+          <tbody id="ofu-tbody"></tbody>
+          <tbody id="oin-tbody"></tbody>
+          <tbody id="od-tbody"></tbody>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-factory" class="tab-content">
+      <div class="view-btns" style="margin-bottom:20px">
+        <button class="view-btn active" onclick="document.getElementById('fac-board').classList.remove('hidden'); document.getElementById('fac-table').classList.add('hidden'); this.classList.add('active'); this.nextElementSibling.classList.remove('active');">SOP Delivery Board</button>
+        <button class="view-btn" onclick="document.getElementById('fac-board').classList.add('hidden'); document.getElementById('fac-table').classList.remove('hidden'); this.classList.add('active'); this.previousElementSibling.classList.remove('active');">SLA Table View</button>
+      </div>
+
+      <div id="fac-board" class="k-wrap">
+        <div class="k-col">
+          <div class="k-head"><span class="k-title">Intake Holding</span><span class="k-count" id="kf-c1">0</span></div>
+          <div class="k-body" id="kf-col-1"><div class="loading">Logic mapping pending...</div></div>
+        </div>
+        <div class="k-col">
+          <div class="k-head"><span class="k-title">The Forge</span><span class="k-count" id="kf-c2">0</span></div>
+          <div class="k-body" id="kf-col-2"></div>
+        </div>
+        <div class="k-col">
+          <div class="k-head"><span class="k-title" style="color:#d47a7a">Pre-Flight Review</span><span class="k-count" id="kf-c3">0</span></div>
+          <div class="k-body" id="kf-col-3"></div>
+        </div>
+        <div class="k-col">
+          <div class="k-head"><span class="k-title" style="color:var(--green)">Portal & Delivery</span><span class="k-count" id="kf-c4">0</span></div>
+          <div class="k-body" id="kf-col-4"></div>
+        </div>
+      </div>
+
+      <div id="fac-table" class="hidden">
+        <div class="filter-bar">
+          <input type="text" class="fi" placeholder="Search name or email…" id="c-search" oninput="if(typeof filterClients==='function') filterClients()">
+        </div>
         <div class="tbl-wrap">
           <table>
             <thead>
-              <tr><th>Prospect</th><th>Company</th><th>Batch</th><th>Status</th><th>Branch</th><th>Scanner</th><th>LinkedIn</th><th>Next Action</th><th>Emails Sent</th></tr>
+              <tr><th>Client</th><th>Company</th><th>Plan</th><th>Status</th><th>SLA Clock</th><th>EL Accepted</th><th>Reg. Jurisdiction</th><th>Radar</th><th>Submitted</th></tr>
             </thead>
-            <tbody id="op-tbody"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
+            <tbody id="c-tbody"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
           </table>
         </div>
       </div>
-      
-      <div id="ov-hot" class="hidden">
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th>Prospect</th><th>Company</th><th>Signal</th><th>Scanner Score</th><th>Status</th><th>Next Action</th></tr></thead>
-            <tbody id="oh-tbody"><tr><td colspan="6" class="empty">No hot signals yet</td></tr></tbody>
-          </table>
-        </div>
+    </div>
+
+    <div id="tab-syndicate" class="tab-content">
+      <div class="section-title" style="margin-top:0">Client Exposure Matrix (The Upsell Radar)</div>
+      <div style="font-size:10px;color:var(--marble-dim);margin-bottom:14px;letter-spacing:.08em">
+        Clients with at least one 🔴 Exposed or 🟡 Scheduled regulation. Target these for $497 Gap Reviews.
       </div>
-      
-      <div id="ov-followup" class="hidden">
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th>Prospect</th><th>Company</th><th>Due Date</th><th>Status</th><th>Next Action Note</th></tr></thead>
-            <tbody id="ofu-tbody"><tr><td colspan="5" class="empty">No follow-ups due</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-      
-      <div id="ov-inbound" class="hidden">
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th>Name</th><th>Email</th><th>Company</th><th>Scanner Score</th><th>Date</th><th>Actions</th></tr></thead>
-            <tbody id="oin-tbody"><tr><td colspan="6" class="empty">No inbound submissions yet</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-      
-      <div id="ov-dead" class="hidden">
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th>Prospect</th><th>Company</th><th>Batch</th><th>Archived</th></tr></thead>
-            <tbody id="od-tbody"><tr><td colspan="4" class="empty">No archived prospects</td></tr></tbody>
-          </table>
-        </div>
+      <div class="tbl-wrap" style="margin-bottom:32px">
+        <table>
+          <thead><tr><th>Client</th><th>Plan</th><th>🔴 Exposed</th><th>🟡 Scheduled</th><th>Maintenance</th><th>Action</th></tr></thead>
+          <tbody id="rv-exposure-tbody"><tr><td colspan="6" class="loading">Calculating…</td></tr></tbody>
+        </table>
       </div>
 
-    </div>
-    
-    <div id="tab-flagship" class="tab-content">
-      <div class="filter-bar">
-        <input type="text" class="fi" placeholder="Search…" id="fs-search" oninput="filterFlagship()">
-        <select class="fi" id="fs-status" onchange="filterFlagship()">
-          <option value="">All Statuses</option>
-          <option>Identified</option><option>Discovery Scheduled</option><option>Discovery Done</option>
-          <option>Proposal Sent</option><option>Negotiating</option><option>Won</option><option>Lost</option>
-        </select>
-      </div>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr><th>Name</th><th>Company</th><th>Status</th><th>Price Quoted</th><th>Follow-Up Deadline</th><th>Next Step</th><th>Added</th></tr></thead>
-          <tbody id="fs-tbody"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
-        </table>
+      <div class="card-grid card-grid-2">
+        <div>
+          <div class="section-title" style="margin-top:0">Active Shields (Maintenance)</div>
+          <div id="fin-conc-list"><div class="loading">Loading…</div></div>
+        </div>
+        <div>
+          <div class="section-title" style="margin-top:0">The Referral Engine</div>
+          <div class="tbl-wrap">
+            <div class="empty">Referral tracking maps to Detail Panel.</div>
+          </div>
+        </div>
       </div>
     </div>
-    
-    <div id="tab-content" class="tab-content">
-      <div class="filter-bar">
-        <select class="fi" id="ct-status" onchange="filterContent()">
-          <option value="">All Statuses</option>
-          <option>Idea</option><option>Drafting</option><option>Scheduled</option><option>Posted</option><option>Archived</option>
-        </select>
-      </div>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr><th>Topic</th><th>Status</th><th>Posted</th><th>Notes</th><th>Actions</th></tr></thead>
-          <tbody id="ct-tbody"><tr><td colspan="5" class="loading">Loading...</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-    
-    <div id="tab-radar" class="tab-content">
+
+    <div id="tab-engine" class="tab-content">
       <div class="view-btns" style="margin-bottom:20px">
-        <button class="view-btn active" onclick="setRadarView('manage',this)">Regulation Management</button>
-        <button class="view-btn" onclick="setRadarView('exposure',this)">Client Exposure Matrix</button>
-        <button class="btn btn-primary" style="margin-left:auto" onclick="openAddRegulation()">+ Add Regulation</button>
+        <button class="view-btn active" onclick="setEngineView('finance', this)">Finance</button>
+        <button class="view-btn" onclick="setEngineView('radar', this)">Regulation DB</button>
+        <button class="view-btn" onclick="setEngineView('content', this)">Content</button>
+        <button class="view-btn" onclick="setEngineView('settings', this)">Settings</button>
       </div>
 
-      <div id="rv-manage">
+      <div id="ev-finance">
+        <div class="card-grid card-grid-4" style="margin-bottom:20px">
+          <div class="card card-gold"><div class="card-label">MRR</div><div class="card-value" id="fin-mrr">$0</div><div class="card-sub" id="fin-mrr-sub">Maintenance only</div></div>
+          <div class="card"><div class="card-label">ARR</div><div class="card-value" id="fin-arr">$0</div><div class="card-sub">MRR × 12</div></div>
+          <div class="card"><div class="card-label">Total Collected</div><div class="card-value" id="fin-total">$0</div><div class="card-sub" id="fin-total-sub">All time</div></div>
+          <div class="card"><div class="card-label">Avg Deal Value</div><div class="card-value" id="fin-avg">$0</div><div class="card-sub">Per client</div></div>
+        </div>
+        <div class="section-title">Revenue by Plan</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Plan</th><th>Clients</th><th>Revenue</th><th>% of Total</th></tr></thead>
+            <tbody id="fin-by-plan"><tr><td colspan="4" class="loading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="ev-radar" class="hidden">
+        <button class="btn btn-primary" style="margin-bottom:16px" onclick="if(typeof openAddRegulation==='function') openAddRegulation()">+ Add Regulation</button>
         <div id="rv-list"><div class="loading">Loading regulations…</div></div>
       </div>
 
-      <div id="rv-exposure" class="hidden">
-        <div style="font-size:10px;color:var(--marble-dim);margin-bottom:14px;letter-spacing:.08em">
-          Clients with at least one 🔴 Exposed or 🟡 Scheduled regulation. Sorted by exposure severity. This is your upsell hit list.
-        </div>
+      <div id="ev-content" class="hidden">
+        <button class="btn btn-primary" style="margin-bottom:16px" onclick="if(typeof openAddContent==='function') openAddContent()">+ Add Post</button>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>Client</th><th>Plan</th><th>🔴 Exposed</th><th>🟡 Scheduled</th><th>Maintenance</th><th>Action</th></tr></thead>
-            <tbody id="rv-exposure-tbody"><tr><td colspan="6" class="loading">Calculating…</td></tr></tbody>
+            <thead><tr><th>Topic</th><th>Status</th><th>Posted</th><th>Notes</th><th>Actions</th></tr></thead>
+            <tbody id="ct-tbody"><tr><td colspan="5" class="loading">Loading...</td></tr></tbody>
           </table>
         </div>
       </div>
-    </div>
-    
-    <div id="tab-finance" class="tab-content">
-      <div class="card-grid card-grid-4" style="margin-bottom:20px">
-        <div class="card card-gold">
-          <div class="card-label">MRR</div>
-          <div class="card-value" id="fin-mrr">$0</div>
-          <div class="card-sub" id="fin-mrr-sub">Maintenance only</div>
-        </div>
-        <div class="card">
-          <div class="card-label">ARR</div>
-          <div class="card-value" id="fin-arr">$0</div>
-          <div class="card-sub">MRR × 12</div>
-        </div>
-        <div class="card">
-          <div class="card-label">Total Collected</div>
-          <div class="card-value" id="fin-total">$0</div>
-          <div class="card-sub" id="fin-total-sub">All time</div>
-        </div>
-        <div class="card">
-          <div class="card-label">Avg Deal Value</div>
-          <div class="card-value" id="fin-avg">$0</div>
-          <div class="card-sub">Per client</div>
+
+      <div id="ev-settings" class="hidden">
+        <div class="card-grid card-grid-2">
+          <div>
+            <div class="section-title" style="margin-top:0">Webhook URLs</div>
+            <div class="fg"><label class="fl">Scenario 2 (Checkout)</label><input type="text" id="wh-s2" class="fi"></div>
+            <div class="fg"><label class="fl">Scenario 3 (Post-Payment)</label><input type="text" id="wh-s3" class="fi"></div>
+            <div class="fg"><label class="fl">Scenario 4 (Delivery)</label><input type="text" id="wh-s4" class="fi"></div>
+            <div class="fg"><label class="fl">Capacity Cap</label><input type="number" id="s-capacity" class="fi"></div>
+            <button class="btn btn-primary" onclick="if(typeof saveSettings==='function') saveSettings()">Save Settings</button>
+          </div>
+          <div>
+            <div class="section-title" style="margin-top:0">Admin Access</div>
+            <div class="tbl-wrap" style="margin-bottom:14px">
+              <table><thead><tr><th>Email</th><th>Role</th><th>Action</th></tr></thead><tbody id="s-admins"><tr><td colspan="3" class="loading">Loading…</td></tr></tbody></table>
+            </div>
+            <div class="fi-row" style="margin-bottom:10px">
+              <input type="email" id="s-new-admin" class="fi" placeholder="email@domain.com">
+              <select id="s-new-role" class="fi"><option value="superadmin">Superadmin</option><option value="architect">Architect</option><option value="va">VA</option></select>
+            </div>
+            <button class="btn btn-outline" onclick="if(typeof addAdmin==='function') addAdmin()">+ Add Admin</button>
+          </div>
         </div>
       </div>
 
-      <div class="card-grid card-grid-2">
-        <div>
-          <div class="section-title" style="margin-top:0">Revenue by Plan</div>
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr><th>Plan</th><th>Clients</th><th>Revenue</th><th>% of Total</th></tr></thead>
-              <tbody id="fin-by-plan"><tr><td colspan="4" class="loading">Loading…</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-        <div>
-          <div class="section-title" style="margin-top:0">Client Concentration</div>
-          <div class="conc-warn" id="fin-conc-warn">⚠ Constitution breach: a client exceeds 30% of MRR</div>
-          <div id="fin-conc-list"><div class="loading">Loading…</div></div>
-        </div>
-      </div>
-    </div>
-    
-    <div id="tab-settings" class="tab-content">
-      <div class="card-grid card-grid-2">
-        <div>
-          <div class="section-title" style="margin-top:0">Webhook URLs</div>
-          <div class="fg">
-            <label class="fl">Make.com Scenario 2 (Checkout Notification)</label>
-            <input type="text" id="wh-s2" class="fi" placeholder="https://hook.eu1.make.com/…">
-          </div>
-          <div class="fg">
-            <label class="fl">Make.com Scenario 3 (Post-Payment Activation)</label>
-            <input type="text" id="wh-s3" class="fi" placeholder="https://hook.eu1.make.com/…">
-          </div>
-          <div class="fg">
-            <label class="fl">Make.com Scenario 4 (Delivery Trigger)</label>
-            <input type="text" id="wh-s4" class="fi" placeholder="https://hook.eu1.make.com/…">
-          </div>
-          <div class="fg">
-            <label class="fl">Capacity — Max Concurrent Clients</label>
-            <input type="number" id="s-capacity" class="fi" placeholder="10" min="1" max="50">
-          </div>
-          <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
-        </div>
-        <div>
-          <div class="section-title" style="margin-top:0">Admin Access</div>
-          <div class="tbl-wrap" style="margin-bottom:14px">
-            <table>
-              <thead><tr><th>Email</th><th>Role</th><th>Action</th></tr></thead>
-              <tbody id="s-admins"><tr><td colspan="3" class="loading">Loading…</td></tr></tbody>
-            </table>
-          </div>
-          <div class="fi-row" style="margin-bottom:10px">
-            <input type="email" id="s-new-admin" class="fi" placeholder="email@domain.com">
-            <select id="s-new-role" class="fi"><option value="superadmin">Superadmin</option><option value="architect">Architect</option><option value="va">VA</option></select>
-          </div>
-          <button class="btn btn-outline" onclick="addAdmin()">+ Add Admin</button>
-        </div>
-      </div>
+      <script>
+        function setEngineView(view, el) {
+          document.querySelectorAll('#tab-engine .view-btn').forEach(b => b.classList.remove('active'));
+          el.classList.add('active');
+          ['finance','radar','content','settings'].forEach(v => {
+            document.getElementById('ev-' + v).classList.toggle('hidden', v !== view);
+          });
+        }
+      </script>
     </div>
 
   </div>
@@ -876,7 +766,6 @@ tbody td.dim{color:var(--marble-dim)}
   </div>
   
   <div class="detail-body">
-
     <div id="dt-overview" class="detail-section">
       <div class="el-lock" id="dp-el-lock">⚠ Engagement Letter not accepted — production locked until EL is confirmed.</div>
       <div class="el-status-block">
@@ -889,7 +778,7 @@ tbody td.dim{color:var(--marble-dim)}
       </div>
       <div class="fg">
         <label class="fl">Status</label>
-        <select class="fi" id="dp-status" onchange="onStatusChange(this.value)">
+        <select class="fi" id="dp-status" onchange="if(typeof onStatusChange==='function') onStatusChange(this.value)">
           <option value="pending_payment">Pending Payment</option>
           <option value="payment_received">Payment Received</option> 
           <option value="intake_received">Intake Received</option>
@@ -928,7 +817,7 @@ tbody td.dim{color:var(--marble-dim)}
         <label class="fl">Admin Notes</label>
         <textarea class="fi" id="dp-notes" rows="3" placeholder="Internal notes…"></textarea>
       </div>
-      <button class="btn btn-primary" onclick="saveOverview()">Save Overview</button>
+      <button class="btn btn-primary" onclick="if(typeof saveOverview==='function') saveOverview()">Save Overview</button>
     </div>
 
     <div id="dt-intake" class="detail-section hidden">
@@ -938,7 +827,7 @@ tbody td.dim{color:var(--marble-dim)}
     <div id="dt-checklist" class="detail-section hidden">
       <div id="dp-el-lock-chk" class="el-lock">⚠ EL not accepted. Cannot begin production.</div>
       <div id="dp-checklist-items"></div>
-      <button class="btn btn-primary" style="margin-top:14px" onclick="saveChecklist()">Save Checklist</button>
+      <button class="btn btn-primary" style="margin-top:14px" onclick="if(typeof saveChecklist==='function') saveChecklist()">Save Checklist</button>
     </div>
 
     <div id="dt-documents" class="detail-section hidden">
@@ -947,11 +836,11 @@ tbody td.dim{color:var(--marble-dim)}
         <input type="text" id="doc-video-link" class="fi" placeholder="https://clipchamp.com/watch/...">
       </div>
       <div style="display:flex; gap:10px; margin-bottom: 24px;">
-        <button class="btn btn-outline" onclick="generateELForDelivery()">+ Draft Stage 2 EL</button>
-        <button class="btn btn-outline" onclick="addDocRow()">+ Add Custom Document</button>
+        <button class="btn btn-outline" onclick="if(typeof generateELForDelivery==='function') generateELForDelivery()">+ Draft Stage 2 EL</button>
+        <button class="btn btn-outline" onclick="if(typeof addDocRow==='function') addDocRow()">+ Add Custom Document</button>
       </div>
       <div id="docsContainer"></div>
-      <button class="btn btn-primary btn-full" style="margin-top:14px" onclick="saveDocuments()">Deliver All & Close SLA</button>
+      <button class="btn btn-primary btn-full" style="margin-top:14px" onclick="if(typeof saveDocuments==='function') saveDocuments()">Deliver All & Close SLA</button>
     </div>
 
     <div id="dt-radar" class="detail-section hidden">
@@ -982,7 +871,7 @@ tbody td.dim{color:var(--marble-dim)}
         <label class="fl">Invoice URL</label>
         <input type="text" class="fi" id="dp-gap-invoice" placeholder="https://…">
       </div>
-      <button class="btn btn-primary" onclick="saveGap()">Save Gap Review</button>
+      <button class="btn btn-primary" onclick="if(typeof saveGap==='function') saveGap()">Save Gap Review</button>
     </div>
 
     <div id="dt-financials" class="detail-section hidden">
@@ -994,7 +883,7 @@ tbody td.dim{color:var(--marble-dim)}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <label class="fl" style="margin:0">Maintenance Active</label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-            <input type="checkbox" id="dp-maint" onchange="toggleMaint(this.checked)">
+            <input type="checkbox" id="dp-maint" onchange="if(typeof toggleMaint==='function') toggleMaint(this.checked)">
             <span style="font-size:10px;color:var(--marble-dim)">$297/month</span>
           </label>
         </div>
@@ -1010,7 +899,7 @@ tbody td.dim{color:var(--marble-dim)}
             <input type="date" class="fi" id="dp-maint-start">
           </div>
         </div>
-        <button class="btn btn-outline btn-sm" onclick="saveMaint()">Save Maintenance</button>
+        <button class="btn btn-outline btn-sm" onclick="if(typeof saveMaint==='function') saveMaint()">Save Maintenance</button>
       </div>
     </div>
 
@@ -1020,29 +909,26 @@ tbody td.dim{color:var(--marble-dim)}
         <label class="fl">Add Note</label>
         <textarea class="fi" id="dp-new-note" rows="2" placeholder="Activity note…"></textarea>
       </div>
-      <button class="btn btn-outline" onclick="addActivityNote()">+ Log Note</button>
+      <button class="btn btn-outline" onclick="if(typeof addActivityNote==='function') addActivityNote()">+ Log Note</button>
     </div>
 
     <div id="dt-referrals" class="detail-section hidden">
       <div class="section-title" style="margin-top:0">The Syndicate</div>
       <div class="section-sub">Network targets submitted by this client. Reward them when these convert.</div>
-      <div id="dp-ref-list" style="margin-top:16px; margin-bottom: 24px; display:flex; flex-direction:column; gap:12px;">
-        </div>
-      
+      <div id="dp-ref-list" style="margin-top:16px; margin-bottom: 24px; display:flex; flex-direction:column; gap:12px;"></div>
       <div class="section-title" style="font-size:14px;margin-top:0; border-top:1px solid var(--border); padding-top:16px;">Manual Add Referral</div>
       <div class="fi-row3" style="margin-top:10px">
         <div class="fg"><label class="fl">Company</label><input type="text" class="fi" id="dp-ref-co" placeholder="Company name"></div>
         <div class="fg"><label class="fl">Email</label><input type="email" class="fi" id="dp-ref-email" placeholder="contact@…"></div>
         <div class="fg"><label class="fl">Date</label><input type="date" class="fi" id="dp-ref-date"></div>
       </div>
-      <button class="btn btn-outline" onclick="addReferral()">+ Add Referral</button>
+      <button class="btn btn-outline" onclick="if(typeof addReferral==='function') addReferral()">+ Add Referral</button>
     </div>
 
     <div id="dt-debrief" class="detail-section hidden">
       <div class="section-title" style="margin-top:0">Deployment Debrief</div>
       <div class="section-sub">Post-delivery experience feedback and testimonials.</div>
-      <div id="dp-debrief-content" style="margin-top:16px;">
-        </div>
+      <div id="dp-debrief-content" style="margin-top:16px;"></div>
     </div>
 
   </div>
@@ -1055,7 +941,7 @@ tbody td.dim{color:var(--marble-dim)}
         <div class="pp-name" id="pp-name">—</div>
         <div class="pp-meta" id="pp-meta">—</div>
       </div>
-      <button class="btn btn-outline btn-sm" onclick="closePP()">✕</button>
+      <button class="btn btn-outline btn-sm" onclick="if(typeof closePP==='function') closePP()">✕</button>
     </div>
   </div>
   <div class="pp-body" id="pp-body"></div>
@@ -1068,22 +954,43 @@ tbody td.dim{color:var(--marble-dim)}
         <div class="pp-name" id="fsp-name">—</div>
         <div class="pp-meta" id="fsp-meta">—</div>
       </div>
-      <button class="btn btn-outline btn-sm" onclick="closeFSP()">✕</button>
+      <button class="btn btn-outline btn-sm" onclick="if(typeof closeFSP==='function') closeFSP()">✕</button>
     </div>
   </div>
   <div class="pp-body" id="fsp-body"></div>
 </div>
 
-<div id="overlay" onclick="closeModal()"></div>
+<div id="overlay" onclick="if(typeof closeModal==='function') closeModal()"></div>
+
 <div id="modal">
   <div class="modal-header">
     <div class="modal-title" id="modalTitle">—</div>
-    <button class="btn btn-ghost" onclick="closeModal()">✕</button>
+    <button class="btn btn-ghost" onclick="if(typeof closeModal==='function') closeModal()">✕</button>
   </div>
   <div class="modal-body" id="modalBody"></div>
   <div class="modal-footer" id="modalFooter"></div>
 </div>
+
 <div id="toast"></div>
+
+<script>
+  window._originalNav = window.nav;
+  window.nav = function(tab) {
+      document.querySelectorAll('.tab-content').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(l => l.classList.remove('active'));
+      const tabEl = document.getElementById('tab-' + tab);
+      if (tabEl) tabEl.classList.add('active');
+      const navEl = document.querySelector('.nav-item[data-tab="' + tab + '"]');
+      if (navEl) navEl.classList.add('active');
+      
+      if (tab === 'dashboard' && typeof loadDashboard === 'function') loadDashboard();
+      if (tab === 'hunt' && typeof loadOutreach === 'function') loadOutreach();
+      if (tab === 'deals' && typeof loadOutreach === 'function') { loadOutreach(); if(typeof loadFlagship==='function') loadFlagship(); }
+      if (tab === 'factory' && typeof loadClients === 'function') loadClients();
+      if (tab === 'syndicate' && typeof loadRadar === 'function') loadRadar();
+      if (tab === 'engine' && typeof loadFinance === 'function') { loadFinance(); if(typeof loadContent==='function') loadContent(); if(typeof loadSettings==='function') loadSettings(); }
+  };
+</script>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
