@@ -61,7 +61,7 @@ window.saveRitual = async function() {
   } catch(e) { toast('Error saving ritual', 'error'); }
 };
 
-// ── OUTREACH (NUCLEAR SYNC ENGINE) ───────────────────────────────────────────
+// ── OUTREACH (ARMOR-PLATED SYNC ENGINE) ───────────────────────────────────────
 let outreachListener = null;
 
 function loadOutreach() {
@@ -76,16 +76,16 @@ function loadOutreach() {
         // 1. Update Dashboard Funnel
         populateCommandCenter();
         
-        // 2. FORCE RENDER THE WAR BOARD (Mid-Funnel)
+        // 2. FORCE RENDER THE WAR BOARD (Active Deals Tab)
         if (typeof renderDealsBoard === 'function') renderDealsBoard();
 
-        // 3. FORCE RENDER THE HUNT TABLE (Acquisition Pipeline)
-        // We remove the conditional check so it always populates op-tbody
+        // 3. FORCE RENDER THE HUNT TABLE (The Hunt Tab)
+        // Bypasses any conditional tab checks to resolve the "Loading..." hang
         filterProspects(); 
         populateBatchFilter();
 
     } catch (err) {
-        console.error("Outreach Render Error:", err);
+        console.error("Outreach Sync Error:", err);
     }
   }, (e) => {
     console.error("Firebase Sync Failed:", e);
@@ -94,7 +94,6 @@ function loadOutreach() {
 }
 
 function setOutreachView(view, el) {
-  // Legacy support for Outreach sub-tabs if needed
   qsa('.view-btn').forEach(b => b.classList.remove('active'));
   if (el) el.classList.add('active');
   ['command','pipeline','hot','followup','inbound','dead'].forEach(v => {
@@ -178,11 +177,10 @@ function renderBatchPerformance() {
   tbodies.forEach(tb => tb.innerHTML = html);
 }
 
-// ── KANBAN BOARD LOGIC (ARMOR-PLATED) ─────────────────────────────────────────
+// ── KANBAN BOARD LOGIC (ACTIVE DEALS) ─────────────────────────────────────────
 function renderDealsBoard() {
   const cols = { 1: [], 2: [], 3: [], 4: [], 5: [] };
 
-  // 1. Sort Prospects
   allProspects.forEach(p => {
     if (p.status === 'Dead') return;
     if (p.status === 'Converted') { cols[5].push(p); } 
@@ -192,13 +190,12 @@ function renderDealsBoard() {
     else { cols[1].push(p); }
   });
 
-  // 2. Merge Flagship Deals
   if (allFlagship && Array.isArray(allFlagship)) {
       allFlagship.forEach(f => {
          if (f.status === 'Won') cols[5].push(f);
          else if (f.status === 'Lost') return;
          else if (f.status === 'Identified') cols[1].push(f);
-         else { cols[4].push(f); } // Mid-talk Flagship sits at Decision Desk
+         else { cols[4].push(f); } 
       });
   }
 
@@ -221,8 +218,14 @@ function renderDealsBoard() {
           const comp = esc(c.company || '—');
           const flags = isFlagship ? '<span style="color:var(--gold)">◆ </span>' : (c.scannerCompleted ? '🔥🔥 ' : (c.scannerClicked || c.hotFlag ? '🔥 ' : ''));
           const nextDate = c.nextActionDate || '';
-          const dateCls = (nextDate && nextDate < todayStr) ? 'k-date-red' : (nextDate === todayStr ? 'k-date-gold' : '');
-          const dateTxt = (nextDate && nextDate < todayStr) ? '⚠ Overdue' : (nextDate === todayStr ? '★ Today' : nextDate);
+          const isOverdue = nextDate && nextDate < todayStr;
+          const isToday = nextDate === todayStr;
+          
+          let dateStyle = 'color:var(--marble-faint)';
+          let dateText = nextDate || 'No action set';
+          
+          if (isOverdue) { dateStyle = 'color:#d47a7a; font-weight:600;'; dateText = '⚠ Overdue'; }
+          else if (isToday) { dateStyle = 'color:var(--gold);'; dateText = '★ Today'; }
 
           const clickFn = isFlagship ? `openFSP('${esc(c.id)}')` : `openPP('${esc(c.id)}')`;
 
@@ -230,7 +233,7 @@ function renderDealsBoard() {
             <div class="k-card" onclick="${clickFn}">
               <div class="k-name">${flags}${name}</div>
               <div class="k-comp">${comp}</div>
-              <div class="k-meta"><span class="${dateCls}">${dateTxt || '—'}</span></div>
+              <div class="k-meta"><span style="${dateStyle}">${dateText}</span></div>
             </div>`;
         }).join('');
         
@@ -238,7 +241,7 @@ function renderDealsBoard() {
   }
 }
 
-// ── THE HUNT TABLE (ARMOR-PLATED) ───────────────────────────────────────────
+// ── THE HUNT TABLE (ACQUISITION) ───────────────────────────────────────────
 function populateBatchFilter() {
   const sel = $('op-batch');
   if (!sel || sel.options.length > 1) return;
@@ -252,9 +255,6 @@ function filterProspects() {
   const s   = ($('op-search')?.value||'').toLowerCase();
   const st  = $('op-status')?.value  || '';
   const bt  = $('op-batch')?.value   || '';
-  const br  = $('op-branch')?.value  || '';
-  const fs  = $('op-funding')?.value || '';
-  const sc  = $('op-scanner')?.value || '';
   const srt = $('op-sort')?.value    || 'nextDate';
 
   let list = allProspects.filter(p =>
@@ -262,12 +262,7 @@ function filterProspects() {
              (p.company||'').toLowerCase().includes(s) ||
              (p.email||'').toLowerCase().includes(s)) &&
     (!st || p.status === st) &&
-    (!bt || p.batchNumber === bt) &&
-    (!br || p.followUpBranch === br) &&
-    (!fs || p.fundingStage === fs) &&
-    (!sc || (sc==='clicked'   &&  p.scannerClicked && !p.scannerCompleted) ||
-            (sc==='completed' &&  p.scannerCompleted) ||
-            (sc==='none'      && !p.scannerClicked))
+    (!bt || p.batchNumber === bt)
   );
 
   if      (srt === 'dateAdded') list.sort((a,b) => (b.addedAt||'').localeCompare(a.addedAt||''));
@@ -286,7 +281,7 @@ function renderPipeline(list) {
   const sClass = { Cold:'b-cold', Warm:'b-warm', Hot:'b-hot', Replied:'b-intake', Negotiating:'b-production', Converted:'b-converted' };
   
   const html = !rows.length 
-    ? '<tr><td colspan="9" class="loading">No prospects found</td></tr>'
+    ? '<tr><td colspan="9" class="loading">No targets identified yet.</td></tr>'
     : rows.map(p => {
         const fire = p.scannerCompleted ? '🔥🔥' : (p.scannerClicked || p.hotFlag ? '🔥' : '');
         const scan = p.scannerCompleted ? '<span class="badge b-delivered">Completed</span>' : p.scannerClicked ? '<span class="badge b-warm">Clicked</span>' : '<span class="badge b-ghost">—</span>';
@@ -305,6 +300,7 @@ function renderPipeline(list) {
   tbodies.forEach(tb => tb.innerHTML = html);
 }
 
+// ── REMAINDER OF UTILITIES & PANEL LOGIC ──────────────────────────────────────
 function renderHot() {
   const tbodies = document.querySelectorAll('#oh-tbody');
   if (tbodies.length === 0) return;
@@ -326,14 +322,16 @@ function renderFollowup() {
   if (tbodies.length === 0) return;
   const todayStr = new Date().toISOString().split('T')[0];
   const due = allProspects.filter(p => p.nextActionDate && p.nextActionDate <= todayStr && !['Converted','Dead'].includes(p.status)).sort((a,b) => (a.nextActionDate||'').localeCompare(b.nextActionDate||''));
-  const html = !due.length ? '<tr><td colspan="5" class="empty">No follow-ups due</td></tr>' : due.map(p => `
-        <tr onclick="openPP('${esc(p.id)}')">
+  const html = !due.length ? '<tr><td colspan="5" class="empty">No follow-ups due</td></tr>' : due.map(p => {
+        const over = p.nextActionDate < todayStr;
+        return `<tr onclick="openPP('${esc(p.id)}')">
           <td>${esc(p.founderName||p.name||'—')}</td>
           <td class="dim">${esc(p.company||'—')}</td>
-          <td style="color:${p.nextActionDate < todayStr ? '#d47a7a' : 'inherit'}">${esc(p.nextActionDate)} ${p.nextActionDate < todayStr ? '⚠' : ''}</td>
+          <td style="color:${over ? '#d47a7a' : 'inherit'}">${esc(p.nextActionDate)} ${over ? '⚠' : ''}</td>
           <td><span class="badge b-${(p.status||'cold').toLowerCase()}">${esc(p.status||'—')}</span></td>
           <td class="dim">${esc(p.nextAction||'—')}</td>
-        </tr>`).join('');
+        </tr>`;
+      }).join('');
   tbodies.forEach(tb => tb.innerHTML = html);
 }
 
@@ -373,34 +371,7 @@ function renderDead() {
   tbodies.forEach(tb => tb.innerHTML = html);
 }
 
-// ── LEAD CONVERSION ───────────────────────────────────────────────────────────
-window.convertLead = async function(leadId) {
-  if (!confirm('Convert this Lead into a Pipeline Prospect?')) return;
-  try {
-    const leadDoc = await db.collection('leads').doc(leadId).get();
-    if (!leadDoc.exists) { toast('Lead not found', 'error'); return; }
-    const l = leadDoc.data();
-    const pid  = await genProspectId();
-    const email = l.email || leadId;
-    const prospectData = {
-      founderName: l.name || '', email: email, company: l.company || '',
-      linkedinUrl: l.linkedin || '', website: '', fundingStage: '', location: '', source: l.source || 'scanner',
-      batchNumber: 'Inbound', intendedPlan: 'agentic_shield', notes: 'Converted from Lead ID: ' + leadId,
-      status: 'Replied', prospectId: pid, emailsSent: 0, emailLog: [], scannerClicked: true,
-      scannerCompleted: !!l.scannerScore || !!l.scannerExternalScore,
-      scannerExternalScore: l.scannerExternalScore || l.scannerScore || null,
-      scannerInternalScore: l.scannerInternalScore || null,
-      addedAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-      legalGapStatus: 'generic', personalizedHook: 'Submitted via scanner.'
-    };
-    await db.collection('prospects').doc(email).set(prospectData, { merge: true });
-    await db.collection('leads').doc(leadId).update({ status: 'converted', convertedAt: new Date().toISOString() });
-    toast(`Lead converted to ${pid}`);
-    loadOutreach();
-  } catch(e) { console.error(e); toast('Conversion failed', 'error'); }
-};
-
-// ── PROSPECT PANEL ────────────────────────────────────────────────────────────
+// ── CRM PANEL LOGIC ───────────────────────────────────────────────────────────
 function openPP(id) {
   const p = allProspects.find(x => x.id === id);
   if (!p) return;
@@ -571,10 +542,10 @@ function openAddProspect() {
       <div>
           <div class="section-sub">Gate 0: Identity</div>
           <div class="fi-row">
-              <div class="fg"><label class="fl">Founder Name</label><input type="text" class="fi" id="ap-name"></div>
-              <div class="fg"><label class="fl">Company</label><input type="text" class="fi" id="ap-company"></div>
+              <div class="fg"><label class="fl">Founder Name</label><input type="text" class="fi" id="ap-name" placeholder="Jane Smith"></div>
+              <div class="fg"><label class="fl">Company</label><input type="text" class="fi" id="ap-company" placeholder="Acme AI"></div>
           </div>
-          <div class="fg"><label class="fl">Email *</label><input type="email" class="fi" id="ap-email"></div>
+          <div class="fg"><label class="fl">Email *</label><input type="email" class="fi" id="ap-email" placeholder="jane@acme.ai"></div>
           <div class="fi-row">
               <div class="fg"><label class="fl">LinkedIn URL</label><input type="text" class="fi" id="ap-li"></div>
               <div class="fg"><label class="fl">Website</label><input type="text" class="fi" id="ap-web"></div>
@@ -583,8 +554,9 @@ function openAddProspect() {
       <div>
           <div class="section-sub">Gate 2: Audit & Hook</div>
           <div class="fg"><label class="fl">Legal Gap Status</label><select class="fi" id="ap-gap-status"><option value="exposure">🔴 No Legal Page</option><option value="generic" selected>🟡 Generic SaaS</option></select></div>
-          <div class="fg"><label class="fl">Spear Hook *</label><textarea class="fi" id="ap-hook" rows="3"></textarea></div>
-          <div class="fg"><label class="fl">Batch ID</label><input type="text" class="fi" id="ap-batch" value="Batch_01"></div>
+          <div class="fg"><label class="fl" style="color:var(--gold)">The Spear Hook *</label><textarea class="fi" id="ap-hook" rows="3" placeholder="I saw your agents..."></textarea></div>
+          <div class="fg"><label class="fl">Batch ID</label><input type="text" class="fi" id="ap-batch" value="Batch_01_Tuesday"></div>
+          <div class="fg"><label class="fl">Intended Plan</label><select class="fi" id="ap-plan">${planOpts}</select></div>
       </div>
     </div>`, `
     <button class="btn btn-outline btn-sm" onclick="closeModal()">Cancel</button>
@@ -599,14 +571,16 @@ async function saveNewProspect() {
   const data = {
     founderName: $('ap-name')?.value?.trim() || '', email, company: $('ap-company')?.value?.trim() || '',
     linkedinUrl: $('ap-li')?.value?.trim() || '', website: $('ap-web')?.value?.trim() || '',
-    legalGapStatus: $('ap-gap-status')?.value || 'generic', personalizedHook: hook, batchNumber: $('ap-batch')?.value || 'Batch_01',
-    status: 'Cold', prospectId: pid, addedAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+    legalGapStatus: $('ap-gap-status')?.value || 'generic', personalizedHook: hook, batchNumber: $('ap-batch')?.value || 'Batch_01_Tuesday',
+    intendedPlan: $('ap-plan')?.value || 'agentic_shield', status: 'Cold', prospectId: pid, addedAt: new Date().toISOString(), updatedAt: new Date().toISOString()
   };
+  if (data.legalGapStatus === 'exposure') { data.status = 'Hot'; data.hotFlag = true; }
   await db.collection('prospects').doc(email).set(data, { merge: true });
   closeModal();
   toast('Target added.');
 }
 
+// ── FLAGSHIP & SYSTEM ────────────────────────────────────────────────────────
 async function loadAdmins() {
   const tbodies = document.querySelectorAll('#s-admins');
   if (tbodies.length === 0) return;
