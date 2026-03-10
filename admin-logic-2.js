@@ -755,17 +755,13 @@ function renderPPBody(p) {
 async function saveProspect() {
   if (!currentProspect) return;
   
-  const originalEmail = currentProspect.id;
-  const newEmail = $('pp-email-edit')?.value?.trim().toLowerCase();
-
   const updates = {
     founderName:          $('pp-name-edit')?.value?.trim()  || '',
     company:              $('pp-company-edit')?.value?.trim() || '',
     linkedinUrl:          $('pp-linkedin-edit')?.value?.trim() || '',
     website:              $('pp-website-edit')?.value?.trim() || '',
     batchNumber:          $('pp-batch-edit')?.value?.trim() || '',
-    email:                newEmail,
-
+    email:                $('pp-email-edit')?.value?.trim().toLowerCase() || currentProspect.email,
     status:               $('pp-status')?.value             || currentProspect.status,
     followUpBranch:       $('pp-branch')?.value             || '',
     fundingStage:         $('pp-funding')?.value            || '',
@@ -779,7 +775,6 @@ async function saveProspect() {
     nextActionDate:       $('pp-next-date')?.value          || '',
     nextAction:           $('pp-next-note')?.value?.trim()  || '',
     notes:                $('pp-notes')?.value?.trim()      || '',
-    
     jobTitle:             $('pp-title')?.value?.trim()      || '',
     legalGapStatus:       $('pp-gap-status')?.value         || 'generic',
     legalGapAnalysis:     $('pp-gap-text')?.value?.trim()   || '',
@@ -791,69 +786,52 @@ async function saveProspect() {
   
   if (updates.legalGapStatus === 'exposure') updates.hotFlag = true;
 
-  // ── THE P->C MIGRATION INTERCEPTOR ──
   let isConvertingToClient = false;
   if (updates.status === 'Converted' && currentProspect.status !== 'Converted') {
       isConvertingToClient = true;
   }
 
-  // Handle standard "Dead" state
   if (updates.status === 'Dead' && currentProspect.status !== 'Dead' && !isConvertingToClient) {
       updates.archivedAt = new Date().toISOString();
   }
 
   try {
-    // SCENARIO 1: Converting to Client
     if (isConvertingToClient) {
         if (!confirm(`Initialize P→C Migration? This will push the target to The Factory and change their ID to LN-C.`)) return;
         
-        // Transform the ID
         const clientId = (currentProspect.prospectId || '').replace('LN-P-', 'LN-C-') || ('LN-C-' + Date.now());
         
         const clientData = {
             ...currentProspect,
             ...updates,
-            id: newEmail, // Database Key
-            engagementRef: clientId, // The new LN-C Client ID
-            originalProspectId: currentProspect.prospectId, // Traceability link
-            status: 'payment_received', // The Factory Phase 0 Status
+            id: updates.email, 
+            engagementRef: clientId,
+            originalProspectId: currentProspect.prospectId,
+            status: 'payment_received',
             createdAt: new Date().toISOString(),
             plan: updates.intendedPlan || 'agentic_shield'
         };
 
-        // Write to Clients Database
-        await db.collection('clients').doc(newEmail).set(clientData);
+        await db.collection('clients').doc(updates.email).set(clientData);
         toast(`Migrated to The Factory as ${clientId}`, 'success');
         
-        // Archive the old prospect
         updates.status = 'Dead';
         updates.archivedAt = new Date().toISOString();
         updates.notes = (updates.notes || '') + `\n[SYSTEM] Deal Closed. Data migrated to Client ID: ${clientId}`;
     }
 
-    // SCENARIO 2: Changing the Email (Database ID Migration)
-    if (newEmail !== originalEmail) {
-        if (!confirm(`You changed the email from ${originalEmail} to ${newEmail}. This will migrate their database ID. Proceed?`)) {
-            return; 
-        }
-        const fullData = { ...currentProspect, ...updates, id: newEmail };
-        await db.collection('prospects').doc(newEmail).set(fullData);
-        await db.collection('prospects').doc(originalEmail).delete();
-        
-        currentProspect = fullData;
-        if (!isConvertingToClient) toast('Target Migrated & Saved');
-    } else {
-        // Standard Save
-        await db.collection('prospects').doc(originalEmail).set(updates, { merge: true });
-        currentProspect = { ...currentProspect, ...updates };
-        if (!isConvertingToClient) toast('Prospect saved');
-    }
+    // Because the Document ID is the prospectId, we just update it directly!
+    // (If prospectId doesn't exist, fallback to id for legacy compatibility)
+    const docKey = currentProspect.prospectId || currentProspect.id;
+    await db.collection('prospects').doc(docKey).set(updates, { merge: true });
     
-    // UI Update
-    const idx = allProspects.findIndex(p => p.id === originalEmail);
+    currentProspect = { ...currentProspect, ...updates };
+    if (!isConvertingToClient) toast('Prospect saved');
+    
+    const idx = allProspects.findIndex(p => p.id === currentProspect.id);
     if (idx !== -1) allProspects[idx] = currentProspect;
     
-    if (isConvertingToClient) closePP(); // Close panel if they moved to Factory
+    if (isConvertingToClient) closePP(); 
 
   } catch(e) { console.error(e); toast('Save failed', 'error'); }
 }
