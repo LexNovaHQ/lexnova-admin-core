@@ -3,10 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lex Nova — Admin Console</title>
+<title>Lex Nova — Admin Console v4.0</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-/* ── RESET & BASE ───────────────────────────────────────── */
+/* ═════════════════════════════════════════════════════════ */
+/* ═════════ 1. RESET & BASE VARIABLES ═════════════════════ */
+/* ═════════════════════════════════════════════════════════ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --void:#050505;--surface:#0a0a0a;--surface2:#111;--surface3:#161616;
@@ -24,7 +26,9 @@ input,select,textarea{font-family:inherit}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(197,160,89,.2);border-radius:2px}
 
-/* ── UTILITY ────────────────────────────────────────────── */
+/* ═════════════════════════════════════════════════════════ */
+/* ═════════ 2. UTILITY CLASSES & BADGES ═══════════════════ */
+/* ═════════════════════════════════════════════════════════ */
 .hidden{display:none!important}
 .serif{font-family:'Cormorant Garamond',serif}
 .gold{color:var(--gold)}
@@ -32,11 +36,9 @@ input,select,textarea{font-family:inherit}
 .faint{color:var(--marble-faint)}
 .mono{font-size:10px;letter-spacing:.15em;text-transform:uppercase}
 
-/* ── INFO ICON ──────────────────────────────────────────── */
 .info-icon{display:inline-block; margin-left:6px; color:var(--gold); font-size:10px; cursor:pointer; opacity:0.6; font-style:normal; font-family:sans-serif; vertical-align:middle; transition: opacity 0.2s;}
 .info-icon:hover{opacity:1;}
 
-/* ── BADGES ─────────────────────────────────────────────── */
 .badge{display:inline-block;padding:2px 8px;font-size:9px;letter-spacing:.12em;text-transform:uppercase;border-radius:0;white-space:nowrap}
 .b-pending{background:rgba(90,90,150,.15);border:1px solid rgba(90,90,180,.3);color:#7a7ae0}
 .b-intake{background:rgba(197,160,89,.08);border:1px solid var(--border2);color:var(--gold)}
@@ -53,7 +55,9 @@ input,select,textarea{font-family:inherit}
 .b-yellow{background:rgba(154,128,48,.1);border:1px solid rgba(154,128,48,.3);color:#c4a840}
 .b-green{background:rgba(90,138,106,.1);border:1px solid rgba(90,138,106,.3);color:#7ab88a}
 
-/* ── LOGIN ──────────────────────────────────────────────── */
+/* ═════════════════════════════════════════════════════════ */
+/* ═════════ 3. LOGIN SCREEN ═══════════════════════════════ */
+/* ═════════════════════════════════════════════════════════ */
 #loginScreen{position:fixed;inset:0;background:var(--void);display:flex;align-items:center;justify-content:center;z-index:1000}
 .login-box{width:360px;padding:48px 40px;border:1px solid var(--border2);background:var(--surface)}
 .login-logo{font-family:'Cormorant Garamond',serif;font-size:28px;letter-spacing:.12em;color:var(--gold);margin-bottom:4px}
@@ -64,7 +68,9 @@ input,select,textarea{font-family:inherit}
 .login-box input:focus{border-color:var(--gold)}
 #loginError{font-size:11px;color:#c47a7a;margin-bottom:12px;display:none}
 
-/* ── BUTTONS ────────────────────────────────────────────── */
+/* ═════════════════════════════════════════════════════════ */
+/* ═════════ 4. BUTTONS & FORMS ════════════════════════════ */
+/* ═════════════════════════════════════════════════════════ */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;font-size:9px;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;border:none;white-space:nowrap}
 .btn-primary{background:var(--gold);color:var(--void);font-weight:600}
 .btn-primary:hover{background:#d4b470}
@@ -78,7 +84,6 @@ input,select,textarea{font-family:inherit}
 .btn-full{width:100%;justify-content:center}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 
-/* ── FORMS ──────────────────────────────────────────────── */
 .fg{margin-bottom:16px}
 .fl{display:block;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--marble-dim);margin-bottom:5px}
 .fi{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--marble);padding:9px 11px;outline:none;transition:border-color .2s;font-size:12px;-webkit-appearance:none}
@@ -89,11 +94,12 @@ textarea.fi{resize:vertical;min-height:72px}
 .fi-row{display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:12px}
 .fi-row3{display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:12px}
 
-/* ── LAYOUT ─────────────────────────────────────────────── */
+/* ═════════════════════════════════════════════════════════ */
+/* ═════════ 5. CORE LAYOUT & SIDEBAR ══════════════════════ */
+/* ═════════════════════════════════════════════════════════ */
 #adminPanel{display:none;height:100vh;overflow:hidden;flex-direction:row}
 #adminPanel.active{display:flex}
 
-/* ── SIDEBAR ────────────────────────────────────────────── */
 #sidebar{width:var(--sidebar);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
 .sb-logo{padding:28px 20px 24px;border-bottom:1px solid var(--border)}
 .sb-logo-name{font-family:'Cormorant Garamond',serif;font-size:20px;letter-spacing:.1em;color:var(--gold)}
@@ -107,7 +113,6 @@ textarea.fi{resize:vertical;min-height:72px}
 .admin-id{font-size:9px;color:var(--marble-faint);margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nav-badge{margin-left:auto;background:var(--gold);color:var(--void);font-size:8px;padding:1px 5px;border-radius:8px;font-weight:600}
 
-/* ── MAIN ───────────────────────────────────────────────── */
 #main{flex:1;overflow-y:auto;overflow-x:hidden;background:var(--void)}
 .page-header{padding:32px 32px 0;border-bottom:1px solid var(--border);margin-bottom:0}
 .page-title{font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--marble);margin-bottom:4px}
@@ -116,7 +121,9 @@ textarea.fi{resize:vertical;min-height:72px}
 .tab-content{display:none;padding:28px 32px}
 .tab-content.active{display:block}
 
-/* ── CARDS ──────────────────────────────────────────────── */
+/* ═════════════════════════════════════════════════════════ */
+/* ═════════ 6. CARDS & TABLES ═════════════════════════════ */
+/* ═════════════════════════════════════════════════════════ */
 .card{background:var(--surface);border:1px solid var(--border);padding:20px;min-width:200px}
 .card-grid{display:grid;gap:16px}
 .card-grid-2{grid-template-columns:repeat(auto-fit, minmax(300px, 1fr))}
@@ -129,11 +136,9 @@ textarea.fi{resize:vertical;min-height:72px}
 .section-title{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--marble);margin-bottom:4px;margin-top:24px}
 .section-sub{font-size:10px;color:var(--marble-faint);margin-bottom:14px;letter-spacing:.1em;text-transform:uppercase}
 
-/* ── ALERTS STRIP ───────────────────────────────────────── */
 #alertStrip{background:rgba(138,58,58,.08);border-bottom:1px solid rgba(138,58,58,.2);padding:10px 32px;display:flex;gap:20px;flex-wrap:wrap}
 .alert-chip{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#d47a7a;display:flex;align-items:center;gap:5px}
 
-/* ── TABLES ─────────────────────────────────────────────── */
 .tbl-wrap{overflow-x:auto;border:1px solid var(--border);margin-bottom:16px;}
 table{width:100%;border-collapse:collapse;min-width:600px;}
 thead th{padding:10px 14px;font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--marble-dim);background:var(--surface);border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
@@ -144,7 +149,9 @@ tbody td.dim{color:var(--marble-dim)}
 .tbl-empty{padding:40px;text-align:center;font-size:11px;color:var(--marble-faint);border:1px solid var(--border)}
 .hot-flag{font-size:12px;margin-left:4px;white-space:nowrap;}
 
-/* ── KANBAN BOARDS (RESPONSIVE WRAP) ────────────────────── */
+/* ═════════════════════════════════════════════════════════ */
+/* ═════════ 7. KANBAN BOARDS (RESPONSIVE) ═════════════════ */
+/* ═════════════════════════════════════════════════════════ */
 .k-wrap { display: flex; gap: 16px; flex-wrap: wrap; padding-bottom: 20px; height: auto; align-items: flex-start; }
 .k-col { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; min-width: 260px; flex: 1 1 260px; display: flex; flex-direction: column; max-height: 75vh; flex-shrink: 0; }
 .k-head { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--surface); border-radius: 4px 4px 0 0; flex-shrink: 0; }
@@ -159,7 +166,9 @@ tbody td.dim{color:var(--marble-dim)}
 .k-date-red { color: #d47a7a; }
 .k-date-gold { color: var(--gold); }
 
-/* ── FILTER BAR ─────────────────────────────────────────── */
+/* ═════════════════════════════════════════════════════════ */
+/* ═════════ 8. FILTER BARS & UI COMPONENTS ════════════════ */
+/* ═════════════════════════════════════════════════════════ */
 .filter-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
 .filter-bar .fi{width:auto;padding:6px 10px;font-size:11px;flex:1 1 auto;min-width:140px;}
 .filter-bar input.fi{min-width:200px;}
@@ -168,7 +177,6 @@ tbody td.dim{color:var(--marble-dim)}
 .view-btn:hover{color:var(--gold);border-color:var(--gold-mid)}
 .view-btn.active{color:var(--void);background:var(--gold);border-color:var(--gold)}
 
-/* ── RADAR DOTS ─────────────────────────────────────────── */
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}
 .dot-green{background:var(--green)}
 .dot-yellow{background:var(--yellow)}
@@ -176,13 +184,11 @@ tbody td.dim{color:var(--marble-dim)}
 .dot-grey{background:rgba(232,227,217,.15);border:1px solid rgba(232,227,217,.2)}
 .radar-dots{display:flex;gap:3px;align-items:center;flex-wrap:wrap;}
 
-/* ── JURISDICTION TAGS ──────────────────────────────────── */
 .j-wrap{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
 .j-tag{padding:3px 10px;border:1px solid var(--border2);font-size:9px;color:var(--marble-dim);cursor:pointer;transition:all .15s;user-select:none}
 .j-tag:hover{border-color:var(--gold-mid);color:var(--marble)}
 .j-tag.on{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
 
-/* ── CHECKLIST ──────────────────────────────────────────── */
 .chk-item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid rgba(197,160,89,.06)}
 .chk-item:last-child{border-bottom:none}
 .chk-box{width:16px;height:16px;border:1px solid var(--border2);background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;margin-top:2px;}
@@ -194,20 +200,17 @@ tbody td.dim{color:var(--marble-dim)}
 .chk-box.done+.chk-label{color:var(--marble-dim);text-decoration:line-through}
 .el-lock{background:rgba(138,58,58,.08);border:1px solid rgba(138,58,58,.2);padding:10px 14px;font-size:10px;color:#d47a7a;margin-bottom:14px;display:none}
 
-/* ── COUNTDOWN ──────────────────────────────────────────── */
 .countdown{display:flex;gap:4px;align-items:center;font-size:10px;margin-top:4px;white-space:nowrap;}
 .cd-ok{color:var(--green)}
 .cd-warn{color:var(--yellow)}
 .cd-over{color:#d47a7a}
 
-/* ── ACTIVITY LOG ───────────────────────────────────────── */
 .act-entry{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid rgba(197,160,89,.06)}
 .act-entry:last-child{border-bottom:none}
 .act-dot{width:6px;height:6px;border-radius:50%;background:var(--gold-mid);flex-shrink:0;margin-top:4px}
 .act-note{font-size:11px;color:var(--marble);flex:1;word-break:break-word;}
 .act-ts{font-size:9px;color:var(--marble-faint)}
 
-/* ── DOC ROWS ───────────────────────────────────────────── */
 .doc-row{background:var(--surface2);border:1px solid var(--border);padding:14px;margin-bottom:8px}
 .doc-row-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px;}
 .doc-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
@@ -215,7 +218,6 @@ tbody td.dim{color:var(--marble-dim)}
 .doc-del:hover{text-decoration:underline}
 .doc-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:10px}
 
-/* ── COMPLIANCE ROWS ────────────────────────────────────── */
 .comp-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(197,160,89,.06)}
 .comp-row:last-child{border-bottom:none}
 .comp-title{font-size:11px;color:var(--marble);flex:1}
@@ -226,7 +228,9 @@ tbody td.dim{color:var(--marble-dim)}
 .sev-MEDIUM{color:var(--gold)}
 .sev-LOW{color:var(--marble-dim)}
 
-/* ── DETAIL PANELS ──────────────────────────────────────── */
+/* ═════════════════════════════════════════════════════════ */
+/* ═════════ 9. DETAIL PANELS (SLIDE-OUTS) ═════════════════ */
+/* ═════════════════════════════════════════════════════════ */
 #detailPanel, #prospectPanel, #flagshipPanel{position:fixed;right:0;top:0;bottom:0;background:var(--surface);border-left:1px solid var(--border2);display:none;z-index:300;flex-direction:column;overflow:hidden;width:100%;max-width:600px;}
 #detailPanel.open, #prospectPanel.open, #flagshipPanel.open{display:flex}
 
@@ -235,7 +239,6 @@ tbody td.dim{color:var(--marble-dim)}
 .detail-meta, .pp-meta{font-size:9px;color:var(--marble-faint);margin-top:4px;word-break:break-all;}
 .detail-plan-badge{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-top:6px;display:inline-block}
 
-/* sub-tabs */
 .sub-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;padding:0 24px}
 .sub-tab{padding:9px 12px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--marble-dim);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;transition:all .15s}
 .sub-tab:hover{color:var(--marble)}
@@ -244,14 +247,15 @@ tbody td.dim{color:var(--marble-dim)}
 .detail-section{margin-bottom:20px}
 .detail-section-title{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--marble-faint);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
 
-/* EL status block */
 .el-status-block{background:var(--surface2);border:1px solid var(--border);padding:10px 14px;margin-bottom:14px}
 .el-status-row{display:flex;justify-content:space-between;font-size:10px;flex-wrap:wrap;gap:10px;}
 .el-status-ok{color:var(--green)}
 .el-status-miss{color:#d47a7a}
 .eng-ref{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--gold);margin-bottom:4px;word-break:break-all;}
 
-/* ── MODAL ──────────────────────────────────────────────── */
+/* ═════════════════════════════════════════════════════════ */
+/* ═════════ 10. MODALS & TOASTS ═══════════════════════════ */
+/* ═════════════════════════════════════════════════════════ */
 #overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:250}
 #overlay.open{display:block}
 #modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border2);width:900px;max-width:95vw;max-height:90vh;display:none;z-index:260;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,0.8);}
@@ -262,12 +266,13 @@ tbody td.dim{color:var(--marble-dim)}
 .modal-footer{padding:16px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0;flex-wrap:wrap;}
 .modal-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:32px;}
 
-/* ── TOAST ──────────────────────────────────────────────── */
 #toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;font-size:11px;border:1px solid;display:none;z-index:999;letter-spacing:.05em;max-width:300px;word-break:break-word;}
 #toast.success{background:rgba(90,138,106,.1);border-color:var(--green);color:#7ab88a}
 #toast.error{background:rgba(138,58,58,.1);border-color:var(--red);color:#d47a7a}
 
-/* ── DASHBOARD SPECIFIC ─────────────────────────────────── */
+/* ═════════════════════════════════════════════════════════ */
+/* ═════════ 11. TAB-SPECIFIC STYLES ═══════════════════════ */
+/* ═════════════════════════════════════════════════════════ */
 .funnel-row{display:flex;align-items:center;gap:0;margin-bottom:2px;flex-wrap:wrap;}
 .funnel-stage{flex:1 1 60px;text-align:center;padding:10px 4px;background:var(--surface);border:1px solid var(--border);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--marble-dim)}
 .funnel-stage .fnum{font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--marble);display:block;margin-bottom:2px}
@@ -282,7 +287,6 @@ tbody td.dim{color:var(--marble-dim)}
 .conc-row:last-child{border-bottom:none}
 .conc-flag{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#d47a7a}
 
-/* ── OUTREACH SPECIFIC ──────────────────────────────────── */
 .pipeline-funnel{display:flex;gap:0;flex-wrap:wrap;}
 .pf-stage{flex:1 1 80px;padding:12px 8px;background:var(--surface);border:1px solid var(--border);text-align:center;border-left:none;margin-bottom:-1px;}
 .pf-stage:first-child{border-left:1px solid var(--border)}
@@ -299,7 +303,6 @@ tbody td.dim{color:var(--marble-dim)}
 .ec-limit{font-size:10px;color:var(--marble-faint)}
 .ec-over{color:#d47a7a}
 
-/* ── RADAR SPECIFIC ─────────────────────────────────────── */
 .radar-entry{background:var(--surface);border:1px solid var(--border);padding:14px 16px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
 .radar-title{font-size:12px;color:var(--marble);margin-bottom:3px}
 .radar-meta{font-size:9px;color:var(--marble-faint)}
@@ -310,15 +313,12 @@ tbody td.dim{color:var(--marble-dim)}
 .exp-flag-r{font-size:10px;color:#d47a7a;white-space:nowrap;}
 .exp-flag-y{font-size:10px;color:#c4a840;white-space:nowrap;}
 
-/* ── FINANCE SPECIFIC ───────────────────────────────────── */
 .conc-warn{background:rgba(138,58,58,.06);border:1px solid rgba(138,58,58,.2);padding:10px 14px;font-size:10px;color:#d47a7a;margin-bottom:12px;display:none}
 
-/* ── BATCH TABLE ────────────────────────────────────────── */
 .batch-tbl{width:100%;border-collapse:collapse;font-size:11px;min-width:600px;}
 .batch-tbl th{padding:7px 10px;font-size:8px;letter-spacing:.15em;text-transform:uppercase;color:var(--marble-dim);text-align:left;border-bottom:1px solid var(--border)}
 .batch-tbl td{padding:8px 10px;border-bottom:1px solid rgba(197,160,89,.04);color:var(--marble);word-break:break-word;white-space:normal;}
 
-/* ── LOADING / EMPTY ────────────────────────────────────── */
 .loading{color:var(--marble-faint);font-size:11px;padding:40px;text-align:center;letter-spacing:.1em}
 .empty{color:var(--marble-faint);font-size:11px;padding:40px;text-align:center;border:1px solid var(--border)}
 </style>
@@ -754,13 +754,25 @@ tbody td.dim{color:var(--marble-dim)}
           <div>
             <div class="section-title" style="margin-top:0">Admin Access</div>
             <div class="tbl-wrap" style="margin-bottom:14px">
-              <table><thead><tr><th>Email</th><th>Role</th><th>Action</th></tr></thead><tbody id="s-admins"><tr><td colspan="3" class="loading">Loading…</td></tr></tbody></table>
+              <table><thead><tr><th>Email</th><th>Permissions</th><th>Action</th></tr></thead><tbody id="s-admins"><tr><td colspan="3" class="loading">Loading…</td></tr></tbody></table>
             </div>
-            <div class="fi-row" style="margin-bottom:10px">
-              <input type="email" id="s-new-admin" class="fi" placeholder="email@domain.com">
-              <select id="s-new-role" class="fi"><option value="superadmin">Superadmin</option><option value="architect">Architect</option><option value="va">VA</option></select>
+            
+            <div style="background:var(--surface2); border:1px solid var(--border); padding:14px; border-radius:4px;">
+              <div class="fg" style="margin-bottom:12px;">
+                <input type="email" id="s-new-admin" class="fi" placeholder="email@domain.com">
+              </div>
+              <div style="margin-bottom:14px;">
+                <label class="fl" style="margin-bottom:8px; color:var(--gold);">Phase Access (Permissions)</label>
+                <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                  <label style="display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer"><input type="checkbox" class="adm-perm-chk" value="hunt"> Phase 1 (Hunt)</label>
+                  <label style="display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer"><input type="checkbox" class="adm-perm-chk" value="deals"> Phase 2 (Deals)</label>
+                  <label style="display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer"><input type="checkbox" class="adm-perm-chk" value="factory"> Phase 3 (Factory)</label>
+                  <label style="display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer"><input type="checkbox" class="adm-perm-chk" value="syndicate"> Phase 4 (Syndicate)</label>
+                  <label style="display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer"><input type="checkbox" class="adm-perm-chk" value="engine"> System (Engine Room)</label>
+                </div>
+              </div>
+              <button class="btn btn-outline" onclick="if(typeof addAdmin==='function') addAdmin()">+ Grant Access</button>
             </div>
-            <button class="btn btn-outline" onclick="if(typeof addAdmin==='function') addAdmin()">+ Add Admin</button>
           </div>
         </div>
       </div>
@@ -874,6 +886,22 @@ tbody td.dim{color:var(--marble-dim)}
         <label class="fl" style="color:var(--gold);">Delivery Walkthrough Video (Clipchamp/Loom)</label>
         <input type="text" id="doc-video-link" class="fi" placeholder="https://clipchamp.com/watch/...">
       </div>
+
+      <div style="background:var(--surface2); border:1px solid var(--border); padding:14px; margin-bottom:20px; border-radius:4px;">
+        <div style="font-size:10px; color:var(--gold); letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px;">Schedule A: Automation Scope</div>
+        <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer"><input type="checkbox" id="sa-agentic"> Agentic Shield</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer"><input type="checkbox" id="sa-workplace"> Workplace Shield</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer"><input type="checkbox" id="sa-hallucination"> Hallucination Waiver</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer"><input type="checkbox" id="sa-disgorgement"> Data Disgorgement Defense</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer"><input type="checkbox" id="sa-ip"> IP Ownership Deed</label>
+        </div>
+        <div class="fi-row">
+            <div class="fg" style="margin:0"><label class="fl">Final Price Quoted ($)</label><input type="number" id="sa-price" class="fi" placeholder="e.g. 2500"></div>
+            <div class="fg" style="margin:0"><label class="fl">Discount Applied</label><input type="text" id="sa-discount" class="fi" placeholder="e.g. $500 or None"></div>
+        </div>
+      </div>
+
       <div style="display:flex; gap:10px; margin-bottom: 24px;">
         <button class="btn btn-outline" onclick="if(typeof generateELForDelivery==='function') generateELForDelivery()">+ Draft Stage 2 EL</button>
         <button class="btn btn-outline" onclick="if(typeof addDocRow==='function') addDocRow()">+ Add Custom Document</button>
@@ -1011,6 +1039,41 @@ tbody td.dim{color:var(--marble-dim)}
 </div>
 
 <div id="toast"></div>
+
+<script>
+  window._originalNav = window.nav;
+  window.nav = function(tab) {
+      document.querySelectorAll('.tab-content').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(l => l.classList.remove('active'));
+      
+      const tabEl = document.getElementById('tab-' + tab);
+      if (tabEl) tabEl.classList.add('active');
+      
+      const navEl = document.querySelector('.nav-item[data-tab="' + tab + '"]');
+      if (navEl) navEl.classList.add('active');
+      
+      if (tab === 'dashboard' && typeof loadDashboard === 'function') loadDashboard();
+      if (tab === 'hunt' && typeof loadOutreach === 'function') loadOutreach();
+      if (tab === 'deals' && typeof loadOutreach === 'function') { loadOutreach(); if(typeof loadFlagship==='function') loadFlagship(); }
+      if (tab === 'factory' && typeof loadClients === 'function') loadClients();
+      
+      if (tab === 'syndicate') { 
+          if (typeof loadRadarCache === 'function') {
+              loadRadarCache().then(() => {
+                  if (typeof renderExposureMatrix === 'function') renderExposureMatrix();
+              });
+          }
+          if (typeof loadFinance === 'function') loadFinance(); 
+      }
+      
+      if (tab === 'engine' && typeof loadFinance === 'function') { 
+          loadFinance(); 
+          if(typeof loadContent==='function') loadContent(); 
+          if(typeof loadSettings==='function') loadSettings(); 
+          if(typeof loadRadar==='function') loadRadar();
+      }
+  };
+</script>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
