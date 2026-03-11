@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ LEX NOVA ADMIN LOGIC 2 (v4.0) — THE CRM & SYNDICATE ENGINE ═══
+// ═════════ LEX NOVA ADMIN LOGIC 2 (v5.0) — THE CRM & SYNDICATE ENGINE ═══
 // ════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -262,7 +262,7 @@ function renderDealsBoard() {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ THE IDENTIFIER TRIAD (SEARCH FILTER) ═════════════════════════
+// ═════════ THE IDENTIFIER TRIAD (SEARCH FILTER) V3 UPGRADE ══════════════
 // ════════════════════════════════════════════════════════════════════════
 function populateBatchFilter() {
   const sel = $('op-batch');
@@ -279,14 +279,30 @@ function filterProspects() {
   const bt  = $('op-batch')?.value   || '';
   const fs  = $('op-funding')?.value || '';
   const sc  = $('op-scanner')?.value || '';
-  const gap = $('op-gap')?.value || '';
-  const ai  = $('op-ai')?.value || '';
+  const gap = $('op-gap')?.value || ''; // V3: NUCLEAR, CRITICAL, HIGH, MEDIUM
+  const ai  = $('op-ai')?.value || '';  // V3: Internal Categories (The Doers, etc)
   const li  = $('op-li-filter')?.value || '';
   const srt = $('op-sort')?.value || 'nextDate';
 
-  let list = allProspects.filter(p =>
-    // The Triad Search: ID | Company | Email | Founder Name
-    (!s  || (p.prospectId||'').toLowerCase().includes(s) ||
+  let list = allProspects.filter(p => {
+    // 1. V3 Severity Gap Filter (Fallback to legacy legalGapStatus)
+    let matchGap = false;
+    if (!gap) matchGap = true;
+    else if (p.detectedGaps && Array.isArray(p.detectedGaps)) {
+        matchGap = p.detectedGaps.some(g => g.severity === gap);
+    } else {
+        matchGap = (p.legalGapStatus === gap);
+    }
+
+    // 2. V3 Category Filter (Fallback to legacy aiNative/externalAI)
+    let matchAi = false;
+    if (!ai) matchAi = true;
+    else if (p.internalCategory === ai) matchAi = true;
+    else if (!p.internalCategory) {
+        matchAi = ((ai === 'native' && p.aiNative) || (ai === 'external' && p.externalAI));
+    }
+
+    return (!s  || (p.prospectId||'').toLowerCase().includes(s) ||
              (p.founderName||p.name||'').toLowerCase().includes(s) ||
              (p.company||'').toLowerCase().includes(s) ||
              (p.email||'').toLowerCase().includes(s)) &&
@@ -294,12 +310,12 @@ function filterProspects() {
     (!bt || p.batchNumber === bt) &&
     (!fs || p.fundingStage === fs) &&
     (!li || p.linkedinStatus === li) &&
-    (!gap || p.legalGapStatus === gap) &&
-    (!ai || (ai==='native' && p.aiNative) || (ai==='external' && p.externalAI)) &&
+    matchGap &&
+    matchAi &&
     (!sc || (sc==='clicked'   &&  p.scannerClicked && !p.scannerCompleted) ||
             (sc==='completed' &&  p.scannerCompleted) ||
-            (sc==='none'      && !p.scannerClicked && !p.scannerCompleted))
-  );
+            (sc==='none'      && !p.scannerClicked && !p.scannerCompleted));
+  });
 
   if (srt === 'dateAdded') {
       list.sort((a,b) => (b.addedAt||'').localeCompare(a.addedAt||''));
@@ -326,21 +342,26 @@ function renderPipeline(list) {
 
   const rows = list.filter(p => p.status !== 'Dead');
   const sClass = { Cold:'b-cold', Warm:'b-warm', Hot:'b-hot', Replied:'b-intake', Negotiating:'b-production', Converted:'b-converted' };
-                   
+                    
   const html = !rows.length 
     ? '<tr><td colspan="9" class="loading">No prospects found</td></tr>'
     : rows.map(p => {
         const fire = p.scannerCompleted ? '🔥🔥' : p.scannerClicked ? '🔥' : '';
         const scan = p.scannerCompleted ? '<span class="badge b-delivered">Completed</span>' : p.scannerClicked ? '<span class="badge b-warm">Clicked</span>' : '<span class="badge b-ghost">—</span>';
+        
+        // V3 Threat Indicator
+        const isNuclear = p.detectedGaps && p.detectedGaps.some(g => g.severity === 'NUCLEAR');
+        const threatIcon = isNuclear ? '<span style="color:#ef4444; font-size:10px; margin-left:4px;">🔴</span>' : '';
+
         return `<tr onclick="openPP('${esc(p.id)}')">
           <td>
-            <div style="font-size:11px;font-weight:600;">${esc(p.founderName||p.name||'—')}</div>
+            <div style="font-size:11px;font-weight:600;">${esc(p.founderName||p.name||'—')}${threatIcon}</div>
             <div style="font-size:9px;color:var(--gold);font-family:'Cormorant Garamond',serif;">${esc(p.prospectId||'')}</div>
           </td>
           <td class="dim">${esc(p.company||'—')}</td>
           <td class="dim">${esc(p.batchNumber||'—')}</td>
           <td><span class="badge ${sClass[p.status]||'b-ghost'}">${esc(p.status||'—')}</span></td>
-          <td class="dim">${esc(p.followUpBranch||'—')}</td>
+          <td class="dim">${esc(p.internalCategory || p.followUpBranch || '—')}</td>
           <td>${scan} <span class="hot-flag">${fire}</span></td> <td class="dim">${esc(p.linkedinStatus||'—')}</td>
           <td class="dim">${esc(p.nextActionDate||'—')}</td>
           <td class="dim">${p.emailsSent||0}</td>
@@ -501,36 +522,40 @@ window.copyDossier = async function(id) {
     const p = allProspects.find(x => x.id === id);
     if (!p) return;
 
-    const traps = (p.activeTraps && p.activeTraps.length) ? p.activeTraps.join(', ') : 'None detected';
+    let gapsText = '';
+    if (p.detectedGaps && p.detectedGaps.length > 0) {
+        gapsText = p.detectedGaps.map((g, i) => `[${i+1}] ${g.severity} - ${g.gapName} (Est. ${g.damage})`).join('\n');
+    } else {
+        gapsText = (p.activeTraps && p.activeTraps.length) ? p.activeTraps.join(', ') : 'None detected';
+    }
     
     const text = `[LEX NOVA FORENSIC DOSSIER]
 ID: ${p.prospectId || '—'}
 Target: ${p.founderName || p.name || '—'} ${p.jobTitle ? '| ' + p.jobTitle : ''}
 Company: ${p.company || '—'} ${p.website ? '(' + p.website + ')' : ''}
-LinkedIn: ${p.linkedinUrl || '—'}
 
 [FORENSIC INTELLIGENCE]
-Verdict: ${p.verdict || '—'}
-Verdict Reason: ${p.verdictReason || '—'}
-Liability Lane: ${p.lane || '—'}
-Gap Status: ${p.legalGapStatus || '—'}
+Category: ${p.internalCategory || '—'} / ${p.externalCategory || '—'}
+Lane: ${p.lane || '—'}
 Product Signal: ${p.productSignal || '—'}
-Active Traps: ${traps}
-Legal Gap Analysis: ${p.legalGapAnalysis || '—'}
 
-[THE SPEAR (HOOK)]
+[DETECTED GAPS]
+${gapsText}
+
+[THE SPEAR (PAYLOAD)]
+SUB: ${p.emailSubject || '—'}
+BODY:
 "${p.personalizedHook || '—'}"
 
 [LOGISTICS]
 Status: ${p.status || '—'}
-Intended Plan: ${PLANS[p.intendedPlan] || p.intendedPlan || '—'}
-Funding Stage: ${p.fundingStage || '—'}`;
+Plan Match: ${PLANS[p.intendedPlan] || p.intendedPlan || '—'}
+Funding: ${p.fundingStage || '—'}`;
 
     try {
         await navigator.clipboard.writeText(text);
         toast('Dossier copied to clipboard!');
     } catch (err) {
-        console.error('Failed to copy text: ', err);
         const textArea = document.createElement("textarea");
         textArea.value = text;
         document.body.appendChild(textArea);
@@ -556,15 +581,23 @@ window.copyToClipboard = function(id) {
 };
 
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ THE FORENSIC VAULT (PROSPECT UI) ═════════════════════════════
+// ═════════ THE V3 DOSSIER MODAL (FULL PAGE TAKEOVER) ════════════════════
 // ════════════════════════════════════════════════════════════════════════
 function openPP(id) {
   const p = allProspects.find(x => x.id === id);
   if (!p) return;
   currentProspect = p;
-  $('prospectPanel')?.classList.add('open');
+
+  const pp = $('prospectPanel');
+  if (pp) {
+      pp.style.maxWidth = '100%';
+      pp.style.width = '100%';
+      pp.style.left = '0';
+      pp.classList.add('open');
+  }
+
   setText('pp-name', p.founderName || p.name || '—');
-  setText('pp-meta', `${p.company||'—'} · ${p.email||'—'}`);
+  setText('pp-meta', `${p.company||'—'} · ${p.email||'—'} · ID: ${p.prospectId||'—'}`);
   renderPPBody(p);
 }
 
@@ -590,173 +623,204 @@ function renderPPBody(p) {
 
   const scannerLink = p.scannerLink || `https://lexnovahq.com/scanner.html?pid=${p.prospectId || ''}`;
 
+  // V3 Matrix Gaps Construction
+  let gapsHtml = '';
+  if (p.detectedGaps && p.detectedGaps.length > 0) {
+      const sevWeight = { 'NUCLEAR': 3, 'CRITICAL': 2, 'HIGH': 1, 'MEDIUM': 0 };
+      const sortedGaps = [...p.detectedGaps].sort((a,b) => (sevWeight[b.severity]||0) - (sevWeight[a.severity]||0));
+
+      const killShot = sortedGaps[0];
+      const isNuclear = killShot.severity === 'NUCLEAR';
+      const ksColor = isNuclear ? '#ef4444' : '#f97316';
+      
+      gapsHtml += `
+          <div style="border: 1px solid ${ksColor}; background: ${isNuclear ? 'rgba(239,68,68,0.05)' : 'rgba(249,115,22,0.05)'}; padding: 14px; border-radius: 6px; margin-bottom: 14px;">
+              <div style="color:${ksColor}; font-size:10px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:6px;">🎯 The Kill Shot (${killShot.severity})</div>
+              <div style="font-size:14px; font-weight:700; color:var(--marble); margin-bottom:8px; line-height:1.2;">${esc(killShot.gapName)}</div>
+              <div style="font-size:11px; color:var(--marble-dim); margin-bottom:4px;"><strong>Pain:</strong> ${esc(killShot.pain)}</div>
+              <div style="font-size:11px; color:var(--marble-dim); margin-bottom:4px;"><strong>Liability:</strong> ${esc(killShot.liability)}</div>
+              <div style="font-size:11px; color:${ksColor}; margin-top:6px; font-weight:600;">Est. Damage: ${esc(killShot.damage)}</div>
+          </div>
+      `;
+
+      if (sortedGaps.length > 1) {
+          gapsHtml += `<div style="font-size:9px; color:var(--marble-dim); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">Secondary Exposures</div>`;
+          for (let i = 1; i < sortedGaps.length; i++) {
+              const g = sortedGaps[i];
+              const col = g.severity === 'CRITICAL' ? '#f97316' : (g.severity === 'HIGH' ? 'var(--gold)' : 'var(--marble-dim)');
+              gapsHtml += `
+                  <div style="border: 1px solid var(--border); background: var(--surface2); padding: 10px; border-left: 3px solid ${col}; border-radius: 4px; margin-bottom: 8px;">
+                      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                          <span style="font-size:11px; font-weight:600; color:var(--marble);">${esc(g.gapName)}</span>
+                          <span style="font-size:9px; color:${col}; font-weight:700;">${g.severity}</span>
+                      </div>
+                      <div style="font-size:10px; color:var(--marble-dim); line-height:1.3;">${esc(g.pain)}</div>
+                  </div>
+              `;
+          }
+      }
+  } else {
+      gapsHtml = `
+          <div class="fg" style="margin-bottom:0"><label class="fl">Legacy Active Traps</label>
+             <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                 ${(p.activeTraps||[]).map(t => `<span class="badge b-red">${esc(t)}</span>`).join('') || '<span class="dim">No legacy traps</span>'}
+             </div>
+          </div>
+          <div class="fg" style="margin-top:12px;"><label class="fl">Legacy Analysis</label>
+             <div style="font-size:11px; color:var(--marble-dim);">${esc(p.legalGapAnalysis||'—')}</div>
+          </div>
+      `;
+  }
+
+  const asyncBleedHtml = (p.scannerCompleted || p.scannerClicked) ? `
+      <div class="card" style="padding: 16px; border-color: ${p.scannerCompleted ? '#d47a7a' : 'var(--gold-mid)'}; background: var(--surface2);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <div style="font-size:10px; color:${p.scannerCompleted ? '#d47a7a' : 'var(--gold)'}; text-transform:uppercase; letter-spacing:0.1em; font-weight:700;">Section 4: Async Telemetry</div>
+              <span class="badge ${p.scannerCompleted ? 'b-red' : 'b-warm'}">${p.scannerCompleted ? 'Completed 🔥🔥' : 'Clicked 🔥'}</span>
+          </div>
+          <div class="fi-row" style="margin-bottom:10px;">
+              <div class="fg" style="margin:0;"><label class="fl">Est. Financial Exposure</label>
+                  <input type="text" class="fi" id="pp-ext" value="${esc(p.scannerExternalScore||'—')}" style="color:#d47a7a; font-weight:bold; font-size:16px;">
+              </div>
+              <div class="fg" style="margin:0;"><label class="fl">Internal Risk Score</label>
+                  <input type="text" class="fi" id="pp-int" value="${esc(p.scannerInternalScore||'—')}">
+              </div>
+          </div>
+          <div style="font-size:10px; color:var(--marble-dim); font-style:italic;">Note: Telemetry inputs trigger SDR abandoned cart workflows if the Apply page is dropped.</div>
+      </div>
+  ` : '';
+
   body.innerHTML = `
-    
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; gap:10px;">
-        <div style="display:flex; gap:8px; align-items:center; flex:1;">
-            <input type="text" class="fi" id="pp-scanner-url" readonly value="${scannerLink}" style="font-size:10px; color:var(--gold); width:280px; border-color:var(--gold-mid);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; gap:10px; padding-bottom:14px; border-bottom:1px solid var(--border);">
+        <div style="display:flex; gap:8px; align-items:center;">
+            <input type="text" class="fi" id="pp-scanner-url" readonly value="${scannerLink}" style="font-size:10px; color:var(--gold); width:320px; border-color:var(--gold-mid); background:var(--void);">
             <button class="btn btn-outline btn-sm" onclick="copyToClipboard('pp-scanner-url')">Copy Link</button>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="copyDossier('${esc(p.id)}')">⎘ Copy Dossier</button>
+        <button class="btn btn-primary btn-sm" onclick="copyDossier('${esc(p.id)}')">📋 Copy Full Dossier</button>
     </div>
 
-    <div style="margin-bottom:18px; padding:16px; background:rgba(197,160,89,0.05); border:1px solid var(--gold-mid); border-radius:4px;">
-      <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:12px">Forensic Intelligence Vault</div>
-      <div class="fi-row" style="margin-bottom:12px">
-         <div class="fg" style="margin:0"><label class="fl">AI Verdict</label><div style="font-size:12px; color:var(--marble); font-weight:600;">${esc(p.verdict||'—')}</div></div>
-         <div class="fg" style="margin:0"><label class="fl">Liability Lane</label><div style="font-size:12px; color:var(--marble);">${esc(p.lane||'—')}</div></div>
-      </div>
-      <div class="fg" style="margin-bottom:12px"><label class="fl">Verdict Reason</label><div style="font-size:11px; color:var(--marble-dim);">${esc(p.verdictReason||'—')}</div></div>
-      <div class="fg" style="margin-bottom:12px"><label class="fl">Product Signal (Trigger)</label><div style="font-size:11px; color:var(--marble-dim);">${esc(p.productSignal||'—')}</div></div>
-      <div class="fg" style="margin-bottom:0"><label class="fl">Active Legal Traps Triggered</label>
-        <div style="display:flex; gap:6px; flex-wrap:wrap;">
-            ${(p.activeTraps||[]).map(t => `<span class="badge b-red">${esc(t)}</span>`).join('') || '<span class="dim">—</span>'}
-        </div>
-      </div>
-    </div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 32px; height: calc(100vh - 160px); overflow: hidden;">
+        
+        <div style="overflow-y: auto; padding-right: 12px; display: flex; flex-direction: column; gap: 20px;">
+            
+            <div class="card" style="padding: 20px;">
+                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:16px; font-weight:700;">Section 1: Company Intelligence</div>
+                
+                <div class="fi-row" style="margin-bottom:12px;">
+                    <div class="fg" style="margin:0;"><label class="fl">INT-10 Category</label><div style="font-size:12px; color:var(--marble); font-weight:600;">${esc(p.internalCategory||'—')}</div></div>
+                    <div class="fg" style="margin:0;"><label class="fl">EXT-6 Category</label><div style="font-size:12px; color:var(--marble);">${esc(p.externalCategory||'—')}</div></div>
+                </div>
+                <div class="fi-row" style="margin-bottom:16px;">
+                    <div class="fg" style="margin:0;"><label class="fl">Liability Lane</label><div style="font-size:12px; color:var(--marble);">${esc(p.lane||'—')}</div></div>
+                    <div class="fg" style="margin:0;"><label class="fl">Funding Stage</label>
+                        <select class="fi" id="pp-funding" style="padding:6px; font-size:11px;">${sel(['','Pre-seed','Seed','Series A','Series B+','Bootstrapped'], p.fundingStage)}</select>
+                    </div>
+                </div>
 
-    <div style="margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border)">
-      <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--marble-faint);margin-bottom:8px">Contact Identity</div>
-      <div class="fi-row" style="margin-bottom:10px">
-         <div class="fg"><label class="fl">Founder Name</label><input type="text" class="fi" id="pp-name-edit" value="${esc(p.founderName||p.name||'')}"></div>
-         <div class="fg"><label class="fl">Company</label><input type="text" class="fi" id="pp-company-edit" value="${esc(p.company||'')}"></div>
-      </div>
-      <div class="fg" style="margin-bottom:10px">
-         <label class="fl">Email</label>
-         <input type="email" class="fi" id="pp-email-edit" value="${esc(p.email||'')}">
-      </div>
-      <div class="fi-row" style="margin-bottom:10px">
-         <div class="fg"><label class="fl">LinkedIn URL</label><input type="text" class="fi" id="pp-linkedin-edit" value="${esc(p.linkedinUrl||'')}"></div>
-         <div class="fg"><label class="fl">Website</label><input type="text" class="fi" id="pp-website-edit" value="${esc(p.website||'')}"></div>
-      </div>
-      <div class="fg"><label class="fl">Batch ID</label><input type="text" class="fi" id="pp-batch-edit" value="${esc(p.batchNumber||'')}"></div>
-      <div style="font-size:11px;color:var(--marble-dim);margin-top:10px">
-        Prospect ID: <span style="color:var(--gold);font-family:'Cormorant Garamond',serif;font-size:14px">${esc(p.prospectId||'—')}</span>
-      </div>
-    </div>
+                <div style="padding-top:16px; border-top:1px solid var(--border);">
+                    <div class="fi-row" style="margin-bottom:10px">
+                        <div class="fg"><label class="fl">Founder Name</label><input type="text" class="fi" id="pp-name-edit" value="${esc(p.founderName||p.name||'')}"></div>
+                        <div class="fg"><label class="fl">Company</label><input type="text" class="fi" id="pp-company-edit" value="${esc(p.company||'')}"></div>
+                    </div>
+                    <div class="fi-row" style="margin-bottom:10px">
+                        <div class="fg"><label class="fl">Email</label><input type="email" class="fi" id="pp-email-edit" value="${esc(p.email||'')}"></div>
+                        <div class="fg"><label class="fl">Job Title</label><input type="text" class="fi" id="pp-title" value="${esc(p.jobTitle||'')}"></div>
+                    </div>
+                    <div class="fi-row" style="margin-bottom:0">
+                        <div class="fg" style="margin:0;"><label class="fl">LinkedIn URL</label><input type="text" class="fi" id="pp-linkedin-edit" value="${esc(p.linkedinUrl||'')}"></div>
+                        <div class="fg" style="margin:0;"><label class="fl">Website</label><input type="text" class="fi" id="pp-website-edit" value="${esc(p.website||'')}"></div>
+                    </div>
+                </div>
+            </div>
 
-    <div style="margin-bottom:18px; padding:12px; background:var(--surface2); border:1px solid var(--border)">
-      <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:12px">Gate Intelligence</div>
-      <div class="fi-row" style="margin-bottom:10px">
-         <div class="fg"><label class="fl">Gap Status</label>
-           <select class="fi" id="pp-gap-status">
-             <option value="exposure" ${p.legalGapStatus==='exposure'?'selected':''}>🔴 No Legal Page</option>
-             <option value="generic" ${p.legalGapStatus==='generic'?'selected':''}>🟡 Generic SaaS</option>
-             <option value="ai-lite" ${p.legalGapStatus==='ai-lite'?'selected':''}>🔵 AI-Lite</option>
-             <option value="protected" ${p.legalGapStatus==='protected'?'selected':''}>⚪ Protected</option>
-           </select>
-         </div>
-         <div class="fg"><label class="fl">Job Title</label>
-            <input type="text" class="fi" id="pp-title" value="${esc(p.jobTitle||'')}">
-         </div>
-      </div>
-      <div class="fg"><label class="fl">Legal Gap Analysis</label>
-         <textarea class="fi" id="pp-gap-text" rows="2">${esc(p.legalGapAnalysis||'')}</textarea>
-      </div>
-      <div class="fg"><label class="fl" style="color:var(--gold)">Personalized Hook (The Spear)</label>
-         <textarea class="fi" id="pp-hook" rows="3" style="border-color:var(--gold-mid)">${esc(p.personalizedHook||'')}</textarea>
-      </div>
-      <div style="display:flex; gap:15px; flex-wrap:wrap;">
-        <label style="font-size:10px; display:flex; align-items:center; gap:5px; cursor:pointer;">
-          <input type="checkbox" id="pp-chk-native" ${p.aiNative?'checked':''}> AI-Native
-        </label>
-        <label style="font-size:10px; display:flex; align-items:center; gap:5px; cursor:pointer;">
-          <input type="checkbox" id="pp-chk-ext" ${p.externalAI?'checked':''}> External AI
-        </label>
-      </div>
-    </div>
+            <div class="card" style="padding: 20px;">
+                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:16px; font-weight:700;">Section 2: Forensic Matrix</div>
+                <div class="fg" style="margin-bottom:16px;">
+                    <label class="fl">Product Signal (Trigger)</label>
+                    <div style="font-size:12px; color:var(--marble); line-height:1.5; padding:10px; background:var(--surface2); border:1px solid var(--border); border-radius:4px;">${esc(p.productSignal||'—')}</div>
+                </div>
+                ${gapsHtml}
+            </div>
+            
+        </div>
 
-    <div style="margin-bottom:18px">
-      <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--marble-faint);margin-bottom:8px">Status & Routing</div>
-      <div class="fi-row" style="margin-bottom:10px">
-        <div class="fg"><label class="fl">Status</label>
-          <select class="fi" id="pp-status" style="border-color:var(--gold); color:var(--gold);">
-            ${sel(['Cold','Warm','Hot','Replied','Negotiating','Converted','Dead'], p.status)}
-          </select>
-        </div>
-        <div class="fg"><label class="fl">Follow-Up Branch</label>
-          <select class="fi" id="pp-branch">
-            ${sel(['','2A','2B','2C','2D'], p.followUpBranch)}
-          </select>
-        </div>
-      </div>
-      <div class="fi-row">
-        <div class="fg"><label class="fl">Funding Stage</label>
-          <select class="fi" id="pp-funding">
-            ${sel(['','Pre-seed','Seed','Series A','Series B+','Bootstrapped'], p.fundingStage)}
-          </select>
-        </div>
-        <div class="fg"><label class="fl">Intended Plan</label>
-          <select class="fi" id="pp-plan">${planSel}</select>
-        </div>
-      </div>
-    </div>
+        <div style="overflow-y: auto; padding-right: 12px; display: flex; flex-direction: column; gap: 20px;">
+            
+            <div class="card" style="padding: 20px;">
+                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:12px; font-weight:700;">Section 3: The Spear (Payload)</div>
+                <div class="fg" style="margin-bottom:10px;">
+                    <label class="fl">Subject Line</label>
+                    <input type="text" class="fi" id="pp-subject" value="${esc(p.emailSubject||'')}" style="border-color:var(--gold-mid); font-family:monospace;">
+                </div>
+                <div class="fg" style="margin-bottom:0;">
+                    <label class="fl">Email Body</label>
+                    <textarea class="fi" id="pp-hook" rows="5" style="border-color:var(--gold-mid); line-height:1.6;">${esc(p.personalizedHook||'')}</textarea>
+                </div>
+            </div>
 
-    <div style="margin-bottom:18px">
-      <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--marble-faint);margin-bottom:8px">Outreach Tracking</div>
-      <div class="fi-row" style="margin-bottom:10px">
-        <div class="fg"><label class="fl">LinkedIn Status</label>
-          <select class="fi" id="pp-li">
-            ${sel(['','connected','pending','connected_no_reply','replied'], p.linkedinStatus)}
-          </select>
+            ${asyncBleedHtml}
+
+            <div class="card" style="padding: 20px;">
+                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:16px; font-weight:700;">Section 5: War Room Controls</div>
+                
+                <div class="fi-row" style="margin-bottom:14px;">
+                    <div class="fg" style="margin:0;"><label class="fl">Funnel Status</label>
+                        <select class="fi" id="pp-status" style="border-color:var(--gold); color:var(--gold); font-weight:600;">
+                            ${sel(['Cold','Warm','Hot','Replied','Negotiating','Converted','Dead'], p.status)}
+                        </select>
+                    </div>
+                    <div class="fg" style="margin:0;"><label class="fl">Intended Plan</label>
+                        <select class="fi" id="pp-plan">${planSel}</select>
+                    </div>
+                </div>
+
+                <div class="fi-row" style="margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid var(--border);">
+                    <div class="fg" style="margin:0;"><label class="fl">Next Action Date</label>
+                        <input type="date" class="fi" id="pp-next-date" value="${p.nextActionDate||''}">
+                    </div>
+                    <div class="fg" style="margin:0;"><label class="fl">Action Note</label>
+                        <input type="text" class="fi" id="pp-next-note" value="${esc(p.nextAction||'')}" placeholder="e.g. Follow up on scanner">
+                    </div>
+                </div>
+
+                <div class="fg" style="margin-bottom:16px;">
+                    <label class="fl">Internal Strategy Notes</label>
+                    <textarea class="fi" id="pp-notes" rows="2" placeholder="Drop context here...">${esc(p.notes||'')}</textarea>
+                </div>
+
+                <div style="margin-bottom:16px;">
+                    <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--marble-faint);margin-bottom:8px">Sequence Log (Emails Sent: <span id="pp-emails-display">${p.emailsSent||0}</span>)</div>
+                    <div id="pp-email-log" style="margin-bottom:8px; background:var(--void); border:1px solid var(--border); padding:8px; max-height:120px; overflow-y:auto;">${logRows}</div>
+                    <div class="fi-row" style="margin-bottom:6px;">
+                        <input type="date" class="fi" id="pp-log-date" value="${new Date().toISOString().split('T')[0]}" style="padding:6px; font-size:10px;">
+                        <select class="fi" id="pp-log-type" style="padding:6px; font-size:10px; border-color:var(--gold-mid);">
+                            <option>Cold Email</option><option>Follow-up 1</option><option>Follow-up 2</option><option>Follow-up 3</option><option>Reply</option><option>LinkedIn DM</option>
+                        </select>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" class="fi" id="pp-log-notes" placeholder="Notes..." style="padding:6px; font-size:10px; flex:1;">
+                        <button class="btn btn-outline" style="padding:6px 12px; font-size:9px;" onclick="logEmail()">+ Log</button>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:10px; margin-top:24px;">
+                    <button class="btn btn-primary" style="flex:1;" onclick="saveProspect()">💾 Save Dossier</button>
+                    <button class="btn btn-outline" style="flex:1; border-color:#d4a850; color:#d4a850;" onclick="pivotToFlagship()">💎 Pivot to Flagship</button>
+                </div>
+                
+                <input type="hidden" id="pp-batch-edit" value="${esc(p.batchNumber||'')}">
+                <input type="hidden" id="pp-gap-status" value="${esc(p.legalGapStatus||'generic')}">
+                <input type="hidden" id="pp-gap-text" value="${esc(p.legalGapAnalysis||'')}">
+                <input type="hidden" id="pp-branch" value="${esc(p.followUpBranch||'')}">
+                <input type="hidden" id="pp-li" value="${esc(p.linkedinStatus||'')}">
+                <input type="hidden" id="pp-emails" value="${p.emailsSent||0}">
+                <input type="checkbox" id="pp-sc" ${p.scannerClicked?'checked':''} style="display:none;">
+                <input type="checkbox" id="pp-scomp" ${p.scannerCompleted?'checked':''} style="display:none;">
+                <input type="checkbox" id="pp-chk-native" ${p.aiNative?'checked':''} style="display:none;">
+                <input type="checkbox" id="pp-chk-ext" ${p.externalAI?'checked':''} style="display:none;">
+
+            </div>
         </div>
-        <div class="fg"><label class="fl">Emails Sent</label>
-          <input type="number" class="fi" id="pp-emails" value="${p.emailsSent||0}" min="0">
-        </div>
-      </div>
-      <div style="display:flex; gap:24px; margin-bottom:10px; font-size:11px; flex-wrap:wrap;">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-          <input type="checkbox" id="pp-sc" ${p.scannerClicked?'checked':''}> Scanner Clicked 🔥
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-          <input type="checkbox" id="pp-scomp" ${p.scannerCompleted?'checked':''}> Completed 🔥🔥
-        </label>
-      </div>
-    </div>
-
-    <div style="margin-bottom:18px">
-      <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--marble-faint);margin-bottom:8px">Next Action</div>
-      <div class="fg"><label class="fl">Date</label>
-        <input type="date" class="fi" id="pp-next-date" value="${p.nextActionDate||''}">
-      </div>
-      <div class="fg"><label class="fl">Note</label>
-        <textarea class="fi" id="pp-next-note" rows="2">${esc(p.nextAction||'')}</textarea>
-      </div>
-    </div>
-
-    <div class="fg" style="margin-bottom:18px">
-      <label class="fl">Internal Notes</label>
-      <textarea class="fi" id="pp-notes" rows="3">${esc(p.notes||'')}</textarea>
-    </div>
-
-    <button class="btn btn-primary" style="width:100%;margin-bottom:20px" onclick="saveProspect()">Save Changes</button>
-
-    <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:10px">
-      <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--marble-faint);margin-bottom:10px">Outreach Sequence Log</div>
-      <div id="pp-email-log" style="margin-bottom:12px; background:var(--void); border:1px solid var(--border); padding:10px;">${logRows}</div>
-      <div class="fi-row" style="margin-bottom:8px">
-        <div class="fg"><label class="fl">Date</label>
-          <input type="date" class="fi" id="pp-log-date" value="${new Date().toISOString().split('T')[0]}">
-        </div>
-        <div class="fg"><label class="fl">Email Slot</label>
-          <select class="fi" id="pp-log-type" style="border-color:var(--gold-mid)">
-            <option>Cold Email</option>
-            <option>Follow-up 1</option>
-            <option>Follow-up 2</option>
-            <option>Follow-up 3</option>
-            <option>Reply</option>
-            <option>LinkedIn DM</option>
-          </select>
-        </div>
-      </div>
-      <div class="fg"><label class="fl">Notes / Performance</label>
-        <textarea class="fi" id="pp-log-notes" rows="2" placeholder="Subject / open rate / reply content…"></textarea>
-      </div>
-      <button class="btn btn-outline btn-sm" onclick="logEmail()">+ Log Sequence Step</button>
-    </div>
-
-    <div style="border-top:1px solid rgba(138,58,58,.2); padding-top:16px; margin-top:20px; text-align:center;">
-        <button class="btn btn-danger btn-sm" style="width:100%" onclick="deleteProspect('${esc(p.id)}')">Permanently Delete Target</button>
     </div>
   `;
 }
@@ -764,6 +828,36 @@ function renderPPBody(p) {
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ THE P->C MIGRATION & SAVE ENGINE ═════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
+window.pivotToFlagship = async function() {
+    if (!currentProspect) return;
+    if (!confirm('Pivot this target to the Flagship pipeline? This will archive the current prospect and create a new Flagship deal.')) return;
+
+    const fsData = {
+        founderName: currentProspect.founderName || currentProspect.name || '',
+        email: currentProspect.email || '',
+        company: currentProspect.company || '',
+        preCallNotes: 'Pivoted from Automated V3 Pipeline.\nOriginal Gap Identified: ' + (currentProspect.productSignal || 'N/A'),
+        status: 'Identified',
+        addedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
+
+    try {
+        await db.collection('flagship').add(fsData);
+        await db.collection('prospects').doc(currentProspect.prospectId || currentProspect.id).update({
+            status: 'Dead',
+            archivedAt: new Date().toISOString(),
+            notes: (currentProspect.notes || '') + '\n[SYSTEM] Pivoted to Flagship Pipeline.'
+        });
+        toast('Pivoted to Flagship successfully!', 'success');
+        closePP();
+        if (typeof loadFlagship === 'function') loadFlagship();
+    } catch (e) {
+        console.error(e);
+        toast('Pivot failed', 'error');
+    }
+};
+
 async function saveProspect() {
   if (!currentProspect) return;
   
@@ -782,8 +876,8 @@ async function saveProspect() {
     emailsSent:           parseInt($('pp-emails')?.value)   || 0,
     scannerClicked:       $('pp-sc')?.checked               || false,
     scannerCompleted:     $('pp-scomp')?.checked            || false,
-    scannerExternalScore: parseFloat($('pp-ext')?.value)    || null,
-    scannerInternalScore: parseFloat($('pp-int')?.value)    || null,
+    scannerExternalScore: $('pp-ext') ? parseFloat($('pp-ext').value) : currentProspect.scannerExternalScore,
+    scannerInternalScore: $('pp-int') ? parseFloat($('pp-int').value) : currentProspect.scannerInternalScore,
     nextActionDate:       $('pp-next-date')?.value          || '',
     nextAction:           $('pp-next-note')?.value?.trim()  || '',
     notes:                $('pp-notes')?.value?.trim()      || '',
@@ -791,6 +885,7 @@ async function saveProspect() {
     legalGapStatus:       $('pp-gap-status')?.value         || 'generic',
     legalGapAnalysis:     $('pp-gap-text')?.value?.trim()   || '',
     personalizedHook:     $('pp-hook')?.value?.trim()       || '',
+    emailSubject:         $('pp-subject')?.value?.trim()    || currentProspect.emailSubject || '',
     aiNative:             $('pp-chk-native')?.checked       || false,
     externalAI:           $('pp-chk-ext')?.checked          || false,
     updatedAt:            new Date().toISOString()
@@ -879,8 +974,11 @@ async function logEmail() {
     });
     currentProspect.emailLog   = [...(currentProspect.emailLog||[]), entry];
     currentProspect.emailsSent = newCount;
+    
     if ($('pp-emails')) $('pp-emails').value = newCount;
+    if ($('pp-emails-display')) $('pp-emails-display').innerText = newCount;
     if ($('pp-log-notes')) $('pp-log-notes').value = '';
+    
     const logEl = $('pp-email-log');
     if (logEl) {
       logEl.innerHTML = currentProspect.emailLog.slice().reverse().map(e =>
@@ -961,22 +1059,12 @@ function openAddProspect() {
       </div>
 
       <div>
-          <div class="section-sub">Gate 2: 60s Audit & Legal Gap</div>
-          <div style="display:flex; gap:20px; margin-bottom:15px; flex-wrap:wrap;">
-              <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
-                  <input type="checkbox" id="ap-chk-native"> AI-Native
-              </label>
-              <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer">
-                  <input type="checkbox" id="ap-chk-ext"> External AI
-              </label>
+          <div class="section-sub">Gate 2: Matrix Classification</div>
+          <div class="fg"><label class="fl">INT-10 Category</label>
+              <select class="fi" id="ap-int-cat">
+                  <option value="The Doers">The Doers</option><option value="The Orchestrators">The Orchestrators</option><option value="The Creators">The Creators</option><option value="The Companions">The Companions</option><option value="The Readers">The Readers</option><option value="The Translators">The Translators</option><option value="The Judges">The Judges</option><option value="The Shields">The Shields</option><option value="The Movers">The Movers</option><option value="The Optimizers">The Optimizers</option>
+              </select>
           </div>
-          <div class="fg"><label class="fl">Legal Gap Status</label>
-              <select class="fi" id="ap-gap-status">
-                  <option value="exposure">🔴 Highest Priority: No Legal Page</option>
-                  <option value="generic" selected>🟡 Generic SaaS (Total Exposure)</option>
-                  <option value="ai-lite">🔵 AI-Lite (Missing Waivers)</option>
-                  <option value="protected">⚪ Protected (Low Priority)</option>
-              </select></div>
           
           <div class="fg"><label class="fl" style="color:var(--gold)">Personalized Hook (The Spear) *</label>
               <textarea class="fi" id="ap-hook" rows="3" style="border-color:var(--gold-mid)" placeholder="Saw that your agents execute [X]..."></textarea></div>
@@ -1015,9 +1103,8 @@ async function saveNewProspect() {
       jobTitle:         $('ap-title')?.value?.trim()   || '',
       geography:        $('ap-geo')?.value             || 'US',
       batchNumber:      batch,
-      aiNative:         $('ap-chk-native')?.checked    || false,
-      externalAI:       $('ap-chk-ext')?.checked       || false,
-      legalGapStatus:   $('ap-gap-status')?.value      || 'generic',
+      internalCategory: $('ap-int-cat')?.value         || 'The Doers',
+      legalGapStatus:   'exposure',
       personalizedHook: hook,
       scannerLink:      `https://lexnovahq.com/scanner.html?pid=${pid}`,
       intendedPlan:     $('ap-plan')?.value            || 'agentic_shield',
@@ -1028,11 +1115,6 @@ async function saveNewProspect() {
       addedAt:          new Date().toISOString(),
       updatedAt:        new Date().toISOString()
     };
-
-    if (data.legalGapStatus === 'exposure') {
-        data.status = 'Hot';
-        data.hotFlag = true;
-    }
 
     // CREATE DOCUMENT WITH PROSPECT ID AS THE NAME
     await db.collection('prospects').doc(pid).set(data, { merge: true });
