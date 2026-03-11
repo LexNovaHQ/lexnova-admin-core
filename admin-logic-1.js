@@ -86,7 +86,10 @@ const CHECKLIST_ITEMS = {
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ STATE & UTILITIES ════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
-let allClients = []; let allLeads = []; let currentClient = null; let radarEntries = [];
+let allClients = []; 
+let allLeads = []; 
+let currentClient = null; 
+let radarEntries = [];
 let clientListener = null;
 
 const $ = id => document.getElementById(id);
@@ -95,20 +98,47 @@ const planLabel = k => PLANS[k] || k;
 const statusLabel = k => STATUS_LABELS[k] || k;
 const nowTs = () => firebase.firestore.FieldValue.serverTimestamp();
 const esc = str => !str ? '' : String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-function fmtDate(ts) { if (!ts) return '—'; const d = ts.toDate ? ts.toDate() : new Date(ts); if (isNaN(d)) return '—'; return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }); }
-function fmtMoney(n) { return (n == null || isNaN(n)) ? '—' : '$' + Number(n).toLocaleString('en-US'); }
-function hoursSince(ts) { if (!ts) return null; const d = ts.toDate ? ts.toDate() : new Date(ts); return Math.floor((Date.now() - d.getTime()) / 3600000); }
-function setText(id, txt) { const el = $(id); if (el) el.textContent = String(txt ?? ''); }
-function setVal(id, val) { const el = $(id); if (el) el.value = val ?? ''; }
-function toast(msg, type = 'success') { const t = $('toast'); if (!t) return; t.textContent = msg; t.className = type; t.style.display = 'block'; setTimeout(() => { t.style.display = 'none'; }, 3000); }
+function fmtDate(ts) { 
+    if (!ts) return '—'; 
+    const d = ts.toDate ? ts.toDate() : new Date(ts); 
+    if (isNaN(d)) return '—'; 
+    return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }); 
+}
+function fmtMoney(n) { 
+    return (n == null || isNaN(n)) ? '—' : '$' + Number(n).toLocaleString('en-US'); 
+}
+function hoursSince(ts) { 
+    if (!ts) return null; 
+    const d = ts.toDate ? ts.toDate() : new Date(ts); 
+    return Math.floor((Date.now() - d.getTime()) / 3600000); 
+}
+function setText(id, txt) { 
+    const el = $(id); 
+    if (el) el.textContent = String(txt ?? ''); 
+}
+function setVal(id, val) { 
+    const el = $(id); 
+    if (el) el.value = val ?? ''; 
+}
+function toast(msg, type = 'success') { 
+    const t = $('toast'); 
+    if (!t) return; 
+    t.textContent = msg; 
+    t.className = type; 
+    t.style.display = 'block'; 
+    setTimeout(() => { t.style.display = 'none'; }, 3000); 
+}
 
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ UI: MODALS & GLOBAL LOGIC ════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 function openModal(title, bodyHTML, footerHTML = '') {
-  const m = $('modal'), o = $('overlay');
+  const m = $('modal');
+  const o = $('overlay');
   if (!m) return;
-  const mt = $('modalTitle'), mb = $('modalBody'), mf = $('modalFooter');
+  const mt = $('modalTitle');
+  const mb = $('modalBody');
+  const mf = $('modalFooter');
   if (mt) mt.textContent  = title;
   if (mb) mb.innerHTML    = bodyHTML;
   if (mf) mf.innerHTML    = footerHTML;
@@ -117,20 +147,28 @@ function openModal(title, bodyHTML, footerHTML = '') {
 }
 
 function closeModal() {
-  $('modal')?.classList.remove('open');
-  $('overlay')?.classList.remove('open');
+  const m = $('modal');
+  if (m) m.classList.remove('open');
+  const o = $('overlay');
+  if (o) o.classList.remove('open');
 }
 
-function init() { nav('dashboard'); }
+function init() { 
+    nav('dashboard'); 
+}
 
 function nav(tab) {
     qsa('.tab-content').forEach(p => p.classList.remove('active'));
     qsa('.nav-item').forEach(l => l.classList.remove('active'));
-    $('tab-' + tab)?.classList.add('active');
-    document.querySelector(`.nav-item[data-tab="${tab}"]`)?.classList.add('active');
+    const tabEl = $('tab-' + tab);
+    if (tabEl) tabEl.classList.add('active');
+    
+    const navItem = document.querySelector(`.nav-item[data-tab="${tab}"]`);
+    if (navItem) navItem.classList.add('active');
     
     const subs = { dashboard: 'Command center', factory: 'Production pipeline', hunt: 'Acquisition', syndicate: 'Recurring Engine' };
-    const sub = $('pageSub'); if (sub) sub.textContent = subs[tab] || tab;
+    const sub = $('pageSub'); 
+    if (sub) sub.textContent = subs[tab] || tab;
     
     if (tab === 'dashboard') loadDashboard();
     if (tab === 'factory' || tab === 'clients') loadClients();
@@ -164,19 +202,24 @@ async function loadRadarCache() {
   try {
     const snap = await db.collection('settings').doc('regulatory_radar').get();
     radarEntries = snap.exists ? (snap.data().entries || snap.data().items || []) : [];
-  } catch (e) { console.error('Radar cache:', e); }
+  } catch (e) { 
+      console.error('Radar cache:', e); 
+  }
 }
 
 async function loadDashboard() {
     try {
         const cSnap = await db.collection('clients').get();
-        const clients = []; cSnap.forEach(d => clients.push({ id: d.id, ...d.data() }));
+        const clients = []; 
+        cSnap.forEach(d => clients.push({ id: d.id, ...d.data() }));
 
         const pSnap = await db.collection('prospects').get();
-        const prospects = []; pSnap.forEach(d => prospects.push(d.data()));
+        const prospects = []; 
+        pSnap.forEach(d => prospects.push(d.data()));
 
         const lSnap = await db.collection('leads').where('source', '==', 'scanner').get();
-        const leads = []; lSnap.forEach(d => leads.push(d.data()));
+        const leads = []; 
+        lSnap.forEach(d => leads.push(d.data()));
 
         await loadRadarCache();
 
@@ -187,7 +230,8 @@ async function loadDashboard() {
 
         const inProd = clients.filter(c => ['under_review', 'in_production'].includes(c.status));
         setText('d-cap-current', inProd.length);
-        const capBar = $('d-cap-bar'); if (capBar) capBar.style.width = Math.min(100, (inProd.length/50)*100) + '%';
+        const capBar = $('d-cap-bar'); 
+        if (capBar) capBar.style.width = Math.min(100, (inProd.length/50)*100) + '%';
         setText('d-cap-label', `${inProd.length} / 50 slots`);
 
         let gapCount = 0;
@@ -227,7 +271,9 @@ async function loadDashboard() {
 
         // V3 Aligned Pipeline Status Counts
         const fc = { Cold:0, Warm:0, Hot:0, Replied:0, Negotiating:0 };
-        prospects.forEach(p => { if (fc[p.status] !== undefined) fc[p.status]++; });
+        prospects.forEach(p => { 
+            if (fc[p.status] !== undefined) fc[p.status]++; 
+        });
         Object.keys(fc).forEach(k => setText('of-' + k.toLowerCase(), fc[k]));
 
         const slaTbody = $('d-sla-table');
@@ -256,17 +302,34 @@ async function loadDashboard() {
                 </tr>`).join('') : '<tr><td colspan="3" class="empty">No engagements yet</td></tr>';
         }
 
-        const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay()); weekStart.setHours(0,0,0,0);
-        let weekForms = 0; leads.forEach(l => { const d = l.createdAt?.toDate ? l.createdAt.toDate() : new Date(l.createdAt||0); if (d >= weekStart) weekForms++; });
-        let weekDeals = 0; clients.forEach(c => { const d = c.createdAt?.toDate ? c.createdAt.toDate() : new Date(c.createdAt||0); if (d >= weekStart) weekDeals++; });
-        let pipeValue = 0; prospects.filter(p => !['Converted','Dead'].includes(p.status)).forEach(p => pipeValue += (PLAN_PRICES[p.intendedPlan] || 0));
+        const weekStart = new Date(); 
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay()); 
+        weekStart.setHours(0,0,0,0);
+        
+        let weekForms = 0; 
+        leads.forEach(l => { 
+            const d = l.createdAt?.toDate ? l.createdAt.toDate() : new Date(l.createdAt||0); 
+            if (d >= weekStart) weekForms++; 
+        });
+        
+        let weekDeals = 0; 
+        clients.forEach(c => { 
+            const d = c.createdAt?.toDate ? c.createdAt.toDate() : new Date(c.createdAt||0); 
+            if (d >= weekStart) weekDeals++; 
+        });
+        
+        let pipeValue = 0; 
+        prospects.filter(p => !['Converted','Dead'].includes(p.status)).forEach(p => pipeValue += (PLAN_PRICES[p.intendedPlan] || 0));
+        
         setText('r-auto-forms', weekForms);
         setText('r-auto-deals', weekDeals);
         setText('r-auto-pipe', fmtMoney(pipeValue));
 
         if (typeof loadRitual === 'function') loadRitual();
 
-    } catch (e) { console.error('Dash Error:', e); }
+    } catch (e) { 
+        console.error('Dash Error:', e); 
+    }
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -399,7 +462,18 @@ async function loadLeads() {
     
     const html = snap.docs.map(d => {
         const l = d.data();
-        return `<tr><td>${esc(l.name||'—')}</td><td>${esc(l.email||d.id)}</td><td class="dim">${esc(l.company||'—')}</td><td><span class="badge b-ghost">${esc(l.leadType||'—')}</span></td><td>${esc(l.status||'—')}</td><td class="dim">${esc(l.source||'—')}</td><td>${l.scannerExternalScore ?? '—'}</td><td>${l.scannerInternalScore ?? '—'}</td><td class="dim">${fmtDate(l.createdAt)}</td><td><button class="btn btn-outline btn-sm">Convert</button></td></tr>`;
+        return `<tr>
+            <td>${esc(l.name||'—')}</td>
+            <td>${esc(l.email||d.id)}</td>
+            <td class="dim">${esc(l.company||'—')}</td>
+            <td><span class="badge b-ghost">${esc(l.leadType||'—')}</span></td>
+            <td>${esc(l.status||'—')}</td>
+            <td class="dim">${esc(l.source||'—')}</td>
+            <td>${l.scannerExternalScore ?? '—'}</td>
+            <td>${l.scannerInternalScore ?? '—'}</td>
+            <td class="dim">${fmtDate(l.createdAt)}</td>
+            <td><button class="btn btn-outline btn-sm">Convert</button></td>
+        </tr>`;
     }).join('');
     
     tbodies.forEach(tb => tb.innerHTML = html);
@@ -443,7 +517,10 @@ async function openDetail(email) {
     detailTab('overview');
 }
 
-function closeDetail() { $('detailPanel').classList.remove('open'); }
+function closeDetail() { 
+    const dp = $('detailPanel');
+    if (dp) dp.classList.remove('open'); 
+}
 
 function detailTab(key, el) {
     const tabs = ['overview','intake','checklist','documents','radar','gap','financials','activity','referrals','debrief'];
@@ -660,13 +737,18 @@ function populateDetailDocuments(c) {
     const videoInput = $('doc-video-link');
     if (videoInput) videoInput.value = c.walkthroughUrl || c.deliveryVideoUrl || '';
 
-    $('sa-agentic').checked = ['agentic_shield', 'complete_stack', 'flagship'].includes(c.plan);
-    $('sa-workplace').checked = ['workplace_shield', 'complete_stack', 'flagship'].includes(c.plan);
-    $('sa-hallucination').checked = ['agentic_shield', 'complete_stack', 'flagship'].includes(c.plan);
-    $('sa-disgorgement').checked = ['agentic_shield', 'complete_stack', 'flagship'].includes(c.plan);
-    $('sa-ip').checked = ['workplace_shield', 'complete_stack', 'flagship'].includes(c.plan);
+    // Pre-fill Scope Picker based on Plan
+    const isAgentic = ['agentic_shield', 'complete_stack', 'flagship'].includes(c.plan);
+    const isWorkplace = ['workplace_shield', 'complete_stack', 'flagship'].includes(c.plan);
     
-    $('sa-price').value = c.price || PLAN_PRICES[c.plan] || '';
+    const cbAgentic = $('sa-agentic'); if (cbAgentic) cbAgentic.checked = isAgentic;
+    const cbWorkplace = $('sa-workplace'); if (cbWorkplace) cbWorkplace.checked = isWorkplace;
+    const cbHallucination = $('sa-hallucination'); if (cbHallucination) cbHallucination.checked = isAgentic;
+    const cbDisgorgement = $('sa-disgorgement'); if (cbDisgorgement) cbDisgorgement.checked = isAgentic;
+    const cbIp = $('sa-ip'); if (cbIp) cbIp.checked = isWorkplace;
+    
+    const priceInput = $('sa-price');
+    if (priceInput) priceInput.value = c.price || PLAN_PRICES[c.plan] || '';
 
     container.innerHTML = ''; 
     
@@ -699,7 +781,10 @@ function populateDetailDocuments(c) {
 }
 
 window.generateELForDelivery = function() {
-    if (!currentClient) { toast("No client selected.", "error"); return; }
+    if (!currentClient) { 
+        toast("No client selected.", "error"); 
+        return; 
+    }
 
     const deathChecks = qsa('.death-check');
     if (deathChecks.length > 0) {
@@ -718,13 +803,20 @@ window.generateELForDelivery = function() {
     const clientEmail = currentClient.id || "";
     const planName = planLabel(currentClient.plan);
     
-    const price = $('sa-price').value || PLAN_PRICES[currentClient.plan] || "____";
-    const discount = $('sa-discount').value || "";
+    const priceInput = $('sa-price');
+    const price = priceInput ? priceInput.value : (PLAN_PRICES[currentClient.plan] || "____");
+    
+    const discountInput = $('sa-discount');
+    const discount = discountInput ? discountInput.value : "";
     
     let tierText = currentClient.plan === 'flagship' ? `Flagship ----------------------------------------------- $${price} USD` : `Kit -------------------------------------------------------- $${price} USD`;
+    
     let laneText = 'Lane A — Builders';
-    if ($('sa-workplace').checked && !$('sa-agentic').checked) laneText = 'Lane B — Users';
-    if ($('sa-agentic').checked && $('sa-workplace').checked) laneText = 'Lane A & B (Complete Stack)';
+    const cbWorkplace = $('sa-workplace');
+    const cbAgentic = $('sa-agentic');
+    
+    if (cbWorkplace && cbWorkplace.checked && (!cbAgentic || !cbAgentic.checked)) laneText = 'Lane B — Users';
+    if (cbAgentic && cbAgentic.checked && cbWorkplace && cbWorkplace.checked) laneText = 'Lane A & B (Complete Stack)';
     if (currentClient.plan === 'flagship') laneText = 'Lane C — Enterprise (Flagship)';
 
     let paymentStructure = currentClient.plan === 'flagship' ? "60% Deposit / 40% on Delivery" : "100% Upfront";
@@ -733,11 +825,14 @@ window.generateELForDelivery = function() {
 
     let deliverablesList = "1\tDOC_TOS\tTerms of Service\tCore operating terms.\n";
     let index = 2;
-    if ($('sa-agentic').checked) { deliverablesList += `${index++}\tDOC_AGT\tAgentic Addendum\tAutonomous action waiver.\n`; }
-    if ($('sa-workplace').checked) { deliverablesList += `${index++}\tDOC_SOP\tInternal AI Policy\tEmployee AI usage guidelines.\n`; }
-    if ($('sa-hallucination').checked) { deliverablesList += `${index++}\tDOC_WVR\tHallucination Waiver\tLimits liability for AI output errors.\n`; }
-    if ($('sa-disgorgement').checked) { deliverablesList += `${index++}\tDOC_DPA\tData Processing\tGuards against algorithmic disgorgement.\n`; }
-    if ($('sa-ip').checked) { deliverablesList += `${index++}\tDOC_IP\tIP Deed\tSecures AI-generated outputs.\n`; }
+    if (cbAgentic && cbAgentic.checked) { deliverablesList += `${index++}\tDOC_AGT\tAgentic Addendum\tAutonomous action waiver.\n`; }
+    if (cbWorkplace && cbWorkplace.checked) { deliverablesList += `${index++}\tDOC_SOP\tInternal AI Policy\tEmployee AI usage guidelines.\n`; }
+    const cbHallucination = $('sa-hallucination');
+    if (cbHallucination && cbHallucination.checked) { deliverablesList += `${index++}\tDOC_WVR\tHallucination Waiver\tLimits liability for AI output errors.\n`; }
+    const cbDisgorgement = $('sa-disgorgement');
+    if (cbDisgorgement && cbDisgorgement.checked) { deliverablesList += `${index++}\tDOC_DPA\tData Processing\tGuards against algorithmic disgorgement.\n`; }
+    const cbIp = $('sa-ip');
+    if (cbIp && cbIp.checked) { deliverablesList += `${index++}\tDOC_IP\tIP Deed\tSecures AI-generated outputs.\n`; }
 
     const elTemplate = `LEX NOVA HQ ENGAGEMENT LETTER — LEGAL ARCHITECTURE MANDATE
 Date: ${dateStr}
@@ -843,6 +938,16 @@ window.addDocRow = function() {
 
 window.saveDocuments = async function() {
     if (!currentClient) return;
+
+    const deathChecks = qsa('.death-check');
+    if (deathChecks.length > 0) {
+        const allPassed = deathChecks.every(box => box.classList.contains('done'));
+        if (!allPassed) {
+            toast("SOP VIOLATION: Cannot deliver while Death Checks are incomplete.", "error");
+            return;
+        }
+    }
+
     const docs = [];
     qsa('#docsContainer .doc-row').forEach(row => {
         const nameInput = row.querySelector('.doc-name');
@@ -858,17 +963,29 @@ window.saveDocuments = async function() {
             });
         }
     });
-    const videoUrl = $('doc-video-link')?.value || '';
+
+    const videoInput = $('doc-video-link');
+    const videoUrl = videoInput ? videoInput.value : '';
+
     try {
-        await db.collection('clients').doc(currentClient.id).update({ documents: docs, walkthroughUrl: videoUrl, status: 'delivered', elFullGeneratedAt: nowTs(), deliveredAt: nowTs() });
+        await db.collection('clients').doc(currentClient.id).update({ 
+            documents: docs, 
+            walkthroughUrl: videoUrl,
+            status: 'delivered', 
+            elFullGeneratedAt: nowTs(), 
+            deliveredAt: nowTs() 
+        });
         toast("Work & Video Delivered.");
         closeDetail();
         loadClients();
-    } catch (e) { toast("Save Failed", "error"); }
+    } catch (e) {
+        console.error(e);
+        toast("Save Failed", "error");
+    }
 };
 
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ TAB 5-10: ASYNC DATA POPULATION ══════════════════════════════
+// ═════════ TAB 5: RADAR & EXPOSURE MATRIX ═══════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 function populateDetailRadar(c) {
     const el = $('dp-radar-list');
@@ -885,16 +1002,26 @@ function populateDetailGap(c) {
 
 window.saveGap = async function() {
     if (!currentClient) return;
-    const gapReview = { status: $('dp-gap-status')?.value || '', scopeSummary: $('dp-gap-scope')?.value?.trim() || '', invoiceUrl: $('dp-gap-invoice')?.value?.trim() || '', updatedAt: new Date().toISOString() };
+    const gapReview = { 
+        status: $('dp-gap-status')?.value || '', 
+        scopeSummary: $('dp-gap-scope')?.value?.trim() || '', 
+        invoiceUrl: $('dp-gap-invoice')?.value?.trim() || '', 
+        updatedAt: new Date().toISOString() 
+    };
     await db.collection('clients').doc(currentClient.id).update({ gapReview });
     toast('Gap Review saved ($497 Flat)');
 };
 
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ TAB 7: FINANCIALS & MAINTENANCE ══════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 function populateDetailFinancials(c) {
     const price = c.price || PLAN_PRICES[c.plan] || 0;
     setText('dp-price', fmtMoney(price));
-    const cb = $('dp-maint'); if (cb) cb.checked = !!c.maintenanceActive;
-    const fields = $('dp-maint-fields'); if (fields) fields.style.display = c.maintenanceActive ? 'block' : 'none';
+    const cb = $('dp-maint'); 
+    if (cb) cb.checked = !!c.maintenanceActive;
+    const fields = $('dp-maint-fields'); 
+    if (fields) fields.style.display = c.maintenanceActive ? 'block' : 'none';
     setVal('dp-maint-id', c.maintenanceSubscriptionId || c.subscriptionId || '');
     setVal('dp-maint-start', c.maintenanceStartDate || '');
 }
@@ -906,46 +1033,92 @@ window.toggleMaint = function(checked) {
 
 window.saveMaint = async function() {
     if (!currentClient) return;
-    await db.collection('clients').doc(currentClient.id).update({ maintenanceActive: $('dp-maint').checked, maintenanceSubscriptionId: $('dp-maint-id').value, maintenanceStartDate: $('dp-maint-start').value, updatedAt: nowTs() });
+    await db.collection('clients').doc(currentClient.id).update({ 
+        maintenanceActive: $('dp-maint').checked, 
+        maintenanceSubscriptionId: $('dp-maint-id').value, 
+        maintenanceStartDate: $('dp-maint-start').value, 
+        updatedAt: nowTs() 
+    });
     toast('Maintenance saved');
 };
 
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ TAB 8: ACTIVITY LOG ══════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 function populateDetailActivity(c) {
     const el = $('dp-activity-log');
     if (!el) return;
     const log = [...(c.activityLog||[])].sort((a,b) => new Date(b.ts||0).getTime() - new Date(a.ts||0).getTime());
-    el.innerHTML = log.length ? log.map(e => `<div class="act-entry"><div class="act-dot"></div><div style="flex:1"><div class="act-note">${esc(e.note||'')}</div><div class="act-ts">${fmtDate(e.ts)} · ${esc(e.by||'admin')}</div></div></div>`).join('') : '<div class="loading">No activity logged yet</div>';
+    el.innerHTML = log.length 
+        ? log.map(e => `<div class="act-entry"><div class="act-dot"></div><div style="flex:1"><div class="act-note">${esc(e.note||'')}</div><div class="act-ts">${fmtDate(e.ts)} · ${esc(e.by||'admin')}</div></div></div>`).join('') 
+        : '<div class="loading">No activity logged yet</div>';
 }
 
 window.addActivityNote = async function() {
     if (!currentClient) return;
-    const note = $('dp-new-note')?.value?.trim();
-    if (!note) { toast('Note is empty', 'error'); return; }
+    const noteEl = $('dp-new-note');
+    const note = noteEl ? noteEl.value.trim() : '';
+    if (!note) { 
+        toast('Note is empty', 'error'); 
+        return; 
+    }
     const entry = { note, ts: new Date().toISOString(), by: auth.currentUser?.email || 'admin' };
-    await db.collection('clients').doc(currentClient.id).update({ activityLog: firebase.firestore.FieldValue.arrayUnion(entry) });
-    $('dp-new-note').value = '';
+    await db.collection('clients').doc(currentClient.id).update({ 
+        activityLog: firebase.firestore.FieldValue.arrayUnion(entry) 
+    });
+    if (noteEl) noteEl.value = '';
     toast('Note added');
     openDetail(currentClient.id); 
 };
 
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ TAB 9: THE SYNDICATE (REFERRALS) ═════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 function populateDetailReferrals(c) {
     const wrap = $('dp-ref-list');
     if (!wrap) return;
-    if (!c.referrals || c.referrals.length === 0) { wrap.innerHTML = '<div class="loading" style="padding:20px 0;">No network targets registered yet.</div>'; return; }
+    if (!c.referrals || c.referrals.length === 0) { 
+        wrap.innerHTML = '<div class="loading" style="padding:20px 0;">No network targets registered yet.</div>'; 
+        return; 
+    }
     wrap.innerHTML = c.referrals.map((r, idx) => `
         <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:16px; display:flex; justify-content:space-between; align-items:center;">
-            <div><div style="font-size:14px; color:var(--marble); font-weight:600; margin-bottom:4px;">${esc(r.company)}</div><div style="font-size:11px; color:var(--marble-dim);">Founder: ${esc(r.name)} &bull; Email: ${esc(r.email)} &bull; Submitted: ${r.date}</div></div>
-            <div>${r.credited ? `<span class="badge b-delivered">Reward Credited</span>` : `<button class="btn btn-primary btn-sm" onclick="creditReferral('${esc(c.id)}', ${idx})">Mark Credited</button>`}</div>
+            <div>
+                <div style="font-size:14px; color:var(--marble); font-weight:600; margin-bottom:4px;">${esc(r.company)}</div>
+                <div style="font-size:11px; color:var(--marble-dim);">Founder: ${esc(r.name)} &bull; Email: ${esc(r.email)} &bull; Submitted: ${r.date}</div>
+            </div>
+            <div>
+                ${r.credited 
+                    ? `<span class="badge b-delivered">Reward Credited</span>` 
+                    : `<button class="btn btn-primary btn-sm" onclick="creditReferral('${esc(c.id)}', ${idx})">Mark Credited</button>`
+                }
+            </div>
         </div>`).join('');
 }
 
 window.addReferral = async function() {
     if (!currentClient) return;
-    const company = $('dp-ref-co')?.value?.trim(); const email = $('dp-ref-email')?.value?.trim(); const date = $('dp-ref-date')?.value;
-    if (!company && !email) { toast('Enter company or email', 'error'); return; }
+    const companyEl = $('dp-ref-co');
+    const emailEl = $('dp-ref-email');
+    const dateEl = $('dp-ref-date');
+    
+    const company = companyEl ? companyEl.value.trim() : ''; 
+    const email = emailEl ? emailEl.value.trim() : ''; 
+    const date = dateEl ? dateEl.value : '';
+    
+    if (!company && !email) { 
+        toast('Enter company or email', 'error'); 
+        return; 
+    }
     const entry = { company, email, date, addedAt: new Date().toISOString(), credited: false };
-    await db.collection('clients').doc(currentClient.id).update({ referrals: firebase.firestore.FieldValue.arrayUnion(entry) });
-    $('dp-ref-co').value = ''; $('dp-ref-email').value = ''; $('dp-ref-date').value = '';
+    await db.collection('clients').doc(currentClient.id).update({ 
+        referrals: firebase.firestore.FieldValue.arrayUnion(entry) 
+    });
+    
+    if (companyEl) companyEl.value = ''; 
+    if (emailEl) emailEl.value = ''; 
+    if (dateEl) dateEl.value = '';
+    
     toast('Referral added');
     openDetail(currentClient.id); 
 };
@@ -962,24 +1135,49 @@ window.creditReferral = async function(clientId, refIdx) {
         currentClient.referrals = data.referrals;
         populateDetailReferrals(currentClient);
         toast('Referral credited.');
-    } catch(err) { toast('Error crediting referral.', 'error'); }
+    } catch(err) { 
+        toast('Error crediting referral.', 'error'); 
+    }
 };
 
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ TAB 10: DEPLOYMENT DEBRIEF ═══════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 function populateDetailDebrief(c) {
     const wrap = $('dp-debrief-content');
     if (!wrap) return;
-    if (!c.debrief) { wrap.innerHTML = '<div class="loading" style="padding:20px 0;">No debrief submitted yet.</div>'; return; }
+    if (!c.debrief) { 
+        wrap.innerHTML = '<div class="loading" style="padding:20px 0;">No debrief submitted yet.</div>'; 
+        return; 
+    }
     const d = c.debrief;
-    const bText = d.before || ''; const dText = d.during || ''; const aText = d.after || '';
+    const bText = d.before || ''; 
+    const dText = d.during || ''; 
+    const aText = d.after || '';
     const consentColor = d.consent ? '#7ab88a' : '#d47a7a';
     wrap.innerHTML = `
         <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:24px; margin-bottom:16px;">
-            <div style="margin-bottom:20px;"><div style="font-size:10px; color:var(--gold); text-transform:uppercase;">1. The Anxiety</div><div style="font-size:13px; font-style:italic;">"${esc(bText)}"</div></div>
-            <div style="margin-bottom:20px;"><div style="font-size:10px; color:var(--gold); text-transform:uppercase;">2. The Experience</div><div style="font-size:13px; font-style:italic;">"${esc(dText)}"</div></div>
-            <div style="margin-bottom:20px;"><div style="font-size:10px; color:var(--gold); text-transform:uppercase;">3. The Result</div><div style="font-size:13px; font-style:italic;">"${esc(aText)}"</div></div>
-            <div style="padding-top:16px; border-top:1px solid var(--border); display:flex; align-items:center; gap:8px;"><div style="width:8px; height:8px; border-radius:50%; background:${consentColor};"></div><div style="font-size:11px; color:var(--marble-dim);">${d.consent ? 'Authorized public use.' : 'DID NOT authorize public use.'}</div></div>
+            <div style="margin-bottom:20px;">
+                <div style="font-size:10px; color:var(--gold); text-transform:uppercase;">1. The Anxiety</div>
+                <div style="font-size:13px; font-style:italic;">"${esc(bText)}"</div>
+            </div>
+            <div style="margin-bottom:20px;">
+                <div style="font-size:10px; color:var(--gold); text-transform:uppercase;">2. The Experience</div>
+                <div style="font-size:13px; font-style:italic;">"${esc(dText)}"</div>
+            </div>
+            <div style="margin-bottom:20px;">
+                <div style="font-size:10px; color:var(--gold); text-transform:uppercase;">3. The Result</div>
+                <div style="font-size:13px; font-style:italic;">"${esc(aText)}"</div>
+            </div>
+            <div style="padding-top:16px; border-top:1px solid var(--border); display:flex; align-items:center; gap:8px;">
+                <div style="width:8px; height:8px; border-radius:50%; background:${consentColor};"></div>
+                <div style="font-size:11px; color:var(--marble-dim);">${d.consent ? 'Authorized public use.' : 'DID NOT authorize public use.'}</div>
+            </div>
         </div>
-        <textarea readonly style="width:100%; height:100px; background:var(--void); border:1px solid var(--border); color:var(--marble); padding:16px; font-size:13px; line-height:1.5; resize:none;">"Before Lex Nova, my biggest concern was ${esc(bText.toLowerCase())}. Now, ${esc(aText.toLowerCase())}."</textarea>`;
+        <textarea readonly style="width:100%; height:100px; background:var(--void); border:1px solid var(--border); color:var(--marble); padding:16px; font-size:13px; line-height:1.5; resize:none;">"Before Lex Nova, my biggest concern was ${esc(bText.toLowerCase())}. Now, ${esc(aText.toLowerCase())}."</textarea>
+    `;
 }
 
-document.addEventListener('DOMContentLoaded', () => { if (typeof loadRitual === 'function') loadRitual(); });
+document.addEventListener('DOMContentLoaded', () => { 
+    if (typeof loadRitual === 'function') loadRitual(); 
+});
