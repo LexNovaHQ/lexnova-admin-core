@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lex Nova — Admin Console v4.0</title>
+<title>Lex Nova — Admin Console v5.0</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ═════════════════════════════════════════════════════════ */
@@ -530,15 +530,24 @@ tbody td.dim{color:var(--marble-dim)}
         
         <div style="display:flex; gap:10px; width:100%; flex-wrap:wrap;">
           <select class="fi" id="op-gap" onchange="if(typeof filterProspects==='function') filterProspects()">
-            <option value="">Gap: All Types</option>
-            <option value="exposure">🔴 No Legal Page</option>
-            <option value="generic">🟡 Generic SaaS</option>
-            <option value="ai-lite">🔵 AI-Lite</option>
+            <option value="">Severity: All</option>
+            <option value="NUCLEAR">🔴 Nuclear</option>
+            <option value="CRITICAL">🟠 Critical</option>
+            <option value="HIGH">🟡 High</option>
+            <option value="MEDIUM">⚪ Medium</option>
           </select>
           <select class="fi" id="op-ai" onchange="if(typeof filterProspects==='function') filterProspects()">
-            <option value="">AI Stack: All</option>
-            <option value="native">AI-Native Core</option>
-            <option value="external">External AI Tools</option>
+            <option value="">Category: All</option>
+            <option value="The Doers">The Doers</option>
+            <option value="The Orchestrators">The Orchestrators</option>
+            <option value="The Creators">The Creators</option>
+            <option value="The Companions">The Companions</option>
+            <option value="The Readers">The Readers</option>
+            <option value="The Translators">The Translators</option>
+            <option value="The Judges">The Judges</option>
+            <option value="The Shields">The Shields</option>
+            <option value="The Movers">The Movers</option>
+            <option value="The Optimizers">The Optimizers</option>
           </select>
           <select class="fi" id="op-li-filter" onchange="if(typeof filterProspects==='function') filterProspects()">
             <option value="">LinkedIn: All</option>
@@ -567,7 +576,7 @@ tbody td.dim{color:var(--marble-dim)}
               <th>Company</th>
               <th>Batch</th>
               <th>Status <span class="info-icon" onclick="showInfo('hunt_status')">ⓘ</span></th>
-              <th>Branch</th>
+              <th>Category</th>
               <th>Scanner <span class="info-icon" onclick="showInfo('scanner_flags')">ⓘ</span></th>
               <th>LinkedIn</th>
               <th>Next Action</th>
