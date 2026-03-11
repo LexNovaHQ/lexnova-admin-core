@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ LEX NOVA ADMIN LOGIC 2 (v5.0) — THE CRM & SYNDICATE ENGINE ═══
+// ═════════ LEX NOVA ADMIN LOGIC 2 (v5.2) — THE CRM & SYNDICATE ENGINE ═══
 // ════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -499,6 +499,7 @@ window.convertLead = async function(leadId) {
       scannerCompleted:     !!l.scannerScore || !!l.scannerExternalScore,
       scannerExternalScore: l.scannerExternalScore || l.scannerScore || null,
       scannerInternalScore: l.scannerInternalScore || null,
+      vaultInputs:          l.vaultInputs || [],
       addedAt:              new Date().toISOString(),
       updatedAt:            new Date().toISOString(),
       legalGapStatus:       'generic',
@@ -516,7 +517,7 @@ window.convertLead = async function(leadId) {
 };
 
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ THE DOSSIER GENERATOR ════════════════════════════════════════
+// ═════════ THE DOSSIER GENERATOR V5.2 ═══════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 window.copyDossier = async function(id) {
     const p = allProspects.find(x => x.id === id);
@@ -524,7 +525,7 @@ window.copyDossier = async function(id) {
 
     let gapsText = '';
     if (p.detectedGaps && p.detectedGaps.length > 0) {
-        gapsText = p.detectedGaps.map((g, i) => `[${i+1}] ${g.severity} - ${g.gapName} (Est. ${g.damage})`).join('\n');
+        gapsText = p.detectedGaps.map((g, i) => `[${g.severity}] ${g.gapName} (Est. ${g.damage})\nPain: ${g.pain}\nLiability: ${g.liability}\n`).join('\n');
     } else {
         gapsText = (p.activeTraps && p.activeTraps.length) ? p.activeTraps.join(', ') : 'None detected';
     }
@@ -537,6 +538,8 @@ Company: ${p.company || '—'} ${p.website ? '(' + p.website + ')' : ''}
 [FORENSIC INTELLIGENCE]
 Category: ${p.internalCategory || '—'} / ${p.externalCategory || '—'}
 Lane: ${p.lane || '—'}
+Geography: ${p.geography || '—'}
+Headcount: ${p.headcount || '—'}
 Product Signal: ${p.productSignal || '—'}
 
 [DETECTED GAPS]
@@ -571,7 +574,6 @@ Funding: ${p.fundingStage || '—'}`;
     }
 };
 
-// ═════════ THE COPY UTILITY ═════════
 window.copyToClipboard = function(id) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -581,7 +583,7 @@ window.copyToClipboard = function(id) {
 };
 
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ THE V3 DOSSIER MODAL (FULL PAGE TAKEOVER) ════════════════════
+// ═════════ THE V3 DOSSIER MODAL (FULL PAGE TAKEOVER V5.2) ═══════════════
 // ════════════════════════════════════════════════════════════════════════
 function openPP(id) {
   const p = allProspects.find(x => x.id === id);
@@ -623,77 +625,79 @@ function renderPPBody(p) {
 
   const scannerLink = p.scannerLink || `https://lexnovahq.com/scanner.html?pid=${p.prospectId || ''}`;
 
-  // V3 Matrix Gaps Construction
-  let gapsHtml = '';
+  // 1. DYNAMIC FORENSIC MATRIX LOGIC (THE KILL SHOT & BUSINESS IMPACT)
+  let gapsHtml = ''; let businessImpactHtml = '';
   if (p.detectedGaps && p.detectedGaps.length > 0) {
-      const sevWeight = { 'NUCLEAR': 3, 'CRITICAL': 2, 'HIGH': 1, 'MEDIUM': 0 };
-      const sortedGaps = [...p.detectedGaps].sort((a,b) => (sevWeight[b.severity]||0) - (sevWeight[a.severity]||0));
-
-      const killShot = sortedGaps[0];
-      const isNuclear = killShot.severity === 'NUCLEAR';
-      const ksColor = isNuclear ? '#ef4444' : '#f97316';
+      const sorted = [...p.detectedGaps].sort((a,b) => {
+          const weights = { NUCLEAR: 3, CRITICAL: 2, HIGH: 1, MEDIUM: 0 };
+          return (weights[b.severity]||0) - (weights[a.severity]||0);
+      });
+      const ks = sorted[0];
+      const ksColor = ks.severity === 'NUCLEAR' ? '#ef4444' : '#f97316';
       
       gapsHtml += `
-          <div style="border: 1px solid ${ksColor}; background: ${isNuclear ? 'rgba(239,68,68,0.05)' : 'rgba(249,115,22,0.05)'}; padding: 14px; border-radius: 6px; margin-bottom: 14px;">
-              <div style="color:${ksColor}; font-size:10px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:6px;">🎯 The Kill Shot (${killShot.severity})</div>
-              <div style="font-size:14px; font-weight:700; color:var(--marble); margin-bottom:8px; line-height:1.2;">${esc(killShot.gapName)}</div>
-              <div style="font-size:11px; color:var(--marble-dim); margin-bottom:4px;"><strong>Pain:</strong> ${esc(killShot.pain)}</div>
-              <div style="font-size:11px; color:var(--marble-dim); margin-bottom:4px;"><strong>Liability:</strong> ${esc(killShot.liability)}</div>
-              <div style="font-size:11px; color:${ksColor}; margin-top:6px; font-weight:600;">Est. Damage: ${esc(killShot.damage)}</div>
+          <div style="border: 1px solid ${ksColor}; background: rgba(239,68,68,0.05); padding: 14px; border-radius: 6px; margin-bottom: 14px; border-left: 5px solid ${ksColor};">
+              <div style="color:${ksColor}; font-size:10px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:6px;">🎯 The Kill Shot (${ks.severity})</div>
+              <div style="font-size:15px; font-weight:700; color:var(--marble); margin-bottom:8px;">${esc(ks.gapName)}</div>
+              <div style="font-size:11px; color:var(--marble-dim); margin-bottom:4px;"><strong>Pain:</strong> ${esc(ks.pain)}</div>
+              <div style="font-size:11px; color:var(--marble-dim); margin-bottom:4px;"><strong>Liability:</strong> ${esc(ks.liability)}</div>
+              <div style="font-size:11px; color:${ksColor}; margin-top:8px; font-weight:bold;">Damage Ceiling: ${esc(ks.damage)}</div>
           </div>
       `;
 
-      if (sortedGaps.length > 1) {
-          gapsHtml += `<div style="font-size:9px; color:var(--marble-dim); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">Secondary Exposures</div>`;
-          for (let i = 1; i < sortedGaps.length; i++) {
-              const g = sortedGaps[i];
+      if (sorted.length > 1) {
+          gapsHtml += `<div style="font-size:9px; color:var(--marble-dim); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px; margin-top:16px;">Secondary Exposures</div>`;
+          gapsHtml += sorted.slice(1).map(g => {
               const col = g.severity === 'CRITICAL' ? '#f97316' : (g.severity === 'HIGH' ? 'var(--gold)' : 'var(--marble-dim)');
-              gapsHtml += `
-                  <div style="border: 1px solid var(--border); background: var(--surface2); padding: 10px; border-left: 3px solid ${col}; border-radius: 4px; margin-bottom: 8px;">
-                      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                          <span style="font-size:11px; font-weight:600; color:var(--marble);">${esc(g.gapName)}</span>
-                          <span style="font-size:9px; color:${col}; font-weight:700;">${g.severity}</span>
-                      </div>
-                      <div style="font-size:10px; color:var(--marble-dim); line-height:1.3;">${esc(g.pain)}</div>
+              return `
+              <div style="background:var(--surface2); border:1px solid var(--border); padding:10px; border-left:3px solid ${col}; border-radius:4px; margin-bottom:8px;">
+                  <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                      <span style="font-size:11px; font-weight:600; color:var(--marble);">${esc(g.gapName)}</span>
+                      <span style="font-size:9px; color:${col}; font-weight:700;">${g.severity}</span>
                   </div>
-              `;
-          }
+                  <div style="font-size:10px; color:var(--marble-dim); line-height:1.3;">${esc(g.pain)}</div>
+              </div>`;
+          }).join('');
       }
-  } else {
-      gapsHtml = `
-          <div class="fg" style="margin-bottom:0"><label class="fl">Legacy Active Traps</label>
-             <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                 ${(p.activeTraps||[]).map(t => `<span class="badge b-red">${esc(t)}</span>`).join('') || '<span class="dim">No legacy traps</span>'}
-             </div>
-          </div>
-          <div class="fg" style="margin-top:12px;"><label class="fl">Legacy Analysis</label>
-             <div style="font-size:11px; color:var(--marble-dim);">${esc(p.legalGapAnalysis||'—')}</div>
+
+      businessImpactHtml = `
+          <div class="card" style="padding:16px; border-color:var(--gold-mid); background:var(--void); margin-top:20px;">
+              <div style="font-size:10px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:10px; font-weight:700;">Business Impact Analysis</div>
+              <div style="font-size:11px; color:var(--marble); line-height:1.5;">Target exhibits a <strong>compound risk surface</strong> with ${sorted.length} detected Matrix Gaps. The lack of a <strong>${ks.gapName.split(' ')[0]}</strong> mechanism alone creates a ${ks.damage} liability hole.</div>
           </div>
       `;
+  } else {
+      gapsHtml = `<div class="empty" style="border: 1px dashed var(--border); border-radius:6px; padding:20px;">No V3 Matrix Gaps detected. Fallback: <br><br> ${(p.activeTraps||[]).map(t => `<span class="badge b-red">${esc(t)}</span>`).join(' ')}</div>`;
   }
 
-  const asyncBleedHtml = (p.scannerCompleted || p.scannerClicked) ? `
-      <div class="card" style="padding: 16px; border-color: ${p.scannerCompleted ? '#d47a7a' : 'var(--gold-mid)'}; background: var(--surface2);">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-              <div style="font-size:10px; color:${p.scannerCompleted ? '#d47a7a' : 'var(--gold)'}; text-transform:uppercase; letter-spacing:0.1em; font-weight:700;">Section 4: Async Telemetry</div>
-              <span class="badge ${p.scannerCompleted ? 'b-red' : 'b-warm'}">${p.scannerCompleted ? 'Completed 🔥🔥' : 'Clicked 🔥'}</span>
-          </div>
-          <div class="fi-row" style="margin-bottom:10px;">
-              <div class="fg" style="margin:0;"><label class="fl">Est. Financial Exposure</label>
-                  <input type="text" class="fi" id="pp-ext" value="${esc(p.scannerExternalScore||'—')}" style="color:#d47a7a; font-weight:bold; font-size:16px;">
+  // 2. ASYNC TELEMETRY LOGIC (CONFESSIONS)
+  let telemetryHtml = '';
+  if (p.scannerCompleted || p.scannerClicked) {
+      const confessionList = (p.vaultInputs || []).map(inp => `
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.03); padding:6px 0; gap:10px;">
+              <span style="font-size:10px; color:var(--marble-dim); flex:1;">${esc(inp.question)}</span>
+              <span style="font-size:10px; color:var(--gold); font-weight:600;">${esc(inp.answer)}</span>
+          </div>`).join('');
+
+      telemetryHtml = `
+          <div class="card" style="padding: 16px; border-color: #d47a7a; background: var(--surface2);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                  <div style="font-size:10px; color:#d47a7a; text-transform:uppercase; letter-spacing:0.1em; font-weight:700;">Section 4: Async Telemetry (The Confessional)</div>
+                  <span class="badge b-red">${p.scannerCompleted ? 'Completed 🔥🔥' : 'Clicked 🔥'}</span>
               </div>
-              <div class="fg" style="margin:0;"><label class="fl">Internal Risk Score</label>
-                  <input type="text" class="fi" id="pp-int" value="${esc(p.scannerInternalScore||'—')}">
+              <div class="fi-row" style="margin-bottom:16px;">
+                  <div class="fg" style="margin:0;"><label class="fl">Exposure Floor</label><div style="color:#ef4444; font-weight:bold; font-size:18px;">${esc(p.scannerExternalScore||'—')}</div></div>
+                  <div class="fg" style="margin:0;"><label class="fl">Int Risk Score</label><div style="font-size:14px; font-weight:bold;">${esc(p.scannerInternalScore||'—')}</div></div>
               </div>
-          </div>
-          <div style="font-size:10px; color:var(--marble-dim); font-style:italic;">Note: Telemetry inputs trigger SDR abandoned cart workflows if the Apply page is dropped.</div>
-      </div>
-  ` : '';
+              <div style="max-height:150px; overflow-y:auto; padding-right:6px;">${confessionList || '<div class="dim">No specific vault inputs logged.</div>'}</div>
+              <div style="font-size:10px; color:var(--marble-faint); font-style:italic; margin-top:10px;">Note: Telemetry inputs trigger SDR abandoned cart workflows.</div>
+          </div>`;
+  }
 
   body.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; gap:10px; padding-bottom:14px; border-bottom:1px solid var(--border);">
         <div style="display:flex; gap:8px; align-items:center;">
-            <input type="text" class="fi" id="pp-scanner-url" readonly value="${scannerLink}" style="font-size:10px; color:var(--gold); width:320px; border-color:var(--gold-mid); background:var(--void);">
+            <input type="text" class="fi" id="pp-scanner-url" readonly value="${scannerLink}" style="font-size:10px; color:var(--gold); width:350px; background:var(--void); border-color:var(--gold-mid);">
             <button class="btn btn-outline btn-sm" onclick="copyToClipboard('pp-scanner-url')">Copy Link</button>
         </div>
         <button class="btn btn-primary btn-sm" onclick="copyDossier('${esc(p.id)}')">📋 Copy Full Dossier</button>
@@ -705,22 +709,25 @@ function renderPPBody(p) {
             
             <div class="card" style="padding: 20px;">
                 <div style="font-size:10px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:16px; font-weight:700;">Section 1: Company Intelligence</div>
-                
                 <div class="fi-row" style="margin-bottom:12px;">
-                    <div class="fg" style="margin:0;"><label class="fl">INT-10 Category</label><div style="font-size:12px; color:var(--marble); font-weight:600;">${esc(p.internalCategory||'—')}</div></div>
-                    <div class="fg" style="margin:0;"><label class="fl">EXT-6 Category</label><div style="font-size:12px; color:var(--marble);">${esc(p.externalCategory||'—')}</div></div>
+                    <div class="fg" style="margin:0;"><label class="fl">INT-10 Archetype</label><input type="text" class="fi" id="pp-int-cat" value="${esc(p.internalCategory||'')}"></div>
+                    <div class="fg" style="margin:0;"><label class="fl">EXT-6 Category</label><input type="text" class="fi" id="pp-ext-cat" value="${esc(p.externalCategory||'')}"></div>
                 </div>
                 <div class="fi-row" style="margin-bottom:16px;">
-                    <div class="fg" style="margin:0;"><label class="fl">Liability Lane</label><div style="font-size:12px; color:var(--marble);">${esc(p.lane||'—')}</div></div>
-                    <div class="fg" style="margin:0;"><label class="fl">Funding Stage</label>
-                        <select class="fi" id="pp-funding" style="padding:6px; font-size:11px;">${sel(['','Pre-seed','Seed','Series A','Series B+','Bootstrapped'], p.fundingStage)}</select>
+                    <div class="fg" style="margin:0;"><label class="fl">Liability Lane</label><div style="font-size:12px; color:var(--marble); font-weight:bold; margin-top:8px;">${esc(p.lane||'—')}</div></div>
+                    <div class="fg" style="margin:0;"><label class="fl">Geography</label><input type="text" class="fi" id="pp-geo" value="${esc(p.geography||'')}"></div>
+                </div>
+                <div class="fi-row" style="margin-bottom:16px;">
+                    <div class="fg" style="margin:0;"><label class="fl">Funding</label>
+                        <select class="fi" id="pp-funding-text" style="padding:6px; font-size:11px;">${sel(['','Pre-seed','Seed','Series A','Series B+','Bootstrapped'], p.fundingStage)}</select>
                     </div>
+                    <div class="fg" style="margin:0;"><label class="fl">Headcount</label><input type="text" class="fi" id="pp-headcount" value="${esc(p.headcount||'')}"></div>
                 </div>
 
                 <div style="padding-top:16px; border-top:1px solid var(--border);">
                     <div class="fi-row" style="margin-bottom:10px">
                         <div class="fg"><label class="fl">Founder Name</label><input type="text" class="fi" id="pp-name-edit" value="${esc(p.founderName||p.name||'')}"></div>
-                        <div class="fg"><label class="fl">Company</label><input type="text" class="fi" id="pp-company-edit" value="${esc(p.company||'')}"></div>
+                        <div class="fg"><label class="fl">Company Name</label><input type="text" class="fi" id="pp-company-edit" value="${esc(p.company||'')}"></div>
                     </div>
                     <div class="fi-row" style="margin-bottom:10px">
                         <div class="fg"><label class="fl">Email</label><input type="email" class="fi" id="pp-email-edit" value="${esc(p.email||'')}"></div>
@@ -735,52 +742,37 @@ function renderPPBody(p) {
 
             <div class="card" style="padding: 20px;">
                 <div style="font-size:10px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:16px; font-weight:700;">Section 2: Forensic Matrix</div>
-                <div class="fg" style="margin-bottom:16px;">
-                    <label class="fl">Product Signal (Trigger)</label>
-                    <div style="font-size:12px; color:var(--marble); line-height:1.5; padding:10px; background:var(--surface2); border:1px solid var(--border); border-radius:4px;">${esc(p.productSignal||'—')}</div>
-                </div>
+                <div class="fg" style="margin-bottom:16px;"><label class="fl">Product Signal (The Trigger)</label><div style="font-size:12px; color:var(--marble); line-height:1.5; padding:10px; background:var(--surface2); border:1px solid var(--border); border-radius:4px;">${esc(p.productSignal||'—')}</div></div>
                 ${gapsHtml}
+                ${businessImpactHtml}
             </div>
-            
         </div>
 
         <div style="overflow-y: auto; padding-right: 12px; display: flex; flex-direction: column; gap: 20px;">
             
             <div class="card" style="padding: 20px;">
-                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:12px; font-weight:700;">Section 3: The Spear (Payload)</div>
-                <div class="fg" style="margin-bottom:10px;">
-                    <label class="fl">Subject Line</label>
-                    <input type="text" class="fi" id="pp-subject" value="${esc(p.emailSubject||'')}" style="border-color:var(--gold-mid); font-family:monospace;">
-                </div>
-                <div class="fg" style="margin-bottom:0;">
-                    <label class="fl">Email Body</label>
-                    <textarea class="fi" id="pp-hook" rows="5" style="border-color:var(--gold-mid); line-height:1.6;">${esc(p.personalizedHook||'')}</textarea>
-                </div>
+                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:12px; font-weight:700;">Section 3: The Spear (Current Payload)</div>
+                <div class="fg"><label class="fl">Subject Line</label><input type="text" class="fi" id="pp-subject" value="${esc(p.emailSubject||'')}" style="border-color:var(--gold-mid); font-family:monospace;"></div>
+                <div class="fg" style="margin-bottom:0;"><label class="fl">Email Body</label><textarea class="fi" id="pp-hook" rows="6" style="border-color:var(--gold-mid); line-height:1.5;">${esc(p.personalizedHook||'')}</textarea></div>
             </div>
 
-            ${asyncBleedHtml}
+            ${telemetryHtml}
 
             <div class="card" style="padding: 20px;">
-                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:16px; font-weight:700;">Section 5: War Room Controls</div>
+                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:16px; font-weight:700;">Section 5: War Room Status & Controls</div>
                 
                 <div class="fi-row" style="margin-bottom:14px;">
                     <div class="fg" style="margin:0;"><label class="fl">Funnel Status</label>
-                        <select class="fi" id="pp-status" style="border-color:var(--gold); color:var(--gold); font-weight:600;">
+                        <select class="fi" id="pp-status" style="border-color:var(--gold); color:var(--gold); font-weight:bold;">
                             ${sel(['Cold','Warm','Hot','Replied','Negotiating','Converted','Dead'], p.status)}
                         </select>
                     </div>
-                    <div class="fg" style="margin:0;"><label class="fl">Intended Plan</label>
-                        <select class="fi" id="pp-plan">${planSel}</select>
-                    </div>
+                    <div class="fg" style="margin:0;"><label class="fl">Intended Plan</label><select class="fi" id="pp-plan">${planSel}</select></div>
                 </div>
 
-                <div class="fi-row" style="margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid var(--border);">
-                    <div class="fg" style="margin:0;"><label class="fl">Next Action Date</label>
-                        <input type="date" class="fi" id="pp-next-date" value="${p.nextActionDate||''}">
-                    </div>
-                    <div class="fg" style="margin:0;"><label class="fl">Action Note</label>
-                        <input type="text" class="fi" id="pp-next-note" value="${esc(p.nextAction||'')}" placeholder="e.g. Follow up on scanner">
-                    </div>
+                <div class="fi-row" style="margin-bottom:16px; border-bottom:1px solid var(--border); padding-bottom:16px;">
+                    <div class="fg" style="margin:0;"><label class="fl">Next Action Date</label><input type="date" class="fi" id="pp-next-date" value="${p.nextActionDate||''}"></div>
+                    <div class="fg" style="margin:0;"><label class="fl">Next Step Note</label><input type="text" class="fi" id="pp-next-note" value="${esc(p.nextAction||'')}" placeholder="e.g. Follow up on scanner"></div>
                 </div>
 
                 <div class="fg" style="margin-bottom:16px;">
@@ -789,25 +781,28 @@ function renderPPBody(p) {
                 </div>
 
                 <div style="margin-bottom:16px;">
-                    <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--marble-faint);margin-bottom:8px">Sequence Log (Emails Sent: <span id="pp-emails-display">${p.emailsSent||0}</span>)</div>
-                    <div id="pp-email-log" style="margin-bottom:8px; background:var(--void); border:1px solid var(--border); padding:8px; max-height:120px; overflow-y:auto;">${logRows}</div>
-                    <div class="fi-row" style="margin-bottom:6px;">
+                    <div style="font-size:9px; text-transform:uppercase; color:var(--marble-faint); margin-bottom:8px">Communication Log (Total: ${p.emailsSent||0})</div>
+                    <div id="pp-email-log" style="background:var(--void); border:1px solid var(--border); padding:8px; max-height:100px; overflow-y:auto;">${logRows}</div>
+                    <div class="fi-row" style="margin-bottom:6px; margin-top:8px;">
                         <input type="date" class="fi" id="pp-log-date" value="${new Date().toISOString().split('T')[0]}" style="padding:6px; font-size:10px;">
                         <select class="fi" id="pp-log-type" style="padding:6px; font-size:10px; border-color:var(--gold-mid);">
                             <option>Cold Email</option><option>Follow-up 1</option><option>Follow-up 2</option><option>Follow-up 3</option><option>Reply</option><option>LinkedIn DM</option>
                         </select>
                     </div>
                     <div style="display:flex; gap:8px;">
-                        <input type="text" class="fi" id="pp-log-notes" placeholder="Notes..." style="padding:6px; font-size:10px; flex:1;">
+                        <input type="text" class="fi" id="pp-manual-log" placeholder="Quick log note..." style="padding:6px; font-size:10px; flex:1;">
                         <button class="btn btn-outline" style="padding:6px 12px; font-size:9px;" onclick="logEmail()">+ Log</button>
                     </div>
                 </div>
 
-                <div style="display:flex; gap:10px; margin-top:24px;">
-                    <button class="btn btn-primary" style="flex:1;" onclick="saveProspect()">💾 Save Dossier</button>
-                    <button class="btn btn-outline" style="flex:1; border-color:#d4a850; color:#d4a850;" onclick="pivotToFlagship()">💎 Pivot to Flagship</button>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-primary" style="flex:1; padding: 14px 0;" onclick="saveProspect()">💾 Save Dossier</button>
+                    <button class="btn btn-outline" style="flex:1; padding: 14px 0; border-color:#d4a850; color:#d4a850;" onclick="pivotToFlagship()">💎 Pivot to Flagship</button>
                 </div>
-                
+                <div style="text-align:center; margin-top:16px; border-top:1px dashed rgba(138,58,58,0.3); padding-top:16px;">
+                    <button class="btn btn-danger btn-sm" onclick="deleteProspect('${esc(p.id)}')">Permanently Delete Target</button>
+                </div>
+
                 <input type="hidden" id="pp-batch-edit" value="${esc(p.batchNumber||'')}">
                 <input type="hidden" id="pp-gap-status" value="${esc(p.legalGapStatus||'generic')}">
                 <input type="hidden" id="pp-gap-text" value="${esc(p.legalGapAnalysis||'')}">
@@ -818,11 +813,9 @@ function renderPPBody(p) {
                 <input type="checkbox" id="pp-scomp" ${p.scannerCompleted?'checked':''} style="display:none;">
                 <input type="checkbox" id="pp-chk-native" ${p.aiNative?'checked':''} style="display:none;">
                 <input type="checkbox" id="pp-chk-ext" ${p.externalAI?'checked':''} style="display:none;">
-
             </div>
         </div>
-    </div>
-  `;
+    </div>`;
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -833,7 +826,7 @@ window.pivotToFlagship = async function() {
     if (!confirm('Pivot this target to the Flagship pipeline? This will archive the current prospect and create a new Flagship deal.')) return;
 
     const fsData = {
-        founderName: currentProspect.founderName || currentProspect.name || '',
+        founderName: currentProspect.founderName || currentProspect.name || 'Unknown',
         email: currentProspect.email || '',
         company: currentProspect.company || '',
         preCallNotes: 'Pivoted from Automated V3 Pipeline.\nOriginal Gap Identified: ' + (currentProspect.productSignal || 'N/A'),
@@ -860,38 +853,27 @@ window.pivotToFlagship = async function() {
 
 async function saveProspect() {
   if (!currentProspect) return;
-  
   const updates = {
-    founderName:          $('pp-name-edit')?.value?.trim()  || '',
-    company:              $('pp-company-edit')?.value?.trim() || '',
-    linkedinUrl:          $('pp-linkedin-edit')?.value?.trim() || '',
-    website:              $('pp-website-edit')?.value?.trim() || '',
-    batchNumber:          $('pp-batch-edit')?.value?.trim() || '',
-    email:                $('pp-email-edit')?.value?.trim().toLowerCase() || currentProspect.email,
-    status:               $('pp-status')?.value             || currentProspect.status,
-    followUpBranch:       $('pp-branch')?.value             || '',
-    fundingStage:         $('pp-funding')?.value            || '',
-    intendedPlan:         $('pp-plan')?.value               || '',
-    linkedinStatus:       $('pp-li')?.value                 || '',
-    emailsSent:           parseInt($('pp-emails')?.value)   || 0,
-    scannerClicked:       $('pp-sc')?.checked               || false,
-    scannerCompleted:     $('pp-scomp')?.checked            || false,
-    scannerExternalScore: $('pp-ext') ? parseFloat($('pp-ext').value) : currentProspect.scannerExternalScore,
-    scannerInternalScore: $('pp-int') ? parseFloat($('pp-int').value) : currentProspect.scannerInternalScore,
-    nextActionDate:       $('pp-next-date')?.value          || '',
-    nextAction:           $('pp-next-note')?.value?.trim()  || '',
-    notes:                $('pp-notes')?.value?.trim()      || '',
-    jobTitle:             $('pp-title')?.value?.trim()      || '',
-    legalGapStatus:       $('pp-gap-status')?.value         || 'generic',
-    legalGapAnalysis:     $('pp-gap-text')?.value?.trim()   || '',
-    personalizedHook:     $('pp-hook')?.value?.trim()       || '',
-    emailSubject:         $('pp-subject')?.value?.trim()    || currentProspect.emailSubject || '',
-    aiNative:             $('pp-chk-native')?.checked       || false,
-    externalAI:           $('pp-chk-ext')?.checked          || false,
-    updatedAt:            new Date().toISOString()
+    founderName: $('pp-name-edit')?.value?.trim() || '',
+    company: $('pp-company-edit')?.value?.trim() || '',
+    email: $('pp-email-edit')?.value?.trim().toLowerCase() || currentProspect.email,
+    internalCategory: $('pp-int-cat')?.value || currentProspect.internalCategory || '',
+    externalCategory: $('pp-ext-cat')?.value || currentProspect.externalCategory || '',
+    geography: $('pp-geo')?.value || currentProspect.geography || '',
+    headcount: $('pp-headcount')?.value || currentProspect.headcount || '',
+    fundingStage: $('pp-funding-text')?.value || currentProspect.fundingStage || '',
+    status: $('pp-status')?.value || currentProspect.status,
+    nextActionDate: $('pp-next-date')?.value || '',
+    nextAction: $('pp-next-note')?.value?.trim() || '',
+    notes: $('pp-notes')?.value?.trim() || '',
+    jobTitle: $('pp-title')?.value?.trim() || '',
+    personalizedHook: $('pp-hook')?.value?.trim() || '',
+    emailSubject: $('pp-subject')?.value?.trim() || '',
+    linkedinUrl: $('pp-linkedin-edit')?.value?.trim() || '',
+    website: $('pp-website-edit')?.value?.trim() || '',
+    intendedPlan: $('pp-plan')?.value || '',
+    updatedAt: new Date().toISOString()
   };
-  
-  if (updates.legalGapStatus === 'exposure') updates.hotFlag = true;
 
   let isConvertingToClient = false;
   if (updates.status === 'Converted' && currentProspect.status !== 'Converted') {
@@ -904,13 +886,10 @@ async function saveProspect() {
 
   try {
     if (isConvertingToClient) {
-        if (!confirm(`Initialize P→C Migration? This will push the target to The Factory and change their ID to LN-C.`)) return;
-        
+        if (!confirm(`Initialize P→C Migration? This pushes target to The Factory (LN-C).`)) return;
         const clientId = (currentProspect.prospectId || '').replace('LN-P-', 'LN-C-') || ('LN-C-' + Date.now());
-        
         const clientData = {
-            ...currentProspect,
-            ...updates,
+            ...currentProspect, ...updates,
             id: updates.email, 
             engagementRef: clientId,
             originalProspectId: currentProspect.prospectId,
@@ -918,78 +897,52 @@ async function saveProspect() {
             createdAt: new Date().toISOString(),
             plan: updates.intendedPlan || 'agentic_shield'
         };
-
         await db.collection('clients').doc(updates.email).set(clientData);
         toast(`Migrated to The Factory as ${clientId}`, 'success');
-        
         updates.status = 'Dead';
         updates.archivedAt = new Date().toISOString();
         updates.notes = (updates.notes || '') + `\n[SYSTEM] Deal Closed. Data migrated to Client ID: ${clientId}`;
     }
 
-    // TARGET DOCUMENT BY PROSPECT ID (THE KEY)
     const docKey = currentProspect.prospectId || currentProspect.id;
     await db.collection('prospects').doc(docKey).set(updates, { merge: true });
     
     currentProspect = { ...currentProspect, ...updates };
-    if (!isConvertingToClient) toast('Prospect saved');
+    if (!isConvertingToClient) toast('Prospect Dossier Saved');
     
     const idx = allProspects.findIndex(p => p.id === currentProspect.id);
     if (idx !== -1) allProspects[idx] = currentProspect;
     
     if (isConvertingToClient) closePP(); 
+    else if (typeof filterProspects === 'function') filterProspects();
 
   } catch(e) { console.error(e); toast('Save failed', 'error'); }
 }
 
 async function deleteProspect(id) {
-    if (!confirm(`WARNING: Are you absolutely sure you want to permanently delete this target? This cannot be undone.`)) return;
+    if (!confirm(`WARNING: Permanently delete target?`)) return;
     try {
         await db.collection('prospects').doc(id).delete();
-        closePP();
-        toast('Target Deleted', 'success');
-    } catch(e) {
-        console.error("Delete failed:", e);
-        toast('Failed to delete target', 'error');
-    }
+        closePP(); toast('Target Deleted', 'success');
+    } catch(e) { toast('Delete failed', 'error'); }
 }
 
 async function logEmail() {
   if (!currentProspect) return;
-  const entry = {
-    date:  $('pp-log-date')?.value  || new Date().toISOString().split('T')[0],
-    type:  $('pp-log-type')?.value  || 'Cold Email',
-    notes: $('pp-log-notes')?.value?.trim() || ''
-  };
+  const note = $('pp-manual-log')?.value?.trim() || 'Logged manually';
+  const type = $('pp-log-type')?.value || 'Cold Email';
+  const date = $('pp-log-date')?.value || new Date().toISOString().split('T')[0];
+  const entry = { date: date, type: type, notes: note };
   
-  // LOG AGAINST PROSPECT ID KEY
   const docKey = currentProspect.prospectId || currentProspect.id;
   const newCount = (currentProspect.emailsSent||0) + 1;
-  
   try {
-    await db.collection('prospects').doc(docKey).update({
-      emailLog:   firebase.firestore.FieldValue.arrayUnion(entry),
-      emailsSent: newCount,
-      updatedAt:  new Date().toISOString()
-    });
-    currentProspect.emailLog   = [...(currentProspect.emailLog||[]), entry];
+    await db.collection('prospects').doc(docKey).update({ emailLog: firebase.firestore.FieldValue.arrayUnion(entry), emailsSent: newCount, updatedAt: new Date().toISOString() });
+    currentProspect.emailLog = [...(currentProspect.emailLog||[]), entry];
     currentProspect.emailsSent = newCount;
-    
-    if ($('pp-emails')) $('pp-emails').value = newCount;
-    if ($('pp-emails-display')) $('pp-emails-display').innerText = newCount;
-    if ($('pp-log-notes')) $('pp-log-notes').value = '';
-    
-    const logEl = $('pp-email-log');
-    if (logEl) {
-      logEl.innerHTML = currentProspect.emailLog.slice().reverse().map(e =>
-        `<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid rgba(197,160,89,.06);font-size:10px;flex-wrap:wrap;">
-          <span style="color:var(--marble-faint);flex-shrink:0;width:80px">${esc(e.date)}</span>
-          <span style="color:var(--gold);flex-shrink:0;width:90px;font-weight:600;">${esc(e.type)}</span>
-          <span style="color:var(--marble-dim);flex:1;word-break:break-word;">${esc(e.notes)}</span>
-        </div>`).join('');
-    }
-    toast('Email logged');
-  } catch(e) { console.error(e); toast('Log failed', 'error'); }
+    toast('Action Logged');
+    renderPPBody(currentProspect);
+  } catch(e) { toast('Log failed', 'error'); }
 }
 
 async function genProspectId(batchCode) {
@@ -997,130 +950,71 @@ async function genProspectId(batchCode) {
     const month = String(new Date().getMonth() + 1).padStart(2, '0');
     const searchBatch = batchCode || `${month}A`;
     const prefix = `LN-P-AI-26-${searchBatch}-`;
-    
-    // Find Highest ID in this SPECIFIC batch
-    const snap = await db.collection('prospects')
-        .where('prospectId', '>=', prefix)
-        .where('prospectId', '<=', prefix + '\uf8ff')
-        .get();
-        
-    let max = 0;
-    snap.forEach(d => {
-      const pid = d.data().prospectId || '';
-      const parts = pid.split('-');
-      const serialStr = parts[parts.length - 1];
-      const serialNum = parseInt(serialStr, 10);
-      if (!isNaN(serialNum) && serialNum > max) max = serialNum;
-    });
-    
+    const snap = await db.collection('prospects').where('prospectId', '>=', prefix).where('prospectId', '<=', prefix + '\uf8ff').get();
+    let max = 0; snap.forEach(d => { const pid = d.data().prospectId || ''; const num = parseInt(pid.split('-').pop(), 10); if (num > max) max = num; });
     return `${prefix}${String(max + 1).padStart(3,'0')}`;
   } catch { return `LN-P-AI-26-03A-001`; }
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ MANUAL ADD PROSPECT (FALLBACK) ═══════════════════════════════
+// ═════════ MANUAL ADD PROSPECT (V3 ALIGNED) ═════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 function openAddProspect() {
-  const planOpts = Object.entries(PLANS).map(([k,v]) => `<option value="${k}">${v}</option>`).join('');
   const month = String(new Date().getMonth() + 1).padStart(2, '0');
-  const defaultBatch = `${month}A`;
-
-  openModal('Initialize Target Acquisition (Manual Fallback)', `
+  const catOpts = ['The Doers','The Orchestrators','The Creators','The Companions','The Readers','The Translators','The Judges','The Shields','The Movers','The Optimizers'];
+  
+  openModal('Initialize Target Acquisition (V3 Manual)', `
   <div class="modal-grid">
       <div>
           <div class="section-sub">Gate 0: Identity</div>
           <div class="fi-row">
-              <div class="fg"><label class="fl">Founder Name</label>
-                  <input type="text" class="fi" id="ap-name" placeholder="Jane Smith"></div>
-              <div class="fg"><label class="fl">Company</label>
-                  <input type="text" class="fi" id="ap-company" placeholder="Acme AI"></div>
+              <div class="fg"><label class="fl">Founder</label><input type="text" class="fi" id="ap-name"></div>
+              <div class="fg"><label class="fl">Company</label><input type="text" class="fi" id="ap-company"></div>
           </div>
-          <div class="fg"><label class="fl">Email *</label>
-              <input type="email" class="fi" id="ap-email" placeholder="jane@acme.ai"></div>
+          <div class="fg"><label class="fl">Email *</label><input type="email" class="fi" id="ap-email"></div>
           <div class="fi-row">
-              <div class="fg"><label class="fl">LinkedIn URL</label>
-                  <input type="text" class="fi" id="ap-li" placeholder="https://linkedin.com/in/…"></div>
-              <div class="fg"><label class="fl">Website</label>
-                  <input type="text" class="fi" id="ap-web" placeholder="https://acme.ai"></div>
-          </div>
-
-          <div class="section-sub" style="margin-top:20px">Gate 1: Apollo Pre-Reveal</div>
-          <div class="fi-row">
-              <div class="fg"><label class="fl">Job Title</label>
-                  <input type="text" class="fi" id="ap-title" placeholder="Founder / CEO"></div>
-              <div class="fg"><label class="fl">Geography</label>
-                  <select class="fi" id="ap-geo">
-                      <option value="US">United States (P1)</option>
-                      <option value="UK">United Kingdom (P2)</option>
-                      <option value="CAN_AUS">CAN/AUS (P3)</option>
-                      <option value="Other">Other</option>
-                  </select></div>
+            <div class="fg"><label class="fl">INT-10 Archetype</label>
+              <select class="fi" id="ap-int-cat">${catOpts.map(c=>`<option value="${c}">${c}</option>`).join('')}</select>
+            </div>
+            <div class="fg"><label class="fl">EXT-6 Category</label><input type="text" class="fi" id="ap-ext-cat" placeholder="e.g. Voice AI"></div>
           </div>
       </div>
-
       <div>
-          <div class="section-sub">Gate 2: Matrix Classification</div>
-          <div class="fg"><label class="fl">INT-10 Category</label>
-              <select class="fi" id="ap-int-cat">
-                  <option value="The Doers">The Doers</option><option value="The Orchestrators">The Orchestrators</option><option value="The Creators">The Creators</option><option value="The Companions">The Companions</option><option value="The Readers">The Readers</option><option value="The Translators">The Translators</option><option value="The Judges">The Judges</option><option value="The Shields">The Shields</option><option value="The Movers">The Movers</option><option value="The Optimizers">The Optimizers</option>
-              </select>
-          </div>
-          
-          <div class="fg"><label class="fl" style="color:var(--gold)">Personalized Hook (The Spear) *</label>
-              <textarea class="fi" id="ap-hook" rows="3" style="border-color:var(--gold-mid)" placeholder="Saw that your agents execute [X]..."></textarea></div>
-
-          <div class="section-sub" style="margin-top:20px">Gate 3: Post-Reveal & Logistics</div>
+          <div class="section-sub">Gate 1: Target Logistics</div>
           <div class="fi-row">
-              <div class="fg"><label class="fl">Batch ID (MM-Alpha)</label>
-                  <input type="text" class="fi" id="ap-batch" value="${defaultBatch}"></div>
-              <div class="fg"><label class="fl">Intended Plan</label>
-                  <select class="fi" id="ap-plan">${planOpts}</select></div>
+            <div class="fg"><label class="fl">Geography</label><input type="text" class="fi" id="ap-geo" value="US"></div>
+            <div class="fg"><label class="fl">Batch</label><input type="text" class="fi" id="ap-batch" value="${month}A"></div>
           </div>
+          <div class="fg"><label class="fl">The Spear (Initial Hook)</label><textarea class="fi" id="ap-hook" rows="4"></textarea></div>
       </div>
-  </div>
-  `, `
-      <button class="btn btn-outline btn-sm" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary btn-sm" onclick="saveNewProspect()">Commence Outreach</button>
+  </div>`, `
+    <button class="btn btn-outline btn-sm" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-primary btn-sm" onclick="saveNewProspect()">Commence Outreach</button>
   `);
 }
 
 async function saveNewProspect() {
   const email = $('ap-email')?.value?.trim().toLowerCase();
-  const hook  = $('ap-hook')?.value?.trim();
-  const batch = $('ap-batch')?.value?.trim() || '03A';
-
-  if (!email) { toast('Email is required', 'error'); return; }
-  if (!hook) { toast('Personalized Hook (The Spear) is mandatory.', 'error'); return; }
-
+  const batch = $('ap-batch')?.value?.trim();
+  if (!email) return toast('Email required', 'error');
   try {
-    const pid  = await genProspectId(batch);
-    const data = {
-      founderName:      $('ap-name')?.value?.trim()    || '',
-      email,
-      company:          $('ap-company')?.value?.trim() || '',
-      linkedinUrl:      $('ap-li')?.value?.trim()      || '',
-      website:          $('ap-web')?.value?.trim()     || '',
-      jobTitle:         $('ap-title')?.value?.trim()   || '',
-      geography:        $('ap-geo')?.value             || 'US',
-      batchNumber:      batch,
-      internalCategory: $('ap-int-cat')?.value         || 'The Doers',
-      legalGapStatus:   'exposure',
-      personalizedHook: hook,
-      scannerLink:      `https://lexnovahq.com/scanner.html?pid=${pid}`,
-      intendedPlan:     $('ap-plan')?.value            || 'agentic_shield',
-      status:           'Cold',
-      prospectId:       pid,
-      emailsSent:       0,
-      emailLog:         [],
-      addedAt:          new Date().toISOString(),
-      updatedAt:        new Date().toISOString()
+    const pid = await genProspectId(batch);
+    const data = { 
+      founderName: $('ap-name').value, 
+      email, 
+      company: $('ap-company').value, 
+      internalCategory: $('ap-int-cat').value, 
+      externalCategory: $('ap-ext-cat').value, 
+      geography: $('ap-geo').value, 
+      personalizedHook: $('ap-hook').value, 
+      prospectId: pid, 
+      batchNumber: batch, 
+      status: 'Cold', 
+      addedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString() 
     };
-
-    // CREATE DOCUMENT WITH PROSPECT ID AS THE NAME
-    await db.collection('prospects').doc(pid).set(data, { merge: true });
-    allProspects.push({ id: pid, ...data });
-    closeModal();
-    toast(`${pid} added manually.`);
+    await db.collection('prospects').doc(pid).set(data);
+    closeModal(); toast(`${pid} added.`);
   } catch(e) { console.error(e); toast('Save failed', 'error'); }
 }
 
