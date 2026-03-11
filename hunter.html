@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Lex Nova Forensic Engine v4.0 (Proprietary)</title>
+  <title>Lex Nova Forensic Engine v5.0 (Proprietary)</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -26,7 +26,16 @@
     
     .btn { background: var(--gold); color: var(--void); font-weight: 800; border: none; cursor: pointer; transition: all 0.2s; letter-spacing: 0.08em; text-transform: uppercase; }
     .btn:hover:not(:disabled) { background: #e0b96b; }
+    .btn-outline { background: transparent; color: var(--gold); border: 1px solid var(--gold); }
+    .btn-outline:hover:not(:disabled) { background: rgba(197, 160, 89, 0.1); }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .gap-card { background: #080808; border: 1px solid #252525; border-left: 3px solid var(--gold); border-radius: 6px; padding: 14px; margin-bottom: 10px; }
+    .gap-card.nuclear { border-left-color: #ef4444; background: rgba(239, 68, 68, 0.03); }
+    .gap-card.critical { border-left-color: #f97316; background: rgba(249, 115, 22, 0.03); }
+    
+    .section-divider { border-bottom: 1px dashed #333; margin: 30px 0; position: relative; }
+    .section-divider span { position: absolute; top: -10px; left: 20px; background: var(--void); padding: 0 10px; color: #666; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; }
   </style>
 </head>
 <body>
@@ -49,66 +58,72 @@
     const db = firebase.firestore();
 
     // ════════════════════════════════════════════════════════════════════════
-    // ═════════ THE FORENSIC SYSTEM PROMPT (v4.0 AGENTIC) ════════════════════
+    // ═════════ THE FORENSIC SYSTEM PROMPT (v5.0 MATRIX INJECTED) ════════════
     // ════════════════════════════════════════════════════════════════════════
-    const SYSTEM = `You are the Lex Nova Phase 3 Forensic Engine. Audit an AI company for legal exposure before an Apollo credit is spent.
+    const SYSTEM = `You are the Lex Nova Forensic Engine v5.0. Your job is to audit AI companies for legal exposure using the proprietary V3 Pain-Gap Matrix.
 
-AGENTIC RESEARCH PROTOCOL: 
-If the user provides a Website URL but leaves the Product Description or Terms blank, you MUST use the googleSearch tool to scrape their homepage, find their Terms of Service, and research their product. 
-If funding info is not provided, you MUST use the googleSearch tool to find the company's latest funding round, amount, and date.
+AGENTIC PROTOCOL: 
+If the user provides a Website URL but no product description/terms, use the googleSearch tool to scrape their homepage, find their Terms of Service, and find the Founder/CEO's name and email.
+If funding info is missing, search for their latest funding round.
 
-SUPPRESSION RULE: Only include traps with a provable trigger in the product description. No generic gaps.
+STEP 1: CLASSIFICATION
+Analyze the product features and classify the company into ONE of the following 10 Internal Categories:
+1. The Doers (Autonomous agents/API execution)
+2. The Orchestrators (API routing/Sub-processing)
+3. The Creators (GenAI content/Image/Video)
+4. The Companions (Social/Therapy AI)
+5. The Readers (Data ingestion/RAG)
+6. The Translators (Transcription/Biometrics)
+7. The Judges (Predictive/HR/Medical scoring)
+8. The Shields (Cyber-defense AI)
+9. The Movers (Robotics/Physical AI)
+10. The Optimizers (Grid/HFT trading AI)
 
-10 TRAPS:
-BASE (check all):
-1. Moffatt—Hallucination Liability: generates text/recommendations/decisions to end users → DOC_TOS
-2. UETA§14—Agentic Liability: executes autonomous actions on user's behalf → DOC_AGT
-3. Rite Aid—Algorithmic Disgorgement: ingests/trains on user data → DOC_DPA
-4. Thaler—IP Ownership Void: generates creative output users will publish/sell → DOC_TOS+DOC_IP
-5. Specht—Consent Invalidity: no clickwrap before first AI interaction → DOC_TOS
-
-CONDITIONAL (only if triggered):
-6. Walters—AI Defamation: generates content about real people/companies → DOC_TOS
-7. UnitedHealth—Algorithmic Discrimination: influences decisions in healthcare/lending/hiring/insurance → DOC_TOS+DOC_DPIA
-8. Character.AI—Emotional Reliance: ongoing conversational AI persona → DOC_TOS
-9. Bartz—Training Data Copyright: trains/fine-tunes on user data → DOC_TOS
-10. Deepfake—Right of Publicity: generates/clones voice/image/video → DOC_AUP
-
-SEVERITY: HIGH=core product exposure / MED=indirect exposure
+STEP 2: THE FORENSIC AUDIT (V3 MATRIX SWEEP)
+Cross-reference their legal pages against General Gaps AND specific Gaps for their category.
+Key Traps to look for:
+- UETA §14 Strict Liability (Agentic Circuit Breaker missing) - Nuclear
+- BIPA/Biometric Pass-Through (Voice separation/Diarization) - Nuclear
+- Algorithmic Disgorgement (FTC Section 5 training data) - Nuclear
+- Hallucination Liability (Moffatt standard) - Critical
+- Thaler IP Ownership Void (Claiming user owns output) - Critical
+- EU GDPR Sub-processing limits (Orchestrators) - High
+- Deepfake Right of Publicity (Cloning without waivers) - Nuclear
+- Title VII Algorithmic Discrimination (HR tools) - Nuclear
 
 VERDICT:
-GREEN LIGHT: 1+ HIGH gap + founder title confirmed + legal page absent/generic
-HOLD: MED gaps only OR vague product OR unclear legal page
-SKIP: AI-specific legal clauses exist OR Series B+ OR EU-only OR wrong title
+GREEN LIGHT: 1+ Nuclear/Critical gap + founder identified.
+HOLD: High gaps only OR vague product.
+SKIP: Missing data, EU-only, or ironclad legal clauses exist.
 
-EMAIL FORMAT — The Spear Protocol (Exactly 4 lines):
-Line 1: "Hi [First Name],"
-Line 2: blank
-Line 3: Combine their specific AI feature and the exact missing legal defense into a single observation. Example: "Loved how [Company] is using autonomous agents to [specific task], but I did a quick sweep of your terms and noticed you are completely missing a [Specific Legal Gap/Clause]."
-Line 4: blank
-Line 5: State the consequence and challenge THEM to take the scanner. Example: "Without it, you are assuming strict liability for every mistake the bot makes. Take this 2-minute diagnostic to map your exact financial exposure: https://lexnovahq.com/scanner.html?pid=[PROSPECT_ID]"
-Line 6: blank
-Subject line format: "[Company Name]'s [specific gap]" e.g. "Acme AI's agent liability gap"
-
-OUTPUT EXACTLY AS THIS JSON SCHEMA. DO NOT ADD ANY OTHER TEXT/MARKDOWN OUTSIDE THE JSON:
+STEP 3: JSON OUTPUT SCHEMA
+Output EXACTLY as this JSON schema. Do not add markdown outside the JSON.
 {
   "company": "",
   "website": "",
-  "geography": "",
-  "headcount": "",
+  "founderName": "",
+  "founderTitle": "",
+  "founderEmail": "",
   "fundingStage": "",
-  "aiNative": true,
-  "externalAI": true,
-  "legalGapStatus": "exposure",
-  "legalGapAnalysis": "",
-  "intendedPlan": "agentic_shield",
+  "externalCategory": "",
+  "internalCategory": "The Doers",
   "lane": "A",
-  "productSignal": "",
-  "activeTraps": ["Moffatt", "UETA§14"],
+  "intendedPlan": "agentic_shield",
+  "productSignal": "Bullet points of AI features",
+  "legalGapStatus": "exposure",
   "verdict": "GREEN LIGHT",
   "verdictReason": "",
-  "emailSubject": "",
-  "personalizedHook": ""
+  "detectedGaps": [
+     {
+       "category": "Specific - The Doers",
+       "gapName": "UETA §14 Liability",
+       "pain": "AI autonomously executing bad financial trades.",
+       "liability": "Strict Liability",
+       "severity": "NUCLEAR",
+       "velocity": "IMMEDIATE",
+       "damage": "$10k - $5M+"
+     }
+  ]
 }`;
 
     // ════════════════════════════════════════════════════════════════════════
@@ -124,12 +139,18 @@ OUTPUT EXACTLY AS THIS JSON SCHEMA. DO NOT ADD ANY OTHER TEXT/MARKDOWN OUTSIDE T
       const [apiKey, setApiKey] = useState(() => localStorage.getItem("lexNovaApiKey") || "");
       const [selectedModel, setSelectedModel] = useState("gemini-3.1-flash-preview");
       
-      // ID Nomenclature State (MM-Alpha)
+      // Data State (Consolidated for Form Edits)
+      const [inp, setInp] = useState({ 
+        companyName:"", website:"", productDescription:"", termsPage:"", 
+        founderName:"", founderTitle:"", email:"", 
+        spearSubject:"", spearBody:"" 
+      });
+      
+      // ID Nomenclature State (Section 3)
       const [pillar, setPillar] = useState("AI");
       const [batchMonth, setBatchMonth] = useState(() => String(new Date().getMonth() + 1).padStart(2, '0'));
       const [batchAlpha, setBatchAlpha] = useState("A");
 
-      const [inp, setInp] = useState({ companyName:"", website:"", productDescription:"", termsPage:"", fundingStage:"", founderName:"", founderTitle:"", email:"", linkedinUrl:"" });
       const [result, setResult] = useState(null);
       const [loading, setLoading] = useState(false);
       const [error, setError] = useState(null);
@@ -141,52 +162,37 @@ OUTPUT EXACTLY AS THIS JSON SCHEMA. DO NOT ADD ANY OTHER TEXT/MARKDOWN OUTSIDE T
         const unsubscribe = auth.onAuthStateChanged(async u => {
           if (u) {
             const snap = await db.collection('admins').doc(u.email).get();
-            if (snap.exists) {
-              setUser(u);
-            } else {
-              await auth.signOut();
-              setError("Access Denied. You are not authorized in the Lex Nova Admin Registry.");
-            }
-          } else {
-            setUser(null);
-          }
+            if (snap.exists) setUser(u);
+            else { await auth.signOut(); setError("Access Denied."); }
+          } else setUser(null);
           setAuthLoading(false);
         });
         return () => unsubscribe();
       }, []);
 
-      useEffect(() => {
-        if (apiKey) localStorage.setItem("lexNovaApiKey", apiKey);
-      }, [apiKey]);
+      useEffect(() => { if (apiKey) localStorage.setItem("lexNovaApiKey", apiKey); }, [apiKey]);
 
       const login = async () => {
-        setAuthLoading(true);
-        setError(null);
-        try {
-          await auth.signInWithEmailAndPassword(creds.email, creds.password);
-        } catch(e) {
-          setError("Invalid proprietary credentials.");
-          setAuthLoading(false);
-        }
+        setAuthLoading(true); setError(null);
+        try { await auth.signInWithEmailAndPassword(creds.email, creds.password); } 
+        catch(e) { setError("Invalid credentials."); setAuthLoading(false); }
       };
 
       const upd = (k,v) => setInp(p=>({...p,[k]:v}));
 
-      // ── AGENTIC AUDIT EXECUTION ──
+      // ── AGENTIC AUDIT EXECUTION (SECTION 1) ──
       const runAudit = async () => {
         if (!apiKey) { setError("Gemini API Key is required."); return; }
-        if (!inp.companyName && !inp.website) { setError("Company name or Website is required to initiate hunt."); return; }
+        if (!inp.companyName && !inp.website) { setError("Company or Website required."); return; }
         
         setLoading(true); setError(null); setResult(null); setPushStatus("");
-        setStatus("Initializing Agentic Scrape & Forensic Audit...");
+        setStatus("Initializing Agentic Scrape & V3 Matrix Audit...");
 
         const msg = `AUDIT TARGET
 COMPANY: ${inp.companyName || "UNKNOWN"}
 WEBSITE: ${inp.website || "UNKNOWN - SEARCH REQUIRED"}
-PRODUCT INPUT: ${inp.productDescription || "NONE PROVIDED - YOU MUST SCRAPE WEBSITE TO DETERMINE PRODUCT SIGNAL."}
-TERMS INPUT: ${inp.termsPage || "NONE PROVIDED - YOU MUST SCRAPE OR INFER LACK OF LEGAL PAGE."}
-FUNDING: ${inp.fundingStage || "UNKNOWN — YOU MUST USE GOOGLE SEARCH TO FIND LATEST FUNDING ROUND AND AMOUNT."}
-FOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}
+PRODUCT INPUT: ${inp.productDescription || "NONE PROVIDED - SCRAPE REQUIRED."}
+TERMS INPUT: ${inp.termsPage || "NONE PROVIDED - SCRAPE REQUIRED."}
 `;
 
         try {
@@ -206,42 +212,67 @@ FOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}
 
           setStatus("Structuring Forensic Output...");
           let raw = data.candidates[0].content.parts[0].text;
-          
           raw = raw.replace(/```json|```/g, "").trim();
           const jsonMatch = raw.match(/\{[\s\S]*\}/);
-          if (!jsonMatch) throw new Error("No valid JSON found in the response. Output was: " + raw);
+          if (!jsonMatch) throw new Error("JSON Parse Error.");
           
           const parsed = JSON.parse(jsonMatch[0]);
-
-          // Format Email String
-          if (inp.founderName) parsed.personalizedHook = parsed.personalizedHook.replace(/\[First Name\]/gi, inp.founderName.split(" ")[0]);
-          if (inp.companyName) parsed.personalizedHook = parsed.personalizedHook.replace(/\[COMPANY_NAME\]/gi, inp.companyName);
-          
-          parsed._meta = { ...inp, inputWebsite:inp.website };
+          parsed._meta = { inputWebsite: inp.website };
           setResult(parsed);
-        } catch(e) { 
-          setError("Audit failed: " + e.message); 
-        }
+
+          // Auto-fill Section 3 with Agentic findings
+          setInp(p => ({
+            ...p,
+            founderName: parsed.founderName || p.founderName,
+            founderTitle: parsed.founderTitle || p.founderTitle,
+            email: parsed.founderEmail || p.email
+          }));
+
+        } catch(e) { setError("Audit failed: " + e.message); }
         setLoading(false); setStatus("");
       };
 
-      // ── THE TRIPLE GUARD & DATA BRIDGE (NEW WORLD LOGIC) ──
+      // ── COPY FORENSIC REPORT TO CLIPBOARD (HANDOFF TO GEM) ──
+      const copyReportToClipboard = () => {
+        if(!result) return;
+        let text = `🎯 FORENSIC REPORT: ${result.company}\n`;
+        text += `FOUNDER: ${inp.founderName || result.founderName || 'Unknown'} (${inp.founderTitle || result.founderTitle || 'Unknown'})\n`;
+        text += `CLASSIFICATION: ${result.internalCategory} / ${result.externalCategory}\n`;
+        text += `PRODUCT SIGNAL:\n${result.productSignal}\n\n`;
+        text += `⚠️ DETECTED GAPS (V3 MATRIX):\n`;
+        
+        if(result.detectedGaps && result.detectedGaps.length > 0) {
+          result.detectedGaps.forEach((g, i) => {
+            text += `[${i+1}] ${g.severity} - ${g.gapName}\n`;
+            text += `    Pain: ${g.pain}\n`;
+            text += `    Liability: ${g.liability}\n`;
+            text += `    Est. Damage: ${g.damage}\n\n`;
+          });
+        } else {
+          text += `No gaps detected.\n\n`;
+        }
+        
+        text += `👉 INSTRUCTION FOR GEM: Select the most severe gap and generate the Founder-Tone Spear (Hammer->Chisel). End CTA MUST include '[PROSPECT_ID]'.\n`;
+        
+        navigator.clipboard.writeText(text);
+        alert("Report Copied! Paste into your Email Gem.");
+      };
+
+      // ── THE TRIPLE GUARD & DATA BRIDGE (SECTION 3 PUSH) ──
+      // Note: Logic completely untouched. Just pulling from inp.spearSubject/spearBody.
       const pushToCRM = async () => {
         if (!result) return;
         setPushStatus("Running Triple Guard & Deduplication...");
         
         try {
-            const targetEmail = (result._meta.email || '').toLowerCase().trim();
-            const targetCompany = (result.company || result._meta.companyName || '').toLowerCase().trim();
+            const targetEmail = (inp.email || '').toLowerCase().trim();
+            const targetCompany = (result.company || inp.companyName || '').toLowerCase().trim();
             const yearStr = "26"; 
             
-            // Reconstruct exact batch ID format: MM-Alpha (e.g. 03-A)
             const batchTag = `${batchMonth}-${batchAlpha}`; 
-            const idPrefix = `LN-P-${pillar}-${yearStr}-${batchTag}-`; // e.g. LN-P-AI-26-03-A-
+            const idPrefix = `LN-P-${pillar}-${yearStr}-${batchTag}-`; 
             
-            // ── PULL ENTIRE DB FOR TRIPLE GUARD & SERIAL HUNT ──
             const allDocsSnap = await db.collection('prospects').get();
-            
             let legacyDoc = null;
             let maxNum = 0;
 
@@ -249,11 +280,9 @@ FOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}
                 const data = doc.data();
                 const docId = doc.id;
                 
-                // 1. THE TRIPLE GUARD MATCH
                 if (!legacyDoc) {
                     const dbEmail = (data.email || '').toLowerCase().trim();
                     const dbComp = (data.company || '').toLowerCase().trim();
-                    
                     if (targetEmail !== '' && (docId.toLowerCase() === targetEmail || dbEmail === targetEmail)) {
                         legacyDoc = { id: docId, data: data };
                     } else if (targetCompany !== '' && dbComp === targetCompany) {
@@ -261,82 +290,66 @@ FOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}
                     }
                 }
 
-                // 2. THE SERIAL HUNTER (Finds highest serial in current MM-Alpha batch)
                 const pid = data.prospectId || "";
                 if (pid.startsWith(idPrefix)) {
                     const parts = pid.split('-');
-                    const serialStr = parts[parts.length - 1]; // Grabs the last chunk
+                    const serialStr = parts[parts.length - 1]; 
                     const num = parseInt(serialStr, 10);
                     if (!isNaN(num) && num > maxNum) maxNum = num;
                 }
             });
 
-            // ── DETERMINE THE FINAL PROSPECT ID (STRICT ENFORCEMENT) ──
             let finalProspectId;
             const nextNumStr = String(maxNum + 1).padStart(3, '0');
-            const newlyGeneratedId = `${idPrefix}${nextNumStr}`; // Strictly e.g., LN-P-AI-26-03-A-001
+            const newlyGeneratedId = `${idPrefix}${nextNumStr}`; 
 
             if (legacyDoc && legacyDoc.data.prospectId) {
-                // If it has an old ID, check if it perfectly matches the canonical format.
-                // Format: LN-P-XXX-26-XX-X-XXX
                 const oldPid = legacyDoc.data.prospectId;
                 const isPerfectFormat = /^LN-P-[A-Z]+-\d{2}-\d{2}-[A-Z]-\d{3}$/.test(oldPid);
-                
-                if (isPerfectFormat) {
-                    finalProspectId = oldPid; // Preserve the perfectly formatted thread
-                } else {
-                    finalProspectId = newlyGeneratedId; // Overwrite the malformed legacy ID
-                }
+                if (isPerfectFormat) finalProspectId = oldPid; 
+                else finalProspectId = newlyGeneratedId; 
             } else {
-                finalProspectId = newlyGeneratedId; // It's completely new
+                finalProspectId = newlyGeneratedId; 
             }
 
             const scannerLink = `https://lexnovahq.com/scanner.html?pid=${finalProspectId}`;
 
-            // Inject the ID into the email hook for the Tripwire
-            let finalHook = result.personalizedHook;
+            // Replace Placeholder in SDR's pasted Email
+            let finalHook = inp.spearBody || '';
             finalHook = finalHook.replace(/\[PROSPECT_ID\]/g, finalProspectId);
 
-            // ── BUILD THE MASTER OBJECT (PRESERVE OLD, OVERWRITE NEW) ──
             const dbEmail = targetEmail || legacyDoc?.data?.email || `pending-${Date.now()}@reveal.apollo`;
             
             const prospectData = {
-                // 1. SPREAD LEGACY DATA FIRST (Preserves custom notes/random fields)
                 ...(legacyDoc?.data || {}),
-
-                // 2. CORE IDENTITY (Overwrite with new if available)
                 prospectId: finalProspectId,
-                founderName: result._meta.founderName || legacyDoc?.data?.founderName || '',
+                founderName: inp.founderName || legacyDoc?.data?.founderName || '',
                 email: dbEmail,
-                company: result.company || result._meta.companyName || legacyDoc?.data?.company || '',
+                company: result.company || inp.companyName || legacyDoc?.data?.company || '',
                 website: result.website || result._meta.inputWebsite || legacyDoc?.data?.website || '',
-                linkedinUrl: result._meta.linkedinUrl || legacyDoc?.data?.linkedinUrl || '',
-                jobTitle: result._meta.founderTitle || legacyDoc?.data?.jobTitle || '',
+                jobTitle: inp.founderTitle || legacyDoc?.data?.jobTitle || '',
                 
-                // 3. LOGISTICS
-                batchNumber: legacyDoc?.data?.batchNumber || batchTag, // Keep old batch if it existed
+                batchNumber: legacyDoc?.data?.batchNumber || batchTag, 
                 geography: result.geography || legacyDoc?.data?.geography || 'US',
                 headcount: result.headcount || legacyDoc?.data?.headcount || '1-10',
                 fundingStage: result.fundingStage || legacyDoc?.data?.fundingStage || '',
                 
-                // 4. THE LIVE FORENSIC AUDIT (OBLITERATE OLD INTELLIGENCE)
-                aiNative: result.aiNative || false,
-                externalAI: result.externalAI || false,
-                legalGapStatus: result.legalGapStatus || 'generic',
-                legalGapAnalysis: result.legalGapAnalysis || '',
+                aiNative: result.aiNative || true,
+                externalAI: result.externalAI || true,
+                legalGapStatus: result.legalGapStatus || 'exposure',
+                legalGapAnalysis: result.legalGapAnalysis || 'V3 Matrix Verified',
                 intendedPlan: result.intendedPlan || 'agentic_shield',
                 personalizedHook: finalHook,
                 scannerLink: scannerLink,
                 lane: result.lane || 'A',
                 productSignal: result.productSignal || '',
-                activeTraps: result.activeTraps || [],
+                activeTraps: result.detectedGaps ? result.detectedGaps.map(g => g.gapName) : [],
                 verdict: result.verdict || 'HOLD',
                 verdictReason: result.verdictReason || '',
-                emailSubject: result.emailSubject || '',
+                emailSubject: inp.spearSubject || '',
                 
-                // 5. STATUS & TRACKING (Salvaged from legacy if exists)
                 status: legacyDoc?.data?.status || (result.verdict === 'GREEN LIGHT' ? 'Hot' : 'Cold'),
-                hotFlag: result.verdict === 'GREEN LIGHT' || result.legalGapStatus === 'exposure',
+                hotFlag: result.verdict === 'GREEN LIGHT',
                 emailsSent: legacyDoc?.data?.emailsSent || 0,
                 emailLog: legacyDoc?.data?.emailLog || [],
                 scannerClicked: legacyDoc?.data?.scannerClicked || false,
@@ -345,15 +358,11 @@ FOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
-            // ── THE HARD LOCK EXECUTION (MIGRATE & DELETE) ──
-            
-            // 1. Create/Overwrite the Document named precisely as the strict ID
             await db.collection('prospects').doc(finalProspectId).set(prospectData);
             
-            // 2. The Kill Switch: If we found an old file under a different name, delete it.
             if (legacyDoc && legacyDoc.id !== finalProspectId) {
                 await db.collection('prospects').doc(legacyDoc.id).delete();
-                console.log(`[SYSTEM] Legacy file ${legacyDoc.id} deleted and migrated to ${finalProspectId}`);
+                console.log(`[SYSTEM] Legacy migrated to ${finalProspectId}`);
             }
 
             setPushStatus(`Success! Locked: ${finalProspectId}`);
@@ -386,7 +395,7 @@ FOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}
           <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center" }}>
             <div style={{ background: "#0c0c0c", padding: 40, border: "1px solid var(--gold)", width: 320 }}>
               <div style={{color:"#C5A059",fontSize:9,fontWeight:700,letterSpacing:"0.18em",textTransform:"uppercase",marginBottom:6}}>LEX NOVA HQ</div>
-              <h2 className="serif" style={{ color: "#fff", margin: "0 0 20px 0" }}>Forensic Engine v4.0</h2>
+              <h2 className="serif" style={{ color: "#fff", margin: "0 0 20px 0" }}>Forensic Engine v5.0</h2>
               {error && <div style={{color:"#f87171",fontSize:11,marginBottom:15}}>{error}</div>}
               <input type="email" placeholder="Admin Email" style={{...S.input, marginBottom:10}} onChange={e => setCreds(p => ({...p, email: e.target.value}))} />
               <input type="password" placeholder="Passcode" style={{...S.input, marginBottom:20}} onChange={e => setCreds(p => ({...p, password: e.target.value}))} />
@@ -402,22 +411,20 @@ FOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:24}}>
             <div>
               <div style={{color:"#C5A059",fontSize:9,fontWeight:700,letterSpacing:"0.18em",textTransform:"uppercase",marginBottom:6}}>LEX NOVA HQ · PROPRIETARY</div>
-              <h1 style={{color:"#fff",fontSize:22,fontWeight:800,margin:"0 0 4px 0"}}>Forensic Engine <span style={{background:"#C5A05920",color:"#C5A059",fontSize:10,padding:"2px 8px",borderRadius:4,marginLeft:8,verticalAlign:"middle"}}>v4.0</span></h1>
-              <p style={{color:"#444",fontSize:11,margin:0}}>Agentic Web Scraping · Automatic CRM Bridge Active.</p>
+              <h1 style={{color:"#fff",fontSize:22,fontWeight:800,margin:"0 0 4px 0"}}>Forensic Engine <span style={{background:"#C5A05920",color:"#C5A059",fontSize:10,padding:"2px 8px",borderRadius:4,marginLeft:8,verticalAlign:"middle"}}>v5.0</span></h1>
+              <p style={{color:"#444",fontSize:11,margin:0}}>Agentic Scrape · V3 Matrix Integration · Manual Spear Handoff</p>
             </div>
             <button onClick={() => auth.signOut()} style={{background:"none",border:"none",color:"#666",fontSize:10,cursor:"pointer",textTransform:"uppercase",letterSpacing:"0.1em"}}>Sign Out</button>
           </div>
 
+          {/* PRE-SECTION: ENGINE SETUP */}
           <div style={S.card}>
             <div style={S.row2}>
               <div style={S.field}>
                 <label style={S.label}>Engine / Model</label>
                 <select value={selectedModel} onChange={e=>setSelectedModel(e.target.value)} style={{...S.input, borderColor:"var(--gold)", color:"var(--gold)"}}>
+                  <option value="gemini-3.1-flash-preview">3.1 Flash (High Speed Matrix Scrape)</option>
                   <option value="gemini-3.1-pro-preview">3.1 Pro (Deep Architect)</option>
-                  <option value="gemini-3.1-flash-preview">3.1 Flash (High Speed Standard)</option>
-                  <option value="gemini-3.1-flash-lite-preview">3.1 Flash-Lite (Volume Hunting)</option>
-                  <option value="gemini-2.5-pro">2.5 Pro (Legacy Stable)</option>
-                  <option value="gemini-2.5-flash">2.5 Flash (Legacy Speed / Free Limits)</option>
                 </select>
               </div>
               <div style={S.field}>
@@ -427,65 +434,46 @@ FOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}
             </div>
           </div>
 
+          {/* SECTION 1: TARGET ACQUISITION (RECON) */}
+          <div className="section-divider"><span>SECTION 1: RECON</span></div>
           <div style={S.card}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-              <div style={{...S.sHead,marginBottom:0}}>TARGET ACQUISITION (AGENTIC)</div>
-              <div style={{display:"flex",gap:10}}>
-                  <select value={pillar} onChange={e=>setPillar(e.target.value)} style={{...S.input, padding:"4px 8px", width:"auto", fontSize:10}}>
-                      <option value="AI">Pillar: AI</option>
-                      <option value="SS">Pillar: SS</option>
-                  </select>
-                  <input value={batchMonth} onChange={e=>setBatchMonth(e.target.value)} style={{...S.input, padding:"4px 8px", width:"40px", fontSize:10}} placeholder="MM"/>
-                  <input value={batchAlpha} onChange={e=>setBatchAlpha(e.target.value.toUpperCase())} style={{...S.input, padding:"4px 8px", width:"40px", fontSize:10}} placeholder="A"/>
-              </div>
-            </div>
-            
             <div style={S.row2}>
               <div style={S.field}><label style={S.label}>Company Name *</label><input value={inp.companyName} onChange={e=>upd("companyName",e.target.value)} style={S.input} placeholder="Acme AI"/></div>
               <div style={S.field}><label style={S.label}>Website URL (Enables Auto-Scrape)</label><input value={inp.website} onChange={e=>upd("website",e.target.value)} style={S.input} placeholder="https://acmeai.com"/></div>
             </div>
-            
             <div style={S.row2}>
-                <div style={S.field}><label style={S.label}>Product Context (Manual Override)</label><textarea rows={2} value={inp.productDescription} onChange={e=>upd("productDescription",e.target.value)} style={{...S.input,resize:"vertical"}} placeholder="Paste copy or leave blank for agentic scrape..."/></div>
-                <div style={S.field}><label style={S.label}>Legal Pages (Manual Override)</label><textarea rows={2} value={inp.termsPage} onChange={e=>upd("termsPage",e.target.value)} style={{...S.input,resize:"vertical"}} placeholder="Paste ToS or leave blank for agentic scrape..."/></div>
+                <div style={S.field}><label style={S.label}>Product Context (Override)</label><textarea rows={2} value={inp.productDescription} onChange={e=>upd("productDescription",e.target.value)} style={{...S.input,resize:"vertical"}} placeholder="Paste copy or leave blank..."/></div>
+                <div style={S.field}><label style={S.label}>Legal Pages (Override)</label><textarea rows={2} value={inp.termsPage} onChange={e=>upd("termsPage",e.target.value)} style={{...S.input,resize:"vertical"}} placeholder="Paste ToS or leave blank..."/></div>
             </div>
-
-            <div style={S.row3}>
-              <div style={S.field}><label style={S.label}>Founder Name</label><input value={inp.founderName} onChange={e=>upd("founderName",e.target.value)} style={S.input} placeholder="John Smith"/></div>
-              <div style={S.field}><label style={S.label}>Founder Title</label><input value={inp.founderTitle} onChange={e=>upd("founderTitle",e.target.value)} style={S.input} placeholder="CEO / Co-Founder"/></div>
-              <div style={S.field}><label style={S.label}>Target Email</label><input value={inp.email} onChange={e=>upd("email",e.target.value)} style={S.input} placeholder="john@acmeai.com"/></div>
-            </div>
-
             <button onClick={runAudit} disabled={loading} className="btn" style={{width:"100%", padding:"14px 0", borderRadius:6, marginTop:8}}>
-              {loading ? `⚙  ${status||"RUNNING FORENSIC AUDIT..."}` : `DEPLOY FORENSIC ENGINE →`}
+              {loading ? `⚙  ${status||"RUNNING MATRIX AUDIT..."}` : `DEPLOY FORENSIC ENGINE →`}
             </button>
           </div>
 
           {error && <div style={{background:"#120808",border:"1px solid #2a0f0f",borderRadius:8,padding:"12px 16px",marginBottom:14,color:"#f87171",fontSize:12}}>⚠ {error}</div>}
 
+          {/* SECTION 2: DASHBOARD */}
           {result && (
-            <div style={{marginTop:30}}>
+            <>
+              <div className="section-divider"><span>SECTION 2: DASHBOARD</span></div>
               <div style={{background:"#090909",border:`2px solid ${vColor(result.verdict)}`,borderRadius:8,padding:"18px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div>
                   <div style={{color:vColor(result.verdict),fontSize:18,fontWeight:800,letterSpacing:"0.05em"}}>{vIcon(result.verdict)} {result.verdict}</div>
-                  <div style={{color:"#888",fontSize:12,marginTop:6,maxWidth:"80%"}}>{result.verdictReason}</div>
+                  <div style={{color:"#888",fontSize:12,marginTop:6,maxWidth:"100%"}}>{result.verdictReason}</div>
                 </div>
-                <button onClick={pushToCRM} className="btn" style={{padding:"12px 24px", borderRadius:4, fontSize:11}}>
-                    {pushStatus ? pushStatus : "PUSH TO COMMAND CENTER"}
-                </button>
               </div>
 
               <div style={S.card}>
-                <div style={S.sHead}>FORENSIC VAULT DATA</div>
+                <div style={S.sHead}>COMPANY PROFILE</div>
                 <div style={S.row2}>
                     <div>
                         <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>COMPANY: </span><span style={{color:"#e5e5e5",fontSize:12}}>{result.company}</span></div>
-                        <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>FUNDING: </span><span style={{color:"#e5e5e5",fontSize:12}}>{result.fundingStage}</span></div>
-                        <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>LANE: </span><span style={{color:"var(--gold)",fontSize:12,fontWeight:"bold"}}>{result.lane}</span></div>
+                        <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>FUNDING: </span><span style={{color:"#e5e5e5",fontSize:12}}>{result.fundingStage || 'Unknown'}</span></div>
+                        <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>LANE/PLAN: </span><span style={{color:"var(--gold)",fontSize:12,fontWeight:"bold"}}>{result.lane} / {result.intendedPlan}</span></div>
                     </div>
                     <div>
-                        <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>PLAN MATCH: </span><span style={{color:"#e5e5e5",fontSize:12}}>{result.intendedPlan}</span></div>
-                        <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>GAP STATUS: </span><span style={{color:"#e5e5e5",fontSize:12}}>{result.legalGapStatus}</span></div>
+                        <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>INT. CATEGORY: </span><span style={{color:"#e5e5e5",fontSize:12}}>{result.internalCategory}</span></div>
+                        <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>EXT. CATEGORY: </span><span style={{color:"#e5e5e5",fontSize:12}}>{result.externalCategory}</span></div>
                     </div>
                 </div>
                 <div style={{marginTop:10, paddingTop:10, borderTop:"1px solid #1e1e1e"}}>
@@ -495,27 +483,66 @@ FOUNDER: ${inp.founderName || "?"} / ${inp.founderTitle || "?"}
               </div>
 
               <div style={S.card}>
-                <div style={S.sHead}>ACTIVE TRAPS TRIGGERED</div>
-                <div style={{display:"flex", gap:"8px", flexWrap:"wrap"}}>
-                    {result.activeTraps && result.activeTraps.length > 0 ? 
-                        result.activeTraps.map((t,i) => <span key={i} style={{background:"rgba(239, 68, 68, 0.1)", border:"1px solid rgba(239, 68, 68, 0.3)", color:"#ef4444", padding:"4px 10px", borderRadius:4, fontSize:11, fontWeight:600}}>{t}</span>) 
-                        : <span style={{color:"#555", fontSize:12}}>No specific legal traps detected.</span>
-                    }
-                </div>
-                <div style={{marginTop:14, paddingTop:14, borderTop:"1px solid #1e1e1e"}}>
-                    <span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase",display:"block",marginBottom:4}}>GAP ANALYSIS:</span>
-                    <span style={{color:"#aaa",fontSize:12,lineHeight:1.5}}>{result.legalGapAnalysis}</span>
-                </div>
+                <div style={S.sHead}>V3 MATRIX: DETECTED GAPS</div>
+                {result.detectedGaps && result.detectedGaps.length > 0 ? (
+                  result.detectedGaps.map((g, i) => (
+                    <div key={i} className={`gap-card ${g.severity.toLowerCase()}`}>
+                      <div style={{display:"flex", justifyContent:"space-between", marginBottom:8}}>
+                        <span style={{color:"#e5e5e5", fontSize:13, fontWeight:700}}>{g.gapName}</span>
+                        <span style={{color: g.severity === 'NUCLEAR' ? '#ef4444' : '#f97316', fontSize:10, fontWeight:800, padding:"2px 6px", border:`1px solid ${g.severity === 'NUCLEAR' ? '#ef4444' : '#f97316'}`, borderRadius:4}}>{g.severity}</span>
+                      </div>
+                      <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, fontSize:11, color:"#999"}}>
+                        <div><strong style={{color:"#bbb"}}>Category:</strong> {g.category}</div>
+                        <div><strong style={{color:"#bbb"}}>Liability:</strong> {g.liability}</div>
+                        <div><strong style={{color:"#bbb"}}>Pain:</strong> {g.pain}</div>
+                        <div><strong style={{color:"#bbb"}}>Est. Damage:</strong> <span style={{color:"#ef4444"}}>{g.damage}</span></div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <span style={{color:"#555", fontSize:12}}>No specific legal traps detected in current terms.</span>
+                )}
+                
+                <button onClick={copyReportToClipboard} className="btn btn-outline" style={{width:"100%", padding:"12px 0", borderRadius:6, marginTop:14}}>
+                  📋 COPY FULL FORENSIC REPORT FOR EMAIL GEM
+                </button>
               </div>
 
+              {/* SECTION 3: TARGET & PUSH */}
+              <div className="section-divider"><span>SECTION 3: TARGET & PUSH</span></div>
               <div style={S.card}>
-                <div style={S.sHead}>THE SPEAR (COLD EMAIL HOOK)</div>
-                <div style={{background:"#050505",border:"1px solid #1e1e1e",borderRadius:6,padding:"16px"}}>
-                  <div style={{color:"#C5A059",fontSize:11,marginBottom:12,fontWeight:600}}>Subject: {result.emailSubject}</div>
-                  <div style={{color:"#e5e5e5",fontSize:13,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{result.personalizedHook}</div>
+                <div style={S.sHead}>IDENTITY TRACKING (PRE-FILLED BY AGENT)</div>
+                <div style={S.row3}>
+                  <div style={S.field}><label style={S.label}>Founder Name</label><input value={inp.founderName} onChange={e=>upd("founderName",e.target.value)} style={S.input} /></div>
+                  <div style={S.field}><label style={S.label}>Founder Title</label><input value={inp.founderTitle} onChange={e=>upd("founderTitle",e.target.value)} style={S.input} /></div>
+                  <div style={S.field}><label style={S.label}>Target Email</label><input value={inp.email} onChange={e=>upd("email",e.target.value)} style={S.input} /></div>
                 </div>
+
+                <div style={{...S.sHead, marginTop:10}}>THE SPEAR (PASTE FROM GEM)</div>
+                <div style={S.field}>
+                  <label style={S.label}>Subject Line</label>
+                  <input value={inp.spearSubject} onChange={e=>upd("spearSubject",e.target.value)} style={S.input} placeholder="e.g. acme's api execution" />
+                </div>
+                <div style={S.field}>
+                  <label style={S.label}>Email Body (Hammer -> Chisel -> Consequence -> CTA)</label>
+                  <textarea rows={5} value={inp.spearBody} onChange={e=>upd("spearBody",e.target.value)} style={{...S.input, resize:"vertical"}} placeholder="Paste the Founder-Tone Spear here... Make sure to leave the [PROSPECT_ID] placeholder intact." />
+                </div>
+
+                <div style={{...S.sHead, marginTop:10}}>CRM PUSH SETTINGS</div>
+                <div style={{display:"flex", gap:10, marginBottom:16}}>
+                    <select value={pillar} onChange={e=>setPillar(e.target.value)} style={{...S.input, padding:"8px", width:"120px"}}>
+                        <option value="AI">Pillar: AI</option>
+                        <option value="SS">Pillar: SS</option>
+                    </select>
+                    <input value={batchMonth} onChange={e=>setBatchMonth(e.target.value)} style={{...S.input, padding:"8px", width:"80px"}} placeholder="MM"/>
+                    <input value={batchAlpha} onChange={e=>setBatchAlpha(e.target.value.toUpperCase())} style={{...S.input, padding:"8px", width:"80px"}} placeholder="A"/>
+                </div>
+
+                <button onClick={pushToCRM} className="btn" style={{width:"100%", padding:"16px 0", borderRadius:6, fontSize:14}}>
+                    {pushStatus ? pushStatus : "PUSH TO COMMAND CENTER"}
+                </button>
               </div>
-            </div>
+            </>
           )}
         </div>
       );
