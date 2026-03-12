@@ -277,12 +277,29 @@ TERMS INPUT: ${inp.termsPage || "NONE PROVIDED - SCRAPE REQUIRED."}
               systemInstruction: { parts: [{ text: SYSTEM }] },
               contents: [{ role: "user", parts: [{ text: msg }] }],
               tools: [{ googleSearch: {} }], 
-              generationConfig: { temperature: 0.1 } 
+              generationConfig: { temperature: 0.1 },
+              // 🟢 THE FIX: OVERRIDING GEMINI CENSORS FOR LEGAL FORENSICS
+              safetySettings: [
+                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+              ]
             })
           });
 
           const data = await res.json();
+          
+          // 🟢 THE FIX: ROBUST ERROR HANDLING IF API STILL BLOCKS
           if (data.error) throw new Error(data.error.message);
+          
+          if (!data.candidates || data.candidates.length === 0) {
+              let blockReason = "Unknown API Block.";
+              if (data.promptFeedback && data.promptFeedback.blockReason) {
+                  blockReason = `Blocked by API: ${data.promptFeedback.blockReason}`;
+              }
+              throw new Error(`Gemini refused to generate. Reason: ${blockReason}`);
+          }
 
           setStatus("Structuring Forensic Output...");
           let raw = data.candidates[0].content.parts[0].text;
@@ -407,11 +424,9 @@ TERMS INPUT: ${inp.termsPage || "NONE PROVIDED - SCRAPE REQUIRED."}
                 headcount: result.headcount || legacyDoc?.data?.headcount || '1-10',
                 fundingStage: result.fundingStage || legacyDoc?.data?.fundingStage || '',
                 
-                // 🟢 THE FIX: INJECTING THE V3 MATRIX DATA 
                 internalCategory: result.internalCategory || legacyDoc?.data?.internalCategory || '',
                 externalCategory: result.externalCategory || legacyDoc?.data?.externalCategory || '',
                 detectedGaps: result.detectedGaps || legacyDoc?.data?.detectedGaps || [],
-                // ------------------------------------------
 
                 aiNative: result.aiNative || true,
                 externalAI: result.externalAI || true,
@@ -574,7 +589,7 @@ TERMS INPUT: ${inp.termsPage || "NONE PROVIDED - SCRAPE REQUIRED."}
                         <span style={{color: g.severity === 'NUCLEAR' ? '#ef4444' : '#f97316', fontSize:10, fontWeight:800, padding:"2px 6px", border:`1px solid ${g.severity === 'NUCLEAR' ? '#ef4444' : '#f97316'}`, borderRadius:4}}>{g.severity}</span>
                       </div>
                       <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, fontSize:11, color:"#999"}}>
-                        <div><strong style={{color:"#bbb"}}>Category:</strong> {g.category || 'V3 Matrix'}</div>
+                        <div><strong style={{color:"#bbb"}}>Category:</strong> {g.category}</div>
                         <div><strong style={{color:"#bbb"}}>Liability:</strong> {g.liability}</div>
                         <div><strong style={{color:"#bbb"}}>Pain:</strong> {g.pain}</div>
                         <div><strong style={{color:"#bbb"}}>Est. Damage:</strong> <span style={{color:"#ef4444"}}>{g.damage}</span></div>
