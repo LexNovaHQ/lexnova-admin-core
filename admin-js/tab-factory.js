@@ -1,22 +1,24 @@
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ LEX NOVA ADMIN: PRODUCTION FLOOR (tab-factory.js) ════════════
 // ════════════════════════════════════════════════════════════════════════
-// Description: Manages the Factory Kanban, SLA Table, and active builds.
-// ════════════════════════════════════════════════════════════════════════
 'use strict';
 
 // ─── LOCAL UTILITIES & CONSTANTS ────────────────────────────────────────
-const $ = id => document.getElementById(id);
-const STATUS_LABELS = { 
-    pending_payment: 'Pending Payment', 
-    payment_received: 'Payment Received', 
-    intake_received: 'Intake Received', 
-    under_review: 'Under Review', 
-    in_production: 'In Production', 
-    delivered: 'Delivered' 
+var STATUS_LABELS = { 
+    pending_payment: 'Pending Payment', payment_received: 'Payment Received', 
+    intake_received: 'Intake Received', under_review: 'Under Review', 
+    in_production: 'In Production', delivered: 'Delivered' 
 };
-const planLabel = k => ({ agentic_shield: 'Agentic Shield', workplace_shield: 'Workplace Shield', complete_stack: 'Complete Stack', flagship: 'Flagship' }[k] || k);
-const statusLabel = k => STATUS_LABELS[k] || k;
+var planLabel = k => ({ agentic_shield: 'Agentic Shield', workplace_shield: 'Workplace Shield', complete_stack: 'Complete Stack', flagship: 'Flagship' }[k] || k);
+var statusLabel = k => STATUS_LABELS[k] || k;
+
+function hoursSince(ts) { 
+    if (!ts) return null; 
+    const d = ts.toDate ? ts.toDate() : new Date(ts); 
+    return Math.floor((Date.now() - d.getTime()) / 3600000); 
+}
+function planBadgeClass(p) { return { agentic_shield:'b-intake', workplace_shield:'b-warm', complete_stack:'b-production', flagship:'b-hot' }[p] || 'b-ghost'; }
+function statusBadgeClass(s) { return { pending_payment:'b-pending', payment_received: 'b-delivered', intake_received:'b-intake', under_review:'b-review', in_production:'b-production', delivered:'b-delivered' }[s] || 'b-ghost'; }
 
 function hoursSince(ts) { 
     if (!ts) return null; 
