@@ -33,6 +33,7 @@
     .gap-card { background: #080808; border: 1px solid #252525; border-left: 3px solid var(--gold); border-radius: 6px; padding: 14px; margin-bottom: 10px; }
     .gap-card.nuclear { border-left-color: #ef4444; background: rgba(239, 68, 68, 0.03); }
     .gap-card.critical { border-left-color: #f97316; background: rgba(249, 115, 22, 0.03); }
+    .gap-card.high { border-left-color: #eab308; background: rgba(234, 179, 8, 0.03); }
     
     .section-divider { border-bottom: 1px dashed #333; margin: 30px 0; position: relative; }
     .section-divider span { position: absolute; top: -10px; left: 20px; background: var(--void); padding: 0 10px; color: #666; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; }
@@ -64,7 +65,6 @@
 
 AGENTIC PROTOCOL: 
 If the user provides a Website URL but no product description/terms, use the googleSearch tool to scrape their homepage, find their Terms of Service, and find the Founder/CEO's name and email.
-If funding info is missing, search for their latest funding round.
 Find their LinkedIn URL if possible. Identify their Registration Jurisdiction (where they are based) and Service Jurisdictions (where their users are).
 
 STEP 1: THE CONFIGURATION (Lanes, Meta-Verbs, Archetypes)
@@ -81,92 +81,75 @@ Assign EXACT [INT. XX] Archetypes based on product features:
 [INT. 01] The Doer, [INT. 02] The Orchestrator, [INT. 03] The Creator, [INT. 04] The Companion, [INT. 05] The Reader, [INT. 06] The Translator, [INT. 07] The Judge, [INT. 08] The Shield, [INT. 09] The Mover, [INT. 10] The Optimizer.
 
 STEP 2: THE FORENSIC AUDIT (EXHAUSTIVE CANON SWEEP)
-CRITICAL INSTRUCTION: You MUST evaluate the company against EVERY SINGLE TRAP listed below. If a trap applies based on their product, business model, or missing legal terms, YOU MUST INCLUDE IT in the 'forensicGaps' array. Do not stop at 3 or 4 gaps. Find all of them. Use exact names.
+CRITICAL INSTRUCTION - THE EVIDENCE PROTOCOL:
+DO NOT COPY AND PASTE THIS ENTIRE LIST. You MUST FILTER this list. ONLY include a gap in your 'forensicGaps' array if it EXPLICITLY APPLIES to the company's specific product features or missing legal terms.
+For every single gap you identify, you MUST provide explicit "evidence" containing the "source" (where you found the issue) and the "reason" (the exact missing element or offending feature). If you cannot provide evidence, DO NOT include the gap.
 
---- V5.5 REFERENCE MATRIX ---
-[GLOBAL FLOOR - APPLIES TO ALL]
-- Browsewrap Invalidity [EXT. 08]
-- Mobile UI Failures [EXT. 08]
-- Unconscionable Venues [EXT. 08]
-- Hidden Fees / Dark Patterns [EXT. 08]
-- Chatbot Misrepresentation (Moffatt) [EXT. 08]
-- AI Defamation [EXT. 08]
-- Product Vs. Service Classification [EXT. 09]
-- Generic Liability Exclusions (Soteria) [EXT. 09]
-- Cross-Border Transit (Schrems II) [EXT. 01]
-- Data Subject Requests [EXT. 01]
-- Negligence In Security [EXT. 09]
-- UGC Hosting Liability [EXT. 08]
-- Export Control Violations [EXT. 10]
-- End-User Criminality [EXT. 10]
-- Third-Party Model Trap (Bartz) [EXT. 10]
-- Regulatory Whiplash [EXT. 10]
+Rule: Always evaluate the [GLOBAL FLOOR] gaps. For the others, ONLY include gaps that match the Meta-Verbs and INT. Archetypes you assigned in Step 1.
 
-[THE DOERS / AGENTIC AI]
-- Unintended Contract Formation [EXT. 08]
+--- V5.5 REFERENCE MATRIX (Filter this list!) ---
+[GLOBAL FLOOR - Evaluate for all SaaS]
+- Browsewrap Invalidity [EXT. 08] (Trigger: No mandatory clickwrap)
+- Chatbot Misrepresentation [EXT. 08] (Trigger: AI gives advice/info to users)
+- Generic Liability Exclusions (Soteria) [EXT. 09] (Trigger: B2B Enterprise SaaS)
+- Cross-Border Transit (Schrems II) [EXT. 01] (Trigger: EU users)
+- Negligence In Security [EXT. 09] (Trigger: Processing sensitive enterprise data)
+- UGC Hosting Liability [EXT. 08] (Trigger: Users upload/generate content)
+- Third-Party Model Trap (Bartz) [EXT. 10] (Trigger: Relying on OpenAI/Anthropic APIs)
+
+[THE DOERS / EXECUTION AI - Trigger: Autonomous Actions/Agents]
+- Unintended Contract Formation [EXT. 08] 
 - The "Rogue Bot" Defense Failure / UETA §14 [EXT. 08]
 - Autonomous Spending [EXT. 08]
-- Third-Party Harm Exclusions [EXT. 09]
 - Unwaivable Reversal Right / UETA §10(b) [EXT. 08]
 
-[THE ORCHESTRATORS / ROUTING]
+[THE ORCHESTRATORS / ROUTING AI - Trigger: API Gateways/Middleware]
 - Dynamic Sub-Processing Trap [EXT. 01]
-- Toxic Transit Liability [EXT. 08]
 - Enterprise SLA Disgorgement [EXT. 09]
 
-[THE CREATORS / GEN-AI]
+[THE CREATORS / GEN-AI - Trigger: Generating Text/Image/Code]
 - The IP Ownership Void (Thaler) [EXT. 10]
 - Collapse of "Fair Use" Scraping [EXT. 10]
 - Deepfake 3-Hour Takedown [EXT. 08]
 - Watermark Evasion [EXT. 02]
-- Digital Replicas / Voice Cloning [EXT. 08]
 
-[THE COMPANIONS / SOCIAL AI]
-- Adult Product Liability / Emotional Reliance (Gavalas) [EXT. 08]
+[THE COMPANIONS / SOCIAL AI - Trigger: Chatbots, Therapy, AI Friends]
+- Emotional Reliance (Gavalas) [EXT. 08]
 - Minor Wrongful Death [EXT. 06]
 - State AG Deceptive Design [EXT. 08]
-- Statutory Companion Bans [EXT. 06]
-- Manipulative Design Bans [EXT. 08]
 
-[THE READERS / RAG AI]
+[THE READERS / RAG AI - Trigger: Ingesting Data, PDF Chat, Web Scraping]
 - Algorithmic Disgorgement (FTC) [EXT. 03]
 - RAG Copyright Infringement [EXT. 10]
 - DMCA Anti-Circumvention [EXT. 03]
 - Enterprise Ingestion Leaks [EXT. 09]
 
-[THE TRANSLATORS / BIOMETRICS]
+[THE TRANSLATORS / BIOMETRICS - Trigger: Voice/Video meeting transcription]
 - The "Diarization" Voiceprint Trap (BIPA) [EXT. 04]
-- Deployer/Employer Liability [EXT. 09]
 - Facial Processing Trap [EXT. 04]
 
-[THE JUDGES / PREDICTIVE AI]
+[THE JUDGES / PREDICTIVE AI - Trigger: HR, Lending, Scoring humans]
 - Vendor/Agency Liability (Mobley) [EXT. 07]
 - FCRA Profiling Trap [EXT. 07]
 - Algorithmic Malpractice [EXT. 04]
 - Consequential Decision Liability [EXT. 01]
-- Sole-Decisionmaker Bans [EXT. 04]
 - The HITL Theater Trap [EXT. 07]
-- Employment Disparate Impact [EXT. 07]
 
-[THE SHIELDS / CYBER-DEFENSE]
+[THE SHIELDS / CYBER-DEFENSE - Trigger: Security/Compliance Monitoring]
 - "False Negative" Breach Defense [EXT. 09]
 - Whistleblowing-as-a-Service [EXT. 09]
-- Uncapped Wasted Costs [EXT. 09]
 
-[THE MOVERS / ROBOTICS & SPATIAL]
+[THE MOVERS / ROBOTICS - Trigger: Drones, Physical hardware]
 - Bodily Injury / Algorithmic Negligence [EXT. 08]
 - Strict Product Liability (EU PLD) [EXT. 01]
-- Continuous Learning Liability Resets [EXT. 01]
-- Joint API Liability [EXT. 10]
 
-[THE OPTIMIZERS / INFRASTRUCTURE]
+[THE OPTIMIZERS / INFRASTRUCTURE - Trigger: Grid management, HFT Trading]
 - Systemic Financial Loss / AI-Washing [EXT. 05]
 - Lack of Traceability / Algo-ID [EXT. 05]
-- Critical Infrastructure Failure [EXT. 01]
 
 STEP 3: RANKING & JSON OUTPUT
-1. List ALL identified gaps in the 'forensicGaps' array.
-2. Select the TOP 3 most lethal/urgent gaps (prioritize EXT Tripwires) and put them in the 'topSpearGaps' array.
+1. Filter the list above and put ONLY the specifically applicable gaps in the 'forensicGaps' array. Give them a 'severity' (NUCLEAR, CRITICAL, or HIGH). INCLUDE the "evidence" object for each.
+2. Select the TOP 3 most lethal/urgent gaps from that filtered list (prioritize EXT Tripwires) and put them in the 'topSpearGaps' array.
 3. List all triggered 'EXT.' surfaces in the 'extExposures' array.
 
 VERDICT LOGIC:
@@ -203,7 +186,11 @@ Output EXACTLY as this JSON schema. Do not add markdown outside the JSON.
        "ext": "EXT. 04",
        "severity": "NUCLEAR",
        "velocity": "ACTIVE NOW",
-       "damage": "Uncapped"
+       "damage": "Uncapped",
+       "evidence": {
+         "source": "Marketing Website / Product Page",
+         "reason": "The product explicitly markets 'speaker recognition' and 'voice separation' without displaying any mechanism for obtaining written biometric consent prior to recording."
+       }
      }
   ],
   "forensicGaps": [
@@ -215,7 +202,11 @@ Output EXACTLY as this JSON schema. Do not add markdown outside the JSON.
        "ext": "EXT. 04",
        "severity": "NUCLEAR",
        "velocity": "ACTIVE NOW",
-       "damage": "Uncapped"
+       "damage": "Uncapped",
+       "evidence": {
+         "source": "Marketing Website / Product Page",
+         "reason": "The product explicitly markets 'speaker recognition' and 'voice separation' without displaying any mechanism for obtaining written biometric consent prior to recording."
+       }
      }
   ]
 }`;
@@ -362,13 +353,15 @@ TERMS INPUT: ${inp.termsPage || "NONE PROVIDED - SCRAPE REQUIRED."}
           result.topSpearGaps.forEach((g, i) => {
             text += `[${i+1}] ${g.severity} [${g.ext || 'N/A'}] - ${g.trap}\n`;
             text += `    Pain: ${g.plain}\n`;
+            text += `    Source: ${g.evidence?.source || 'N/A'}\n`;
+            text += `    Why: ${g.evidence?.reason || 'N/A'}\n`;
             text += `    Fix: ${g.doc}\n\n`;
           });
         } else {
           text += `No gaps detected.\n\n`;
         }
         
-        text += `👉 INSTRUCTION FOR GEM: Select the most severe gap above. Write a cold email using the Hammer->Chisel framework. Explicitly mention the regulatory surface (${result.topSpearGaps?.[0]?.ext || 'Exposure'}). End CTA MUST include the custom scanner link with '[PROSPECT_ID]'.\n`;
+        text += `👉 INSTRUCTION FOR GEM: Select the most severe gap above. Write a cold email using the Hammer->Chisel framework. Explicitly mention the regulatory surface (${result.topSpearGaps?.[0]?.ext || 'Exposure'}) and reference the "Why/Source" as the proof. End CTA MUST include the custom scanner link with '[PROSPECT_ID]'.\n`;
         
         navigator.clipboard.writeText(text);
         alert("V5.5 Canon Report Copied! Paste into your Email Gem.");
@@ -630,8 +623,8 @@ TERMS INPUT: ${inp.termsPage || "NONE PROVIDED - SCRAPE REQUIRED."}
                         <span style={{color: g.severity === 'NUCLEAR' ? '#ef4444' : '#f97316', fontSize:10, fontWeight:800, padding:"2px 6px", border:`1px solid ${g.severity === 'NUCLEAR' ? '#ef4444' : '#f97316'}`, borderRadius:4}}>{g.severity}</span>
                       </div>
                       <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, fontSize:11, color:"#999"}}>
-                        <div><strong style={{color:"#bbb"}}>ID:</strong> {g.id}</div>
-                        <div><strong style={{color:"#bbb"}}>Velocity:</strong> {g.velocity}</div>
+                        <div style={{gridColumn:"1 / -1"}}><strong style={{color:"#bbb"}}>Source:</strong> {g.evidence?.source || "Contextual"}</div>
+                        <div style={{gridColumn:"1 / -1", marginBottom:6}}><strong style={{color:"#bbb"}}>Why (Evidence):</strong> <span style={{color:"#fff"}}>{g.evidence?.reason || "Based on operational profile."}</span></div>
                         <div style={{gridColumn:"1 / -1"}}><strong style={{color:"#bbb"}}>Pain:</strong> {g.plain}</div>
                       </div>
                     </div>
@@ -646,10 +639,19 @@ TERMS INPUT: ${inp.termsPage || "NONE PROVIDED - SCRAPE REQUIRED."}
               </div>
 
               <div style={S.card}>
-                <div style={S.sHead}>EXHAUSTIVE SWEEP ({result.forensicGaps?.length || 0} TOTAL GAPS)</div>
-                <div style={{maxHeight:"150px", overflowY:"auto", fontSize:11, color:"#888", border:"1px solid #1e1e1e", padding:10, background:"#050505"}}>
-                  {result.forensicGaps && result.forensicGaps.map((g,i) => (
-                    <div key={i} style={{marginBottom:4}}>• [{g.ext || 'N/A'}] {g.trap} ({g.severity})</div>
+                <div style={S.sHead}>EXHAUSTIVE SWEEP ({result.forensicGaps?.length || 0} TOTAL GAPS FOUND)</div>
+                <div style={{ maxHeight: "400px", overflowY: "auto", paddingRight: "8px" }}>
+                  {result.forensicGaps && result.forensicGaps.map((g, i) => (
+                    <div key={i} className={`gap-card ${g.severity.toLowerCase()}`} style={{ padding: "10px", marginBottom: "8px" }}>
+                      <div style={{display:"flex", justifyContent:"space-between", marginBottom:6}}>
+                        <span style={{color:"#e5e5e5", fontSize:12, fontWeight:700}}>{g.trap} <span style={{color:"#f97316", fontSize:9, marginLeft:4}}>[{g.ext || 'N/A'}]</span></span>
+                        <span style={{color: g.severity === 'NUCLEAR' ? '#ef4444' : (g.severity === 'CRITICAL' ? '#f97316' : '#eab308'), fontSize:9, fontWeight:800}}>{g.severity}</span>
+                      </div>
+                      <div style={{fontSize:10, color:"#999"}}>
+                        <div style={{marginBottom: 4}}><strong style={{color:"#bbb"}}>Source:</strong> {g.evidence?.source || "Contextual"}</div>
+                        <div><strong style={{color:"#bbb"}}>Reason:</strong> <span style={{color:"#ddd"}}>{g.evidence?.reason || "Based on operational profile."}</span></div>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
