@@ -1,28 +1,13 @@
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ LEX NOVA ADMIN: ENGINE ROOM (admin-engine.js) ════════════════
 // ════════════════════════════════════════════════════════════════════════
-// Description: Finance, Settings, Content, and the V5 Threat CMS.
-// ════════════════════════════════════════════════════════════════════════
 'use strict';
 
 // ─── LOCAL UTILITIES ────────────────────────────────────────────────────
-const $ = id => document.getElementById(id);
-const qsa = sel => Array.from(document.querySelectorAll(sel));
-function fmtDate(ts) { 
-    if (!ts) return '—'; 
-    const d = ts.toDate ? ts.toDate() : new Date(ts); 
-    if (isNaN(d)) return '—'; 
-    return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }); 
-}
-function fmtMoney(n) { return (n == null || isNaN(n)) ? '—' : '$' + Number(n).toLocaleString('en-US'); }
-function setText(id, txt) { const el = $(id); if (el) el.textContent = String(txt ?? ''); }
-function setVal(id, val) { const el = $(id); if (el) el.value = val ?? ''; }
-
-const PLANS = { agentic_shield: 'Agentic Shield', workplace_shield: 'Workplace Shield', complete_stack: 'Complete Stack', flagship: 'Flagship' };
-const PLAN_PRICES = { agentic_shield: 997, workplace_shield: 997, complete_stack: 2500, flagship: 15000 };
+var PLANS = { agentic_shield: 'Agentic Shield', workplace_shield: 'Workplace Shield', complete_stack: 'Complete Stack', flagship: 'Flagship' };
+var PLAN_PRICES = { agentic_shield: 997, workplace_shield: 997, complete_stack: 2500, flagship: 15000 };
 function planLabel(k) { return PLANS[k] || k; }
 function planBadgeClass(p) { return { agentic_shield:'b-intake', workplace_shield:'b-warm', complete_stack:'b-production', flagship:'b-hot' }[p] || 'b-ghost'; }
-
 
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ GLOBAL ENGINE STATE ══════════════════════════════════════════
