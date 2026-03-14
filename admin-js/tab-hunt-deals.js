@@ -4,13 +4,13 @@
 'use strict';
 
 // ─── UTILITIES & CONSTANTS ──────────────────────────────────────────────
-var PLANS = { agentic_shield: 'Agentic Shield', workplace_shield: 'Workplace Shield', complete_stack: 'Complete Stack', flagship: 'Flagship' };
-const PLANS = { 
+var PLANS = { 
     agentic_shield: 'Agentic Shield', 
     workplace_shield: 'Workplace Shield', 
     complete_stack: 'Complete Stack', 
     flagship: 'Flagship' 
 };
+
 
 
 // ════════════════════════════════════════════════════════════════════════
