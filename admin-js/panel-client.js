@@ -7,20 +7,19 @@
 'use strict';
 
 // ─── LOCAL UTILITIES ────────────────────────────────────────────────────
-const $ = id => document.getElementById(id);
-const qsa = sel => Array.from(document.querySelectorAll(sel));
-function fmtDate(ts) { 
+var $ = id => document.getElementById(id);
+var qsa = sel => Array.from(document.querySelectorAll(sel));
+var fmtDate = function(ts) { 
     if (!ts) return '—'; 
     const d = ts.toDate ? ts.toDate() : new Date(ts); 
     if (isNaN(d)) return '—'; 
     return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }); 
-}
-function fmtMoney(n) { return (n == null || isNaN(n)) ? '—' : '$' + Number(n).toLocaleString('en-US'); }
-function setText(id, txt) { const el = $(id); if (el) el.textContent = String(txt ?? ''); }
-function setVal(id, val) { const el = $(id); if (el) el.value = val ?? ''; }
-const nowTs = () => new Date().toISOString(); 
-const planLabel = k => ({ agentic_shield: 'Agentic Shield', workplace_shield: 'Workplace Shield', complete_stack: 'Complete Stack', flagship: 'Flagship' }[k] || k);
-
+};
+var fmtMoney = function(n) { return (n == null || isNaN(n)) ? '—' : '$' + Number(n).toLocaleString('en-US'); };
+var setText = function(id, txt) { const el = $(id); if (el) el.textContent = String(txt ?? ''); };
+var setVal = function(id, val) { const el = $(id); if (el) el.value = val ?? ''; };
+var nowTs = () => new Date().toISOString(); 
+var planLabel = k => ({ agentic_shield: 'Agentic Shield', workplace_shield: 'Workplace Shield', complete_stack: 'Complete Stack', flagship: 'Flagship' }[k] || k);
 
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ CORE PANEL ROUTING ═══════════════════════════════════════════
