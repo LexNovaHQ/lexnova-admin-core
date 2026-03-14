@@ -43,15 +43,27 @@ window.openModal = function(title, bodyHtml, footerHtml) {
     window.$('modalTitle').textContent = title;
     window.$('modalBody').innerHTML = bodyHtml;
     window.$('modalFooter').innerHTML = footerHtml;
-    window.$('overlay').classList.add('open');
-    window.$('modal').classList.add('open');
+    
+    // Forcefully bypass any CSS blocks
+    const overlay = window.$('overlay');
+    const modal = window.$('modal');
+    
+    overlay.classList.add('open');
+    overlay.style.display = 'block';
+    
+    modal.classList.remove('hidden');
+    modal.classList.add('open');
+    modal.style.display = 'flex';
 };
 
 window.closeModal = function() {
-    window.$('overlay')?.classList.remove('open');
-    window.$('modal')?.classList.remove('open');
+    const overlay = window.$('overlay');
+    const modal = window.$('modal');
     const radarCms = window.$('modal-radar-cms');
-    if (radarCms) radarCms.style.display = 'none';
+
+    if (overlay) { overlay.classList.remove('open'); overlay.style.display = 'none'; }
+    if (modal) { modal.classList.remove('open'); modal.style.display = 'none'; }
+    if (radarCms) { radarCms.classList.add('hidden'); radarCms.style.display = 'none'; }
 };
 
 
