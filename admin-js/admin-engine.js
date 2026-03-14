@@ -159,7 +159,11 @@ window.openRadarCMS = function(idx) {
         if (reg.target_int) reg.target_int.forEach(val => { const cb = document.querySelector(`.cms-int[value="${val}"]`); if (cb) cb.checked = true; });
     }
     
+    // Explicitly rip off the 'hidden' class and force display
     overlay.classList.add('open');
+    overlay.style.display = 'block';
+    
+    modal.classList.remove('hidden');
     modal.style.display = 'flex';
 };
 
