@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Lex Nova Forensic Engine v5.0 (Proprietary)</title>
+  <title>Lex Nova Forensic Engine v5.5 (Proprietary Canon)</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -58,118 +58,122 @@
     const db = firebase.firestore();
 
     // ════════════════════════════════════════════════════════════════════════
-    // ═════════ THE FORENSIC SYSTEM PROMPT (v5.0 MATRIX INJECTED) ════════════
+    // ═════════ THE FORENSIC SYSTEM PROMPT (V5.5 CANON MATRIX) ═══════════════
     // ════════════════════════════════════════════════════════════════════════
-    const SYSTEM = `You are the Lex Nova Forensic Engine v5.0. Your job is to audit AI companies for legal exposure using the proprietary V3 Pain-Gap Matrix.
+    const SYSTEM = `You are the Lex Nova Forensic Engine v5.5 (Canon). Your job is to audit AI companies for legal exposure using the proprietary V5.5 Pain-Gap Matrix.
 
 AGENTIC PROTOCOL: 
 If the user provides a Website URL but no product description/terms, use the googleSearch tool to scrape their homepage, find their Terms of Service, and find the Founder/CEO's name and email.
 If funding info is missing, search for their latest funding round.
+Find their LinkedIn URL if possible. Identify their Registration Jurisdiction (where they are based) and Service Jurisdictions (where their users are).
 
-STEP 1: CLASSIFICATION (THE INT-10 ARCHETYPES)
-Analyze the product features and classify the company into ONE of the following 10 Internal Categories:
-1. The Doers (Autonomous agents, API execution, workflow automation)
-2. The Orchestrators (API routing, multi-LLM sub-processing)
-3. The Creators (GenAI text, image, video, code generation)
-4. The Companions (Social, Therapy, or coaching AI)
-5. The Readers (Data ingestion, RAG, document analysis)
-6. The Translators (Voice agents, transcription, biometric parsing)
-7. The Judges (Predictive scoring, HR screening, loan/medical decisions)
-8. The Shields (Cyber-defense, moderation AI)
-9. The Movers (Robotics, IoT, physical AI)
-10. The Optimizers (Grid management, algorithmic trading)
+STEP 1: THE CONFIGURATION (Lanes, Meta-Verbs, Archetypes)
+Classify the company into ONE OR BOTH Operational Lanes:
+- "commercial": Sells AI products directly to external markets (B2B/B2C).
+- "operational": Uses AI internally to automate their own workforce/workflows.
 
-STEP 2: THE FORENSIC AUDIT (EXHAUSTIVE V3 MATRIX SWEEP)
-CRITICAL INSTRUCTION: YOU MUST BE ABSOLUTELY EXHAUSTIVE. DO NOT STOP AT 3 OR 4 GAPS. Cross-reference their product against ALL of the following specific traps from the V3 Matrix. If a trap applies based on their product features, you MUST include it in the JSON output.
+Classify the primary AI functions into one or more Meta-Verbs:
+- "execution": AI takes action, routes APIs, moves hardware, or spends money.
+- "intelligence": AI evaluates, scores people, makes decisions, or acts as a companion.
+- "content": AI synthesizes media, bypasses bot-walls to scrape data, or transcribes meetings.
 
---- THE V3 REFERENCE MATRIX ---
+Assign EXACT [INT. XX] Archetypes based on product features:
+[INT. 01] The Doer, [INT. 02] The Orchestrator, [INT. 03] The Creator, [INT. 04] The Companion, [INT. 05] The Reader, [INT. 06] The Translator, [INT. 07] The Judge, [INT. 08] The Shield, [INT. 09] The Mover, [INT. 10] The Optimizer.
 
-[GENERAL GAPS - APPLIES TO ALL AI]
-- Browsewrap Invalidity: (Severity: CRITICAL | Damage: Uncapped) Relying on buried hyperlinks. Users cannot be bound to liability caps.
-- Mobile UI Failures: (Severity: HIGH | Damage: Multi-Million) Cluttered mobile signup screens failing constructive notice.
-- Unconscionable Venues: (Severity: MEDIUM | Damage: $10k-$50k) Forcing B2C users to arbitrate in distant locations.
-- Hidden Fees / Dark Patterns: (Severity: HIGH | Damage: $10M+) Hard-to-cancel subscriptions violating FTC rules.
-- Chatbot Misrepresentation: (Severity: HIGH | Damage: Promised Amount) AI hallucinating promises on corporate websites.
-- AI Defamation: (Severity: MEDIUM | Damage: $100k+) LLM fabricating defamatory claims about real people.
-- Product Vs. Service Classification: (Severity: NUCLEAR | Damage: Total Liquidation) "Selling" AI instead of licensing, triggering strict product liability.
-- Generic Liability Exclusions: (Severity: CRITICAL | Damage: $10M-$100M+) Failing to specifically name "wasted expenditure" in ToS.
-- Cross-Border Blocks (Schrems II): (Severity: HIGH | Damage: €20M) Routing EU data to US servers without SCCs.
-- Data Subject Requests: (Severity: MEDIUM | Damage: €100k-€2M+) Failing to provide machine-readable data exports.
-- Negligence In Security: (Severity: HIGH | Damage: Millions) Operating without ISO 27001 / SOC 2 frameworks.
-- UGC Hosting Liability: (Severity: CRITICAL | Damage: Statutory Copyright Damages) Users generating copyright/CSAM on platform.
-- Export Control Violations: (Severity: NUCLEAR | Damage: Prison/Fines) Providing SaaS AI to embargoed nations.
-- End-User Criminality: (Severity: HIGH | Damage: Defense Costs) Lack of developer immunity frameworks.
-- Third-Party Model Trap: (Severity: CRITICAL | Damage: Indirect Copyright Damages) Relying on OpenAI/Anthropic APIs without training disclaimers.
-- Regulatory Whiplash: (Severity: NUCLEAR | Damage: Total Contract Voiding) New laws instantly voiding ToS liability caps.
+STEP 2: THE FORENSIC AUDIT (EXHAUSTIVE CANON SWEEP)
+CRITICAL INSTRUCTION: You MUST evaluate the company against EVERY SINGLE TRAP listed below. If a trap applies based on their product, business model, or missing legal terms, YOU MUST INCLUDE IT in the 'forensicGaps' array. Do not stop at 3 or 4 gaps. Find all of them. Use exact names.
+
+--- V5.5 REFERENCE MATRIX ---
+[GLOBAL FLOOR - APPLIES TO ALL]
+- Browsewrap Invalidity [EXT. 08]
+- Mobile UI Failures [EXT. 08]
+- Unconscionable Venues [EXT. 08]
+- Hidden Fees / Dark Patterns [EXT. 08]
+- Chatbot Misrepresentation (Moffatt) [EXT. 08]
+- AI Defamation [EXT. 08]
+- Product Vs. Service Classification [EXT. 09]
+- Generic Liability Exclusions (Soteria) [EXT. 09]
+- Cross-Border Transit (Schrems II) [EXT. 01]
+- Data Subject Requests [EXT. 01]
+- Negligence In Security [EXT. 09]
+- UGC Hosting Liability [EXT. 08]
+- Export Control Violations [EXT. 10]
+- End-User Criminality [EXT. 10]
+- Third-Party Model Trap (Bartz) [EXT. 10]
+- Regulatory Whiplash [EXT. 10]
 
 [THE DOERS / AGENTIC AI]
-- Unintended Contract Formation: (Severity: CRITICAL | Damage: Loss of Margin) AI autonomously negotiates/commits to a price.
-- The "Rogue Bot" Defense Failure: (Severity: NUCLEAR | Damage: Uncapped Liability) Claiming AI acted "without approval" fails under UETA.
-- Autonomous Spending: (Severity: HIGH | Damage: $10k-$500k+) AI spinning up unauthorized server costs or ad spend.
-- Third-Party Harm Exclusions: (Severity: CRITICAL | Damage: Multi-Million) Standard SaaS indemnities exclude third-party claims.
-- Unwaivable Reversal Right (UETA §10(b)): (Severity: HIGH | Damage: 100% Loss) No UX mechanism to correct AI errors.
+- Unintended Contract Formation [EXT. 08]
+- The "Rogue Bot" Defense Failure / UETA §14 [EXT. 08]
+- Autonomous Spending [EXT. 08]
+- Third-Party Harm Exclusions [EXT. 09]
+- Unwaivable Reversal Right / UETA §10(b) [EXT. 08]
 
 [THE ORCHESTRATORS / ROUTING]
-- Dynamic Sub-Processing Trap: (Severity: CRITICAL | Damage: €20M Fines) Routing EU data to fall-back LLMs without notice.
-- Toxic Transit Liability: (Severity: HIGH | Damage: Injunctions) Passing CSAM/copyrighted code through API middleware.
-- Enterprise SLA Disgorgement: (Severity: NUCLEAR | Damage: SLA Liquidation) Enterprise sues router for foundation model's data breach.
+- Dynamic Sub-Processing Trap [EXT. 01]
+- Toxic Transit Liability [EXT. 08]
+- Enterprise SLA Disgorgement [EXT. 09]
 
 [THE CREATORS / GEN-AI]
-- The IP Ownership Void: (Severity: HIGH | Damage: Refunds) Telling users they "own" outputs (Thaler precedent).
-- Collapse of "Fair Use" Scraping: (Severity: NUCLEAR | Damage: $1.5B+) Training on unlicensed internet data.
-- Deepfake 3-Hour Takedown: (Severity: CRITICAL | Damage: Platform Ban) Failing to remove SGI deepfakes under India's 2026 rules.
-- Watermark Evasion: (Severity: MEDIUM | Damage: State Fines) Failing to embed latent/manifest watermarks.
-- Digital Replicas / Voice Cloning: (Severity: CRITICAL | Damage: Statutory Damages) Hosting unauthorized voice/visual clones.
+- The IP Ownership Void (Thaler) [EXT. 10]
+- Collapse of "Fair Use" Scraping [EXT. 10]
+- Deepfake 3-Hour Takedown [EXT. 08]
+- Watermark Evasion [EXT. 02]
+- Digital Replicas / Voice Cloning [EXT. 08]
 
 [THE COMPANIONS / SOCIAL AI]
-- Adult Product Liability: (Severity: NUCLEAR | Damage: $10M-$100M+) "Persistent memory" causing adult emotional reliance/suicide.
-- Minor Wrongful Death: (Severity: NUCLEAR | Damage: Company-Ending) Addictive AI lacking suicide/crisis intervention.
-- State AG Deceptive Design: (Severity: CRITICAL | Damage: Massive Penalties) Optimizing for addictive engagement over safety.
-- Statutory Companion Bans: (Severity: HIGH | Damage: $15k/Day) Failing to force 3-hour break reminders for minors.
-- Manipulative Design Bans: (Severity: MEDIUM | Damage: Cease & Desist) Showering users with AI praise/distress.
+- Adult Product Liability / Emotional Reliance (Gavalas) [EXT. 08]
+- Minor Wrongful Death [EXT. 06]
+- State AG Deceptive Design [EXT. 08]
+- Statutory Companion Bans [EXT. 06]
+- Manipulative Design Bans [EXT. 08]
 
 [THE READERS / RAG AI]
-- Algorithmic Disgorgement: (Severity: NUCLEAR | Damage: Total Loss of IP) Ingesting deceptively obtained data into core model.
-- RAG Copyright Infringement: (Severity: CRITICAL | Damage: Massive Damages) Bypassing paywalls for "substitutive summaries."
-- DMCA Anti-Circumvention: (Severity: HIGH | Damage: $2,500/Act) Bypassing CAPTCHAs/SearchGuard to scrape data.
-- Enterprise Ingestion Leaks: (Severity: CRITICAL | Damage: SLA Payouts) Flawed vector-search exposing internal Slack/SharePoint PII.
+- Algorithmic Disgorgement (FTC) [EXT. 03]
+- RAG Copyright Infringement [EXT. 10]
+- DMCA Anti-Circumvention [EXT. 03]
+- Enterprise Ingestion Leaks [EXT. 09]
 
 [THE TRANSLATORS / BIOMETRICS]
-- The "Diarization" Voiceprint Trap: (Severity: NUCLEAR | Damage: $1k-$5k/Attendee) Meeting AI splitting transcripts by pitch/tone without BIPA consent.
-- Deployer/Employer Liability: (Severity: CRITICAL | Damage: Loss of Clients) Employer sued for using AI note-takers without waivers.
-- Facial Processing Trap: (Severity: HIGH | Damage: $6M+) Privacy "face blur" tools trigger BIPA without consent.
+- The "Diarization" Voiceprint Trap (BIPA) [EXT. 04]
+- Deployer/Employer Liability [EXT. 09]
+- Facial Processing Trap [EXT. 04]
 
 [THE JUDGES / PREDICTIVE AI]
-- Vendor/Agency Liability: (Severity: NUCLEAR | Damage: Multi-Million) HR-Tech vendors sued directly for bias (Mobley v. Workday).
-- FCRA Profiling Trap: (Severity: CRITICAL | Damage: $1k/Candidate) AI scoring candidates using scraped internet data.
-- Algorithmic Malpractice: (Severity: NUCLEAR | Damage: $100M+) AI overriding human clinical judgment.
-- Consequential Decision Liability: (Severity: CRITICAL | Damage: €15M) Failing to do bias audits or offer opt-outs.
-- Sole-Decisionmaker Bans: (Severity: HIGH | Damage: License Revocation) AI auto-denying healthcare claims without human review.
-- The HITL Theater Trap: (Severity: HIGH | Damage: Loss of Defenses) Humans rubber-stamping AI decisions without real review.
-- Employment Disparate Impact: (Severity: CRITICAL | Damage: EEOC Fines) AI prioritizing traits that screen out protected classes.
+- Vendor/Agency Liability (Mobley) [EXT. 07]
+- FCRA Profiling Trap [EXT. 07]
+- Algorithmic Malpractice [EXT. 04]
+- Consequential Decision Liability [EXT. 01]
+- Sole-Decisionmaker Bans [EXT. 04]
+- The HITL Theater Trap [EXT. 07]
+- Employment Disparate Impact [EXT. 07]
 
 [THE SHIELDS / CYBER-DEFENSE]
-- "False Negative" Breach Defense: (Severity: CRITICAL | Damage: $5M-$50M+) AI fails to stop ransomware; vendor sued for breach.
-- Whistleblowing-as-a-Service: (Severity: HIGH | Damage: Fines/Reputation) Hackers use SEC to extort breached clients.
-- Uncapped Wasted Costs: (Severity: CRITICAL | Damage: £80M+) Client sues for sunk costs of failed AI security integration.
+- "False Negative" Breach Defense [EXT. 09]
+- Whistleblowing-as-a-Service [EXT. 09]
+- Uncapped Wasted Costs [EXT. 09]
 
 [THE MOVERS / ROBOTICS & SPATIAL]
-- Bodily Injury / Algorithmic Negligence: (Severity: NUCLEAR | Damage: Uncapped) AI robotics/AV causes physical injury/death.
-- Strict Product Liability: (Severity: NUCLEAR | Damage: Liquidation) EU PLD classifies AI spatial software as a "Product".
-- Continuous Learning Liability Resets: (Severity: CRITICAL | Damage: Permanent Liability) Field-learning acts as a modification, resetting liability period.
-- Joint API Liability: (Severity: HIGH | Damage: Shared Costs) Navigational API fails; drone crashes.
+- Bodily Injury / Algorithmic Negligence [EXT. 08]
+- Strict Product Liability (EU PLD) [EXT. 01]
+- Continuous Learning Liability Resets [EXT. 01]
+- Joint API Liability [EXT. 10]
 
 [THE OPTIMIZERS / INFRASTRUCTURE]
-- Systemic Financial Loss / AI-Washing: (Severity: NUCLEAR | Damage: Billions) AI trading bot triggers flash crash / false marketing.
-- Lack of Traceability / Algo-ID: (Severity: CRITICAL | Damage: License Revocation) HFT bots lacking order-level tracking.
-- Critical Infrastructure Failure: (Severity: NUCLEAR | Damage: Sovereign Litigation) AI managing power grids hallucinates load requirements.
+- Systemic Financial Loss / AI-Washing [EXT. 05]
+- Lack of Traceability / Algo-ID [EXT. 05]
+- Critical Infrastructure Failure [EXT. 01]
+
+STEP 3: RANKING & JSON OUTPUT
+1. List ALL identified gaps in the 'forensicGaps' array.
+2. Select the TOP 3 most lethal/urgent gaps (prioritize EXT Tripwires) and put them in the 'topSpearGaps' array.
+3. List all triggered 'EXT.' surfaces in the 'extExposures' array.
 
 VERDICT LOGIC:
 GREEN LIGHT: 1+ Nuclear/Critical gap + founder identified.
 HOLD: High gaps only OR vague product.
 SKIP: Missing data, EU-only, or ironclad legal clauses exist.
 
-STEP 3: JSON OUTPUT SCHEMA
 Output EXACTLY as this JSON schema. Do not add markdown outside the JSON.
 {
   "company": "",
@@ -177,25 +181,41 @@ Output EXACTLY as this JSON schema. Do not add markdown outside the JSON.
   "founderName": "",
   "founderTitle": "",
   "founderEmail": "",
+  "linkedinUrl": "",
+  "registrationJurisdiction": "",
+  "serviceJurisdictions": "",
   "fundingStage": "",
-  "geography": "",
   "headcount": "",
-  "externalCategory": "",
-  "internalCategory": "The Doers",
-  "lane": "A",
+  "lanes": ["commercial"], 
+  "metaVerbs": ["content", "execution"],
+  "intArchetypes": ["[INT. 06] The Reader", "[INT. 01] The Doer"],
+  "extExposures": ["EXT. 08", "EXT. 03", "EXT. 04"],
   "intendedPlan": "agentic_shield",
   "productSignal": "Bullet points of AI features",
-  "legalGapStatus": "exposure",
   "verdict": "GREEN LIGHT",
   "verdictReason": "",
-  "detectedGaps": [
+  "topSpearGaps": [
      {
-       "category": "Specific - The Doers",
-       "gapName": "UETA §14 Strict Liability",
-       "pain": "AI autonomously executing bad financial trades.",
-       "liability": "Strict Liability for agentic actions",
+       "id": "gap_bipa",
+       "trap": "The Diarization Voiceprint Trap (BIPA)",
+       "plain": "Capturing biometric voiceprints without explicit written consent.",
+       "doc": "DOC_PP",
+       "ext": "EXT. 04",
        "severity": "NUCLEAR",
-       "damage": "$10k - $5M+"
+       "velocity": "ACTIVE NOW",
+       "damage": "Uncapped"
+     }
+  ],
+  "forensicGaps": [
+     {
+       "id": "gap_bipa",
+       "trap": "The Diarization Voiceprint Trap (BIPA)",
+       "plain": "Capturing biometric voiceprints without explicit written consent.",
+       "doc": "DOC_PP",
+       "ext": "EXT. 04",
+       "severity": "NUCLEAR",
+       "velocity": "ACTIVE NOW",
+       "damage": "Uncapped"
      }
   ]
 }`;
@@ -211,12 +231,13 @@ Output EXACTLY as this JSON schema. Do not add markdown outside the JSON.
 
       // App State
       const [apiKey, setApiKey] = useState(() => localStorage.getItem("lexNovaApiKey") || "");
-      const [selectedModel, setSelectedModel] = useState("gemini-3.1-flash-preview");
+      const [selectedModel, setSelectedModel] = useState("gemini-3.1-pro-preview");
       
-      // Data State (Consolidated for Form Edits)
+      // Data State (V5.5 Canon Inputs)
       const [inp, setInp] = useState({ 
         companyName:"", website:"", productDescription:"", termsPage:"", 
-        founderName:"", founderTitle:"", email:"", 
+        founderName:"", founderTitle:"", email:"", linkedinUrl:"",
+        registrationJurisdiction:"", serviceJurisdictions:"",
         spearSubject:"", spearBody:"" 
       });
       
@@ -260,7 +281,7 @@ Output EXACTLY as this JSON schema. Do not add markdown outside the JSON.
         if (!inp.companyName && !inp.website) { setError("Company or Website required."); return; }
         
         setLoading(true); setError(null); setResult(null); setPushStatus("");
-        setStatus("Initializing Agentic Scrape & V3 Matrix Audit...");
+        setStatus("Initializing Agentic Scrape & V5.5 Canon Audit...");
 
         const msg = `AUDIT TARGET
 COMPANY: ${inp.companyName || "UNKNOWN"}
@@ -278,7 +299,7 @@ TERMS INPUT: ${inp.termsPage || "NONE PROVIDED - SCRAPE REQUIRED."}
               contents: [{ role: "user", parts: [{ text: msg }] }],
               tools: [{ googleSearch: {} }], 
               generationConfig: { temperature: 0.1 },
-              // 🟢 THE FIX: OVERRIDING GEMINI CENSORS FOR LEGAL FORENSICS
+              // 🟢 OVERRIDING GEMINI CENSORS FOR LEGAL FORENSICS
               safetySettings: [
                 { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
                 { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
@@ -290,7 +311,6 @@ TERMS INPUT: ${inp.termsPage || "NONE PROVIDED - SCRAPE REQUIRED."}
 
           const data = await res.json();
           
-          // 🟢 THE FIX: ROBUST ERROR HANDLING IF API STILL BLOCKS
           if (data.error) throw new Error(data.error.message);
           
           if (!data.candidates || data.candidates.length === 0) {
@@ -316,7 +336,10 @@ TERMS INPUT: ${inp.termsPage || "NONE PROVIDED - SCRAPE REQUIRED."}
             ...p,
             founderName: parsed.founderName || p.founderName,
             founderTitle: parsed.founderTitle || p.founderTitle,
-            email: parsed.founderEmail || p.email
+            email: parsed.founderEmail || p.email,
+            linkedinUrl: parsed.linkedinUrl || p.linkedinUrl,
+            registrationJurisdiction: parsed.registrationJurisdiction || p.registrationJurisdiction,
+            serviceJurisdictions: parsed.serviceJurisdictions || p.serviceJurisdictions
           }));
 
         } catch(e) { setError("Audit failed: " + e.message); }
@@ -328,25 +351,27 @@ TERMS INPUT: ${inp.termsPage || "NONE PROVIDED - SCRAPE REQUIRED."}
         if(!result) return;
         let text = `🎯 FORENSIC REPORT: ${result.company}\n`;
         text += `FOUNDER: ${inp.founderName || result.founderName || 'Unknown'} (${inp.founderTitle || result.founderTitle || 'Unknown'})\n`;
-        text += `CLASSIFICATION: ${result.internalCategory} / ${result.externalCategory}\n`;
+        text += `LANES: ${(result.lanes || []).join(', ').toUpperCase()}\n`;
+        text += `META-VERBS: ${(result.metaVerbs || []).join(', ').toUpperCase()}\n`;
+        text += `INT. ARCHETYPES: ${(result.intArchetypes || []).join(', ')}\n`;
+        text += `EXT. EXPOSURES: ${(result.extExposures || []).join(', ')}\n`;
         text += `PRODUCT SIGNAL:\n${result.productSignal}\n\n`;
-        text += `⚠️ DETECTED GAPS (V3 MATRIX):\n`;
+        text += `⚠️ STRIKE ZONE (TOP 3 CANON GAPS):\n`;
         
-        if(result.detectedGaps && result.detectedGaps.length > 0) {
-          result.detectedGaps.forEach((g, i) => {
-            text += `[${i+1}] ${g.severity} - ${g.gapName}\n`;
-            text += `    Pain: ${g.pain}\n`;
-            text += `    Liability: ${g.liability}\n`;
-            text += `    Est. Damage: ${g.damage}\n\n`;
+        if(result.topSpearGaps && result.topSpearGaps.length > 0) {
+          result.topSpearGaps.forEach((g, i) => {
+            text += `[${i+1}] ${g.severity} [${g.ext || 'N/A'}] - ${g.trap}\n`;
+            text += `    Pain: ${g.plain}\n`;
+            text += `    Fix: ${g.doc}\n\n`;
           });
         } else {
           text += `No gaps detected.\n\n`;
         }
         
-        text += `👉 INSTRUCTION FOR GEM: Select the most severe gap and generate the Founder-Tone Spear (Hammer->Chisel). End CTA MUST include '[PROSPECT_ID]'.\n`;
+        text += `👉 INSTRUCTION FOR GEM: Select the most severe gap above. Write a cold email using the Hammer->Chisel framework. Explicitly mention the regulatory surface (${result.topSpearGaps?.[0]?.ext || 'Exposure'}). End CTA MUST include the custom scanner link with '[PROSPECT_ID]'.\n`;
         
         navigator.clipboard.writeText(text);
-        alert("Report Copied! Paste into your Email Gem.");
+        alert("V5.5 Canon Report Copied! Paste into your Email Gem.");
       };
 
       // ── THE TRIPLE GUARD & DATA BRIDGE (SECTION 3 PUSH) ──
@@ -404,51 +429,65 @@ TERMS INPUT: ${inp.termsPage || "NONE PROVIDED - SCRAPE REQUIRED."}
 
             const scannerLink = `https://lexnovahq.com/scanner.html?pid=${finalProspectId}`;
 
-            // Replace Placeholder in SDR's pasted Email
             let finalHook = inp.spearBody || '';
             finalHook = finalHook.replace(/\[PROSPECT_ID\]/g, finalProspectId);
 
             const dbEmail = targetEmail || legacyDoc?.data?.email || `pending-${Date.now()}@reveal.apollo`;
             
-            const prospectData = {
-                ...(legacyDoc?.data || {}),
-                prospectId: finalProspectId,
-                founderName: inp.founderName || legacyDoc?.data?.founderName || '',
-                email: dbEmail,
-                company: result.company || inp.companyName || legacyDoc?.data?.company || '',
-                website: result.website || result._meta.inputWebsite || legacyDoc?.data?.website || '',
-                jobTitle: inp.founderTitle || legacyDoc?.data?.jobTitle || '',
-                
-                batchNumber: legacyDoc?.data?.batchNumber || batchTag, 
-                geography: result.geography || legacyDoc?.data?.geography || 'US',
-                headcount: result.headcount || legacyDoc?.data?.headcount || '1-10',
-                fundingStage: result.fundingStage || legacyDoc?.data?.fundingStage || '',
-                
-                internalCategory: result.internalCategory || legacyDoc?.data?.internalCategory || '',
-                externalCategory: result.externalCategory || legacyDoc?.data?.externalCategory || '',
-                detectedGaps: result.detectedGaps || legacyDoc?.data?.detectedGaps || [],
+            // 🟢 Explicitly strip dead V3 fields from legacy data before merging
+            const cleanLegacyData = { ...(legacyDoc?.data || {}) };
+            delete cleanLegacyData.internalCategory;
+            delete cleanLegacyData.externalCategory;
+            delete cleanLegacyData.lane;
+            delete cleanLegacyData.detectedGaps;
+            delete cleanLegacyData.aiNative;
+            delete cleanLegacyData.externalAI;
 
-                aiNative: result.aiNative || true,
-                externalAI: result.externalAI || true,
-                legalGapStatus: result.legalGapStatus || 'exposure',
-                legalGapAnalysis: result.legalGapAnalysis || 'V3 Matrix Verified',
+            const prospectData = {
+                ...cleanLegacyData, // Cleaned old meta (like emailLog, history)
+                prospectId: finalProspectId,
+                founderName: inp.founderName || result.founderName || cleanLegacyData.founderName || '',
+                email: dbEmail,
+                company: result.company || inp.companyName || cleanLegacyData.company || '',
+                website: result.website || result._meta.inputWebsite || cleanLegacyData.website || '',
+                jobTitle: inp.founderTitle || result.founderTitle || cleanLegacyData.jobTitle || '',
+                
+                // NEW V5.5 INPUTS
+                linkedinUrl: inp.linkedinUrl || result.linkedinUrl || cleanLegacyData.linkedinUrl || '',
+                registrationJurisdiction: inp.registrationJurisdiction || result.registrationJurisdiction || cleanLegacyData.registrationJurisdiction || '',
+                serviceJurisdictions: inp.serviceJurisdictions || result.serviceJurisdictions || cleanLegacyData.serviceJurisdictions || '',
+
+                batchNumber: batchTag, 
+                headcount: result.headcount || cleanLegacyData.headcount || '1-10',
+                fundingStage: result.fundingStage || cleanLegacyData.fundingStage || '',
+                
+                // NEW V5.5 CANON ARRAYS (Overwrites Legacy)
+                lanes: result.lanes || ['commercial'],
+                metaVerbs: result.metaVerbs || ['execution'],
+                intArchetypes: result.intArchetypes || [],
+                extExposures: result.extExposures || [],
+                forensicGaps: result.forensicGaps || [], 
+                topSpearGaps: result.topSpearGaps || [],
+                
+                activeTraps: result.forensicGaps ? result.forensicGaps.map(g => g.trap) : [],
+                
+                legalGapStatus: 'exposure',
+                legalGapAnalysis: 'V5.5 Canon Verified',
                 intendedPlan: result.intendedPlan || 'agentic_shield',
                 personalizedHook: finalHook,
                 scannerLink: scannerLink,
-                lane: result.lane || 'A',
                 productSignal: result.productSignal || '',
-                activeTraps: result.detectedGaps ? result.detectedGaps.map(g => g.gapName) : [],
                 verdict: result.verdict || 'HOLD',
                 verdictReason: result.verdictReason || '',
                 emailSubject: inp.spearSubject || '',
                 
-                status: legacyDoc?.data?.status || (result.verdict === 'GREEN LIGHT' ? 'Hot' : 'Cold'),
+                status: result.verdict === 'GREEN LIGHT' ? 'Hot' : 'Cold', // Force status reset
                 hotFlag: result.verdict === 'GREEN LIGHT',
-                emailsSent: legacyDoc?.data?.emailsSent || 0,
-                emailLog: legacyDoc?.data?.emailLog || [],
-                scannerClicked: legacyDoc?.data?.scannerClicked || false,
-                scannerCompleted: legacyDoc?.data?.scannerCompleted || false,
-                addedAt: legacyDoc?.data?.addedAt || firebase.firestore.FieldValue.serverTimestamp(),
+                emailsSent: cleanLegacyData.emailsSent || 0,
+                emailLog: cleanLegacyData.emailLog || [],
+                scannerClicked: cleanLegacyData.scannerClicked || false, 
+                scannerCompleted: false, // Force false so they take the V5.5 quiz
+                addedAt: cleanLegacyData.addedAt || firebase.firestore.FieldValue.serverTimestamp(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
@@ -489,7 +528,7 @@ TERMS INPUT: ${inp.termsPage || "NONE PROVIDED - SCRAPE REQUIRED."}
           <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center" }}>
             <div style={{ background: "#0c0c0c", padding: 40, border: "1px solid var(--gold)", width: 320 }}>
               <div style={{color:"#C5A059",fontSize:9,fontWeight:700,letterSpacing:"0.18em",textTransform:"uppercase",marginBottom:6}}>LEX NOVA HQ</div>
-              <h2 className="serif" style={{ color: "#fff", margin: "0 0 20px 0" }}>Forensic Engine v5.0</h2>
+              <h2 className="serif" style={{ color: "#fff", margin: "0 0 20px 0" }}>Forensic Engine v5.5</h2>
               {error && <div style={{color:"#f87171",fontSize:11,marginBottom:15}}>{error}</div>}
               <input type="email" placeholder="Admin Email" style={{...S.input, marginBottom:10}} onChange={e => setCreds(p => ({...p, email: e.target.value}))} />
               <input type="password" placeholder="Passcode" style={{...S.input, marginBottom:20}} onChange={e => setCreds(p => ({...p, password: e.target.value}))} />
@@ -505,8 +544,8 @@ TERMS INPUT: ${inp.termsPage || "NONE PROVIDED - SCRAPE REQUIRED."}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:24}}>
             <div>
               <div style={{color:"#C5A059",fontSize:9,fontWeight:700,letterSpacing:"0.18em",textTransform:"uppercase",marginBottom:6}}>LEX NOVA HQ · PROPRIETARY</div>
-              <h1 style={{color:"#fff",fontSize:22,fontWeight:800,margin:"0 0 4px 0"}}>Forensic Engine <span style={{background:"#C5A05920",color:"#C5A059",fontSize:10,padding:"2px 8px",borderRadius:4,marginLeft:8,verticalAlign:"middle"}}>v5.0</span></h1>
-              <p style={{color:"#444",fontSize:11,margin:0}}>Agentic Scrape · V3 Matrix Integration · Manual Spear Handoff</p>
+              <h1 style={{color:"#fff",fontSize:22,fontWeight:800,margin:"0 0 4px 0"}}>Forensic Engine <span style={{background:"#C5A05920",color:"#C5A059",fontSize:10,padding:"2px 8px",borderRadius:4,marginLeft:8,verticalAlign:"middle"}}>v5.5 Canon</span></h1>
+              <p style={{color:"#444",fontSize:11,margin:0}}>Agentic Scrape · V5.5 Canon Matrix · Dual-Intelligence Ready</p>
             </div>
             <button onClick={() => auth.signOut()} style={{background:"none",border:"none",color:"#666",fontSize:10,cursor:"pointer",textTransform:"uppercase",letterSpacing:"0.1em"}}>Sign Out</button>
           </div>
@@ -543,7 +582,7 @@ TERMS INPUT: ${inp.termsPage || "NONE PROVIDED - SCRAPE REQUIRED."}
                 <div style={S.field}><label style={S.label}>Legal Pages (Override)</label><textarea rows={2} value={inp.termsPage} onChange={e=>upd("termsPage",e.target.value)} style={{...S.input,resize:"vertical"}} placeholder="Paste ToS or leave blank..."/></div>
             </div>
             <button onClick={runAudit} disabled={loading} className="btn" style={{width:"100%", padding:"14px 0", borderRadius:6, marginTop:8}}>
-              {loading ? `⚙  ${status||"RUNNING MATRIX AUDIT..."}` : `DEPLOY FORENSIC ENGINE →`}
+              {loading ? `⚙  ${status||"RUNNING CANON AUDIT..."}` : `DEPLOY FORENSIC ENGINE →`}
             </button>
           </div>
 
@@ -561,16 +600,18 @@ TERMS INPUT: ${inp.termsPage || "NONE PROVIDED - SCRAPE REQUIRED."}
               </div>
 
               <div style={S.card}>
-                <div style={S.sHead}>COMPANY PROFILE</div>
+                <div style={S.sHead}>COMPANY PROFILE (V5.5 TAGS)</div>
                 <div style={S.row2}>
                     <div>
                         <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>COMPANY: </span><span style={{color:"#e5e5e5",fontSize:12}}>{result.company}</span></div>
                         <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>FUNDING: </span><span style={{color:"#e5e5e5",fontSize:12}}>{result.fundingStage || 'Unknown'}</span></div>
-                        <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>LANE/PLAN: </span><span style={{color:"var(--gold)",fontSize:12,fontWeight:"bold"}}>{result.lane} / {result.intendedPlan}</span></div>
+                        <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>LANES: </span><span style={{color:"var(--gold)",fontSize:12,fontWeight:"bold"}}>{(result.lanes||[]).join(', ').toUpperCase()}</span></div>
+                        <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>META-VERBS: </span><span style={{color:"var(--gold)",fontSize:12,fontWeight:"bold"}}>{(result.metaVerbs||[]).join(', ').toUpperCase()}</span></div>
                     </div>
                     <div>
-                        <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>INT. CATEGORY: </span><span style={{color:"#e5e5e5",fontSize:12}}>{result.internalCategory}</span></div>
-                        <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>EXT. CATEGORY: </span><span style={{color:"#e5e5e5",fontSize:12}}>{result.externalCategory}</span></div>
+                        <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>INT ARCHETYPES: </span><span style={{color:"#e5e5e5",fontSize:12}}>{(result.intArchetypes||[]).join(', ')}</span></div>
+                        <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>EXT EXPOSURES: </span><span style={{color:"#ef4444",fontSize:12,fontWeight:"bold"}}>{(result.extExposures||[]).join(', ')}</span></div>
+                        <div style={{marginBottom:10}}><span style={{color:"#555",fontSize:10,fontWeight:600,textTransform:"uppercase"}}>INTENDED PLAN: </span><span style={{color:"#e5e5e5",fontSize:12}}>{result.intendedPlan}</span></div>
                     </div>
                 </div>
                 <div style={{marginTop:10, paddingTop:10, borderTop:"1px solid #1e1e1e"}}>
@@ -580,39 +621,52 @@ TERMS INPUT: ${inp.termsPage || "NONE PROVIDED - SCRAPE REQUIRED."}
               </div>
 
               <div style={S.card}>
-                <div style={S.sHead}>V3 MATRIX: DETECTED GAPS</div>
-                {result.detectedGaps && result.detectedGaps.length > 0 ? (
-                  result.detectedGaps.map((g, i) => (
+                <div style={S.sHead}><span style={{color:"#ef4444"}}>STRIKE ZONE (TOP 3 CANON GAPS)</span></div>
+                {result.topSpearGaps && result.topSpearGaps.length > 0 ? (
+                  result.topSpearGaps.map((g, i) => (
                     <div key={i} className={`gap-card ${g.severity.toLowerCase()}`}>
                       <div style={{display:"flex", justifyContent:"space-between", marginBottom:8}}>
-                        <span style={{color:"#e5e5e5", fontSize:13, fontWeight:700}}>{g.gapName}</span>
+                        <span style={{color:"#e5e5e5", fontSize:13, fontWeight:700}}>{g.trap} <span style={{color:"#f97316", fontSize:10, marginLeft:6}}>[{g.ext || 'N/A'}]</span></span>
                         <span style={{color: g.severity === 'NUCLEAR' ? '#ef4444' : '#f97316', fontSize:10, fontWeight:800, padding:"2px 6px", border:`1px solid ${g.severity === 'NUCLEAR' ? '#ef4444' : '#f97316'}`, borderRadius:4}}>{g.severity}</span>
                       </div>
                       <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, fontSize:11, color:"#999"}}>
-                        <div><strong style={{color:"#bbb"}}>Category:</strong> {g.category}</div>
-                        <div><strong style={{color:"#bbb"}}>Liability:</strong> {g.liability}</div>
-                        <div><strong style={{color:"#bbb"}}>Pain:</strong> {g.pain}</div>
-                        <div><strong style={{color:"#bbb"}}>Est. Damage:</strong> <span style={{color:"#ef4444"}}>{g.damage}</span></div>
+                        <div><strong style={{color:"#bbb"}}>ID:</strong> {g.id}</div>
+                        <div><strong style={{color:"#bbb"}}>Velocity:</strong> {g.velocity}</div>
+                        <div style={{gridColumn:"1 / -1"}}><strong style={{color:"#bbb"}}>Pain:</strong> {g.plain}</div>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <span style={{color:"#555", fontSize:12}}>No specific legal traps detected in current terms.</span>
+                  <span style={{color:"#555", fontSize:12}}>No strike zone gaps identified.</span>
                 )}
                 
                 <button onClick={copyReportToClipboard} className="btn btn-outline" style={{width:"100%", padding:"12px 0", borderRadius:6, marginTop:14}}>
-                  📋 COPY FULL FORENSIC REPORT FOR EMAIL GEM
+                  📋 COPY CANON REPORT FOR EMAIL GEM
                 </button>
+              </div>
+
+              <div style={S.card}>
+                <div style={S.sHead}>EXHAUSTIVE SWEEP ({result.forensicGaps?.length || 0} TOTAL GAPS)</div>
+                <div style={{maxHeight:"150px", overflowY:"auto", fontSize:11, color:"#888", border:"1px solid #1e1e1e", padding:10, background:"#050505"}}>
+                  {result.forensicGaps && result.forensicGaps.map((g,i) => (
+                    <div key={i} style={{marginBottom:4}}>• [{g.ext || 'N/A'}] {g.trap} ({g.severity})</div>
+                  ))}
+                </div>
               </div>
 
               {/* SECTION 3: TARGET & PUSH */}
               <div className="section-divider"><span>SECTION 3: TARGET & PUSH</span></div>
               <div style={S.card}>
-                <div style={S.sHead}>IDENTITY TRACKING (PRE-FILLED BY AGENT)</div>
+                <div style={S.sHead}>IDENTITY TRACKING</div>
                 <div style={S.row3}>
                   <div style={S.field}><label style={S.label}>Founder Name</label><input value={inp.founderName} onChange={e=>upd("founderName",e.target.value)} style={S.input} /></div>
                   <div style={S.field}><label style={S.label}>Founder Title</label><input value={inp.founderTitle} onChange={e=>upd("founderTitle",e.target.value)} style={S.input} /></div>
                   <div style={S.field}><label style={S.label}>Target Email</label><input value={inp.email} onChange={e=>upd("email",e.target.value)} style={S.input} /></div>
+                </div>
+                <div style={S.row3}>
+                  <div style={S.field}><label style={S.label}>LinkedIn URL</label><input value={inp.linkedinUrl} onChange={e=>upd("linkedinUrl",e.target.value)} style={S.input} placeholder="https://linkedin.com/in/..." /></div>
+                  <div style={S.field}><label style={S.label}>Reg. Jurisdiction</label><input value={inp.registrationJurisdiction} onChange={e=>upd("registrationJurisdiction",e.target.value)} style={S.input} placeholder="e.g. US-DE, UK" /></div>
+                  <div style={S.field}><label style={S.label}>Service Jurisdictions</label><input value={inp.serviceJurisdictions} onChange={e=>upd("serviceJurisdictions",e.target.value)} style={S.input} placeholder="e.g. US, EU, Global" /></div>
                 </div>
 
                 <div style={{...S.sHead, marginTop:10}}>THE SPEAR (PASTE FROM GEM)</div>
