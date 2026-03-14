@@ -1,13 +1,17 @@
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ LEX NOVA ADMIN: CORE MODULE (admin-core.js) ══════════════════
 // ════════════════════════════════════════════════════════════════════════
+// Description: Master router, global utilities, modals, and dashboard math.
+// ════════════════════════════════════════════════════════════════════════
 'use strict';
 
-// 1. GLOBAL UTILITIES (Using 'var' prevents fatal module collisions)
-var $ = id => document.getElementById(id);
-var qsa = sel => Array.from(document.querySelectorAll(sel));
-var setText = (id, txt) => { const el = $(id); if (el) el.textContent = String(txt ?? ''); };
-var setVal = (id, val) => { const el = $(id); if (el) el.value = val ?? ''; };
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ 1. GLOBAL UTILITIES (Firmly attached to window) ══════════════
+// ════════════════════════════════════════════════════════════════════════
+window.$ = id => document.getElementById(id);
+window.qsa = sel => Array.from(document.querySelectorAll(sel));
+window.setText = (id, txt) => { const el = window.$(id); if (el) el.textContent = String(txt ?? ''); };
+window.setVal = (id, val) => { const el = window.$(id); if (el) el.value = val ?? ''; };
 
 window.esc = function(str) {
     if (!str) return '';
@@ -23,22 +27,37 @@ window.fmtDate = function(ts) {
 
 window.fmtMoney = function(n) { return (n == null || isNaN(n)) ? '—' : '$' + Number(n).toLocaleString('en-US'); };
 
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ 2. MODALS & TOASTS ═══════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 window.toast = function(msg, type = 'success') {
-    const t = document.getElementById('toast');
+    const t = window.$('toast');
     if (!t) return;
     t.textContent = msg; t.className = type; t.style.display = 'block';
     if (window.toastTimer) clearTimeout(window.toastTimer);
     window.toastTimer = setTimeout(() => { t.style.display = 'none'; }, 3500);
 };
 
+// This was missing! Re-enables Add Prospect, Add Content, etc.
+window.openModal = function(title, bodyHtml, footerHtml) {
+    window.$('modalTitle').textContent = title;
+    window.$('modalBody').innerHTML = bodyHtml;
+    window.$('modalFooter').innerHTML = footerHtml;
+    window.$('overlay').classList.add('open');
+    window.$('modal').classList.add('open');
+};
+
 window.closeModal = function() {
-    document.getElementById('overlay')?.classList.remove('open');
-    document.getElementById('modal')?.classList.remove('open');
-    const radarCms = document.getElementById('modal-radar-cms');
+    window.$('overlay')?.classList.remove('open');
+    window.$('modal')?.classList.remove('open');
+    const radarCms = window.$('modal-radar-cms');
     if (radarCms) radarCms.style.display = 'none';
 };
 
-// 2. KNOWLEDGE BASE
+
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ 3. THE KNOWLEDGE BASE (TOOLTIPS) ═════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 const INFO_DICT = {
     mrr: "<strong>Monthly Recurring Revenue:</strong> Cash generated exclusively from Active Shields ($297/mo).",
     capacity: "<strong>Production Bandwidth:</strong> Active builds currently in 'The Forge' or 'Pre-Flight'.",
@@ -57,14 +76,13 @@ const INFO_DICT = {
 
 window.showInfo = function(key) {
     const text = INFO_DICT[key] || "Definition not found.";
-    document.getElementById('modalTitle').textContent = "Lex Nova Intelligence";
-    document.getElementById('modalBody').innerHTML = `<div style="font-size:14px; line-height:1.6; color:var(--marble); padding:10px;">${text}</div>`;
-    document.getElementById('modalFooter').innerHTML = '';
-    document.getElementById('overlay').classList.add('open');
-    document.getElementById('modal').classList.add('open');
+    window.openModal("Lex Nova Intelligence", `<div style="font-size:14px; line-height:1.6; color:var(--marble); padding:10px;">${text}</div>`, "");
 };
 
-// 3. DASHBOARD ENGINE (Restored from your monolith)
+
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ 4. DASHBOARD & SUNDAY RITUAL ENGINE ══════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 window.loadDashboard = async function() {
     let mrr = 0, cap = 0, gapOpps = 0, gapPipe = 0, slaCrit = 0;
     let cTbl = ''; const now = Date.now();
@@ -90,23 +108,23 @@ window.loadDashboard = async function() {
             if (hasExposures && !c.maintenanceActive) { gapOpps++; gapPipe += 497; }
         });
         
-        setText('d-mrr', window.fmtMoney(mrr));
-        setText('d-cap-current', cap);
+        window.setText('d-mrr', window.fmtMoney(mrr));
+        window.setText('d-cap-current', cap);
         
         let mCap = 10;
         const config = await window.db.collection('settings').doc('config').get();
         if (config.exists && config.data().capacityCap) mCap = config.data().capacityCap;
         
-        setText('d-cap-label', `${cap} / ${mCap} slots`);
+        window.setText('d-cap-label', `${cap} / ${mCap} slots`);
         const pct = Math.min(100, (cap / mCap) * 100);
-        const bar = $('d-cap-bar');
+        const bar = window.$('d-cap-bar');
         if (bar) { bar.style.width = pct + '%'; bar.style.background = pct > 90 ? '#d47a7a' : 'var(--gold)'; }
         
-        setText('d-gaps', gapOpps);
-        setText('d-gaps-sub', `${window.fmtMoney(gapPipe)} Upsell Pipeline`);
-        setText('d-sla-crit', slaCrit);
+        window.setText('d-gaps', gapOpps);
+        window.setText('d-gaps-sub', `${window.fmtMoney(gapPipe)} Upsell Pipeline`);
+        window.setText('d-sla-crit', slaCrit);
         
-        const dSla = $('d-sla-table');
+        const dSla = window.$('d-sla-table');
         if (dSla) dSla.innerHTML = cTbl || '<tr><td colspan="3" class="dim" style="text-align:center;padding:20px;">All SLAs secure</td></tr>';
         
         window.loadRitual();
@@ -116,7 +134,7 @@ window.loadDashboard = async function() {
 window.loadRitual = async function() {
     try {
         const snap = await window.db.collection('settings').doc('ritual').get();
-        if (snap.exists) { setVal('r-outreach', snap.data().outreachVolume || ''); setVal('r-replies', snap.data().repliesReceived || ''); }
+        if (snap.exists) { window.setVal('r-outreach', snap.data().outreachVolume || ''); window.setVal('r-replies', snap.data().repliesReceived || ''); }
 
         const oneWeek = Date.now() - (7 * 24 * 60 * 60 * 1000);
         let weekForms = 0, weekDeals = 0, pipeValue = 0;
@@ -132,22 +150,24 @@ window.loadRitual = async function() {
             window.allFlagship.forEach(f => { if (['Proposal Sent','Negotiating'].includes(f.status)) pipeValue += (f.priceQuoted || 15000); });
         }
 
-        setText('r-auto-forms', weekForms); setText('r-auto-deals', weekDeals); setText('r-auto-pipe', window.fmtMoney(pipeValue));
+        window.setText('r-auto-forms', weekForms); window.setText('r-auto-deals', weekDeals); window.setText('r-auto-pipe', window.fmtMoney(pipeValue));
     } catch(e) { console.error("Ritual load failed", e); }
 };
 
 window.saveRitual = async function() {
     try {
         await window.db.collection('settings').doc('ritual').set({
-            outreachVolume: parseInt($('r-outreach').value) || 0,
-            repliesReceived: parseInt($('r-replies').value) || 0,
+            outreachVolume: parseInt(window.$('r-outreach').value) || 0,
+            repliesReceived: parseInt(window.$('r-replies').value) || 0,
             updatedAt: new Date().toISOString()
         }, { merge: true });
         window.toast('Ritual metrics updated');
     } catch(e) { console.error(e); }
 };
 
-// 4. MASTER ROUTER & INIT
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ 5. MASTER ROUTER & INIT ══════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 window.nav = function(tabId) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -166,7 +186,7 @@ window.nav = function(tabId) {
         'syndicate': { title: 'The Syndicate', sub: 'Phase 4: Risk exposure tracking and referrals.' },
         'engine':    { title: 'Engine Room', sub: 'System configuration and Regulation CMS.' }
     };
-    if (headers[tabId]) { $('pageTitle').textContent = headers[tabId].title; $('pageSub').textContent = headers[tabId].sub; }
+    if (headers[tabId]) { window.$('pageTitle').textContent = headers[tabId].title; window.$('pageSub').textContent = headers[tabId].sub; }
 
     try {
         if (tabId === 'dashboard') window.loadDashboard();
