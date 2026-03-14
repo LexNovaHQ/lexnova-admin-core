@@ -159,7 +159,8 @@ function renderClientsTable(list) {
             <td><span class="badge ${planBadgeClass(c.plan)}">${planLabel(c.plan)}</span></td>
             <td><span class="badge ${statusBadgeClass(c.status)}">${statusLabel(c.status)}</span></td>
             <td>${slaClock}</td><td>${elBadge}</td><td class="dim">${window.esc(c.registrationJurisdiction || c.baseline?.hq || '—')}</td>
-            <td><div class="radar-dots">●</div></td><td class="dim">${window.fmtDate(c.createdAt)}</td>
+            <td><div class="radar-dots">●</div></td>
+            <td class="dim">${window.formatDate(c.createdAt)}</td>
         </tr>`;
     }).join('');
     
