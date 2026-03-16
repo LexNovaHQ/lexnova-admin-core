@@ -962,45 +962,7 @@ window.deleteProspect = async function(id) {
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ DOSSIER COPY ══════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
-window.copyDossier = async function(id) {
-    const p = window.allProspects.find(x=>x.id===id);
-    if (!p) return;
-    const allGaps = getAllGaps(p);
-    const gapsText = allGaps.length
-        ? allGaps.map(g=>`[${g.severity}][${g.ext||''}] ${g.trap}\n  Pain: ${g.plain}\n  Damage: ${g.damage||'Uncapped'}\n  Source: ${g.evidence?.source||g.source||'scanner'}\n  Evidence: ${g.evidence?.reason||'N/A'}`).join('\n\n')
-        : 'None detected';
 
-    const text =
-`[LEX NOVA FORENSIC DOSSIER — ${new Date().toLocaleDateString('en-GB')}]
-ID: ${p.prospectId||'—'}
-Target: ${p.founderName||p.name||'—'} | ${p.jobTitle||'—'}
-Company: ${p.company||'—'} (${p.website||'—'})
-Email: ${p.email||'—'} | LinkedIn: ${p.linkedinUrl||'—'}
-
-CLASSIFICATION
-Lanes: ${(p.lanes||[]).join(', ').toUpperCase()||'—'}
-INT Archetypes: ${(p.intArchetypes||[]).join(', ')||'—'}
-EXT Exposures: ${(p.extExposures||[]).join(', ')||'—'}
-Reg. Jurisdiction: ${p.registrationJurisdiction||'—'}
-Service Jurisdictions: ${p.serviceJurisdictions||'—'}
-Funding: ${p.fundingStage||'—'} | Headcount: ${p.headcount||'—'}
-
-PRODUCT SIGNAL:
-${p.productSignal||'—'}
-
-ALL GAPS (${allGaps.length} detected):
-${gapsText}
-
-THE SPEAR:
-SUB: ${p.emailSubject||'—'}
-"${p.personalizedHook||'—'}"
-
-STATUS: ${p.status||'—'} | STEP: ${p.sequenceStep||'C'} | EMAILS: ${p.emailsSent||0}
-Plan Match: ${PLANS[p.intendedPlan]||p.intendedPlan||'—'}`;
-
-    try { await navigator.clipboard.writeText(text); if(window.toast) window.toast('Full dossier copied'); }
-    catch { const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); if(window.toast) window.toast('Dossier copied'); }
-};
 
 window.copyDossier = async function(id) {
     const p = window.allProspects.find(x => x.id === id);
