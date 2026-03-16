@@ -296,9 +296,108 @@ function renderHuntView() {
     else filterProspects();
 }
 
+function renderOutreachStats() {
+    const today = todayStr();
+    let totalSent = 0, sentToday = 0;
+    let repliedTotal = 0, repliedToday = 0;
+    let inFUTotal = 0, inFUToday = 0;
+    let inNEGTotal = 0, inNEGToday = 0;
+    let scanComp = 0, converted = 0;
+    let totalWithEmails = 0;
+
+    window.allProspects.forEach(p => {
+        totalSent += p.emailsSent || 0;
+        if (p.emailsSent > 0) totalWithEmails++;
+
+        // Sent today — count emailLog entries dated today
+        (p.emailLog || []).forEach(e => { if (e.date === today) sentToday++; });
+
+        // Replied = repliedAt exists (set when status → ENGAGED)
+        if (p.repliedAt) {
+            repliedTotal++;
+            if (p.repliedAt.startsWith(today)) repliedToday++;
+        }
+
+        if (p.status === 'SEQUENCE') {
+            inFUTotal++;
+            if (p.nextActionDate === today) inFUToday++;
+        }
+        if (p.status === 'NEGOTIATING') {
+            inNEGTotal++;
+            if (p.nextActionDate === today) inNEGToday++;
+        }
+        if (p.scannerCompleted) scanComp++;
+        if (p.status === 'CONVERTED') converted++;
+    });
+
+    const pct = (n, d) => d > 0 ? Math.round((n / d) * 100) + '%' : '—';
+
+    const emailReplyRate  = pct(repliedTotal, totalWithEmails);
+    const replyScanRate   = pct(scanComp, repliedTotal);
+    const scanConvRate    = pct(converted, scanComp);
+    const overallConvRate = pct(converted, totalWithEmails);
+
+    return `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:24px;">
+
+        <div style="background:var(--surface);border:1px solid var(--border);padding:14px;border-radius:4px;">
+            <div style="font-size:8px;color:var(--marble-faint);text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;font-weight:700;">📤 Emails Sent</div>
+            <div style="font-size:22px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${totalSent}</div>
+            <div style="font-size:10px;color:var(--marble-dim);margin-top:4px;">Today: <span style="color:var(--gold);font-weight:600;">${sentToday}</span></div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);padding:14px;border-radius:4px;">
+            <div style="font-size:8px;color:var(--marble-faint);text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;font-weight:700;">↩ Replied (YES)</div>
+            <div style="font-size:22px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${repliedTotal}</div>
+            <div style="font-size:10px;color:var(--marble-dim);margin-top:4px;">Today: <span style="color:var(--gold);font-weight:600;">${repliedToday}</span></div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);padding:14px;border-radius:4px;">
+            <div style="font-size:8px;color:var(--marble-faint);text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;font-weight:700;">🔄 In Follow-Up</div>
+            <div style="font-size:22px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${inFUTotal}</div>
+            <div style="font-size:10px;color:var(--marble-dim);margin-top:4px;">Due today: <span style="color:var(--gold);font-weight:600;">${inFUToday}</span></div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid #f9731640;padding:14px;border-radius:4px;">
+            <div style="font-size:8px;color:var(--marble-faint);text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;font-weight:700;">🔥 In Negotiation</div>
+            <div style="font-size:22px;font-family:'Cormorant Garamond',serif;color:#f97316;">${inNEGTotal}</div>
+            <div style="font-size:10px;color:var(--marble-dim);margin-top:4px;">Due today: <span style="color:#f97316;font-weight:600;">${inNEGToday}</span></div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--gold-mid);padding:14px;border-radius:4px;grid-column:span 2;">
+            <div style="font-size:8px;color:var(--gold);text-transform:uppercase;letter-spacing:.12em;margin-bottom:10px;font-weight:700;">📊 Conversion Rates</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div>
+                    <div style="font-size:9px;color:var(--marble-faint);margin-bottom:2px;">Email → Reply</div>
+                    <div style="font-size:16px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${emailReplyRate}</div>
+                </div>
+                <div>
+                    <div style="font-size:9px;color:var(--marble-faint);margin-bottom:2px;">Reply → Scanner</div>
+                    <div style="font-size:16px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${replyScanRate}</div>
+                </div>
+                <div>
+                    <div style="font-size:9px;color:var(--marble-faint);margin-bottom:2px;">Scanner → Paid</div>
+                    <div style="font-size:16px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${scanConvRate}</div>
+                </div>
+                <div>
+                    <div style="font-size:9px;color:var(--marble-faint);margin-bottom:2px;">Overall Close</div>
+                    <div style="font-size:16px;font-family:'Cormorant Garamond',serif;color:var(--gold);font-weight:700;">${overallConvRate}</div>
+                </div>
+            </div>
+        </div>
+
+    </div>`;
+}
+
+
+
+
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ TODAY'S ACTION QUEUE ════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
+
+
+
 function renderTodayQueue() {
     const el = $h('hunt-queue-view');
     if (!el) return;
@@ -342,8 +441,7 @@ function renderTodayQueue() {
             </div>
         </div>`;
 
-    el.innerHTML = `
-        ${overdue.length?`
+   el.innerHTML = renderOutreachStats() + 
         <div style="margin-bottom:20px;">
             <div style="font-size:9px;color:#d47a7a;text-transform:uppercase;letter-spacing:.15em;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
                 🔴 OVERDUE <span style="background:rgba(212,122,122,.15);border:1px solid rgba(212,122,122,.3);padding:2px 8px;border-radius:8px;">${overdue.length}</span>
