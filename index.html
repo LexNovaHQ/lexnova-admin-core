@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lex Nova — Admin Console v5.0</title>
+<title>Lex Nova — Admin Console v5.5</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ═════════════════════════════════════════════════════════ */
@@ -16,6 +16,7 @@
   --marble:#EAE8E3;--marble-dim:rgba(232,227,217,.45);--marble-faint:rgba(232,227,217,.18);
   --border:rgba(197,160,89,.10);--border2:rgba(197,160,89,.20);
   --green:#5a8a6a;--red:#8a3a3a;--yellow:#9a8030;--blue:#3a5a8a;
+  --safe:#7ab88a;
   --sidebar:220px;
 }
 html,body{height:100%;background:var(--void);color:var(--marble);font-family:'Inter',sans-serif;font-size:13px;line-height:1.6;-webkit-font-smoothing:antialiased}
@@ -36,8 +37,8 @@ input,select,textarea{font-family:inherit}
 .faint{color:var(--marble-faint)}
 .mono{font-size:10px;letter-spacing:.15em;text-transform:uppercase}
 
-.info-icon{display:inline-block; margin-left:6px; color:var(--gold); font-size:10px; cursor:pointer; opacity:0.6; font-style:normal; font-family:sans-serif; vertical-align:middle; transition: opacity 0.2s;}
-.info-icon:hover{opacity:1;}
+.info-icon{display:inline-block;margin-left:6px;color:var(--gold);font-size:10px;cursor:pointer;opacity:0.6;font-style:normal;font-family:sans-serif;vertical-align:middle;transition:opacity 0.2s}
+.info-icon:hover{opacity:1}
 
 .badge{display:inline-block;padding:2px 8px;font-size:9px;letter-spacing:.12em;text-transform:uppercase;border-radius:0;white-space:nowrap}
 .b-pending{background:rgba(90,90,150,.15);border:1px solid rgba(90,90,180,.3);color:#7a7ae0}
@@ -139,196 +140,162 @@ textarea.fi{resize:vertical;min-height:72px}
 #alertStrip{background:rgba(138,58,58,.08);border-bottom:1px solid rgba(138,58,58,.2);padding:10px 32px;display:flex;gap:20px;flex-wrap:wrap}
 .alert-chip{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#d47a7a;display:flex;align-items:center;gap:5px}
 
-.tbl-wrap{overflow-x:auto;border:1px solid var(--border);margin-bottom:16px;}
-table{width:100%;border-collapse:collapse;min-width:600px;}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);margin-bottom:16px}
+table{width:100%;border-collapse:collapse;min-width:600px}
 thead th{padding:10px 14px;font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--marble-dim);background:var(--surface);border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
 tbody tr{border-bottom:1px solid rgba(197,160,89,.05);transition:background .15s}
 tbody tr:hover{background:var(--gold-dim);cursor:pointer}
-tbody td{padding:11px 14px;font-size:11px;color:var(--marble);word-break:break-word;white-space:normal;vertical-align:middle;}
+tbody td{padding:11px 14px;font-size:11px;color:var(--marble);word-break:break-word;white-space:normal;vertical-align:middle}
 tbody td.dim{color:var(--marble-dim)}
 .tbl-empty{padding:40px;text-align:center;font-size:11px;color:var(--marble-faint);border:1px solid var(--border)}
-.hot-flag{font-size:12px;margin-left:4px;white-space:nowrap;}
+.hot-flag{font-size:12px;margin-left:4px;white-space:nowrap}
 
 /* ═════════════════════════════════════════════════════════ */
-/* ═════════ 7. KANBAN BOARDS (RESPONSIVE) ═════════════════ */
+/* ═════════ 7. KANBAN BOARDS ══════════════════════════════ */
 /* ═════════════════════════════════════════════════════════ */
-.k-wrap { display: flex; gap: 16px; flex-wrap: wrap; padding-bottom: 20px; height: auto; align-items: flex-start; }
-.k-col { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; min-width: 260px; flex: 1 1 260px; display: flex; flex-direction: column; max-height: 75vh; flex-shrink: 0; }
-.k-head { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--surface); border-radius: 4px 4px 0 0; flex-shrink: 0; }
-.k-title { font-family: 'Cormorant Garamond', serif; font-size: 16px; color: var(--gold); }
-.k-count { font-size: 10px; background: var(--gold-dim); padding: 2px 6px; border-radius: 12px; color: var(--gold); }
-.k-body { padding: 12px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 10px; min-height: 100px; }
-.k-card { background: var(--surface); border: 1px solid var(--border2); padding: 12px; border-radius: 4px; cursor: pointer; transition: all 0.2s; word-break: break-word; }
-.k-card:hover { border-color: var(--gold); box-shadow: 0 4px 12px rgba(0,0,0,0.5); transform: translateY(-2px); }
-.k-name { font-size: 12px; color: var(--marble); font-weight: 600; margin-bottom: 4px; line-height: 1.3; }
-.k-comp { font-size: 10px; color: var(--marble-dim); margin-bottom: 8px; line-height: 1.3; }
-.k-meta { display: flex; justify-content: space-between; align-items: center; font-size: 9px; padding-top: 8px; border-top: 1px solid rgba(197,160,89,0.1); flex-wrap: wrap; gap: 4px; }
-.k-date-red { color: #d47a7a; }
-.k-date-gold { color: var(--gold); }
+.k-wrap{display:flex;gap:16px;flex-wrap:wrap;padding-bottom:20px;height:auto;align-items:flex-start}
+.k-col{background:var(--surface2);border:1px solid var(--border);border-radius:4px;min-width:260px;flex:1 1 260px;display:flex;flex-direction:column;max-height:75vh;flex-shrink:0}
+.k-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--surface);border-radius:4px 4px 0 0;flex-shrink:0}
+.k-title{font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--gold)}
+.k-count{font-size:10px;background:var(--gold-dim);padding:2px 6px;border-radius:12px;color:var(--gold)}
+.k-body{padding:12px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px;min-height:100px}
+.k-card{background:var(--surface);border:1px solid var(--border2);padding:12px;border-radius:4px;cursor:pointer;transition:all 0.2s;word-break:break-word}
+.k-card:hover{border-color:var(--gold);box-shadow:0 4px 12px rgba(0,0,0,0.5);transform:translateY(-2px)}
+.k-name{font-size:12px;color:var(--marble);font-weight:600;margin-bottom:4px;line-height:1.3}
+.k-comp{font-size:10px;color:var(--marble-dim);margin-bottom:8px;line-height:1.3}
+.k-meta{display:flex;justify-content:space-between;align-items:center;font-size:9px;padding-top:8px;border-top:1px solid rgba(197,160,89,0.1);flex-wrap:wrap;gap:4px}
 
 /* ═════════════════════════════════════════════════════════ */
 /* ═════════ 8. FILTER BARS & UI COMPONENTS ════════════════ */
 /* ═════════════════════════════════════════════════════════ */
 .filter-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
-.filter-bar .fi{width:auto;padding:6px 10px;font-size:11px;flex:1 1 auto;min-width:140px;}
-.filter-bar input.fi{min-width:200px;}
-.view-btns{display:flex;gap:0;flex-wrap:wrap;margin-bottom:20px;}
-.view-btn{padding:6px 12px;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--marble-dim);border:1px solid var(--border);background:transparent;cursor:pointer;transition:all .15s;margin-left:-1px;margin-bottom:-1px;}
+.filter-bar .fi{width:auto;padding:6px 10px;font-size:11px;flex:1 1 auto;min-width:140px}
+.filter-bar input.fi{min-width:200px}
+.view-btns{display:flex;gap:0;flex-wrap:wrap;margin-bottom:20px}
+.view-btn{padding:6px 12px;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--marble-dim);border:1px solid var(--border);background:transparent;cursor:pointer;transition:all .15s;margin-left:-1px;margin-bottom:-1px}
 .view-btn:hover{color:var(--gold);border-color:var(--gold-mid)}
 .view-btn.active{color:var(--void);background:var(--gold);border-color:var(--gold)}
 
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}
-.dot-green{background:var(--green)}
-.dot-yellow{background:var(--yellow)}
-.dot-red{background:var(--red)}
-.dot-grey{background:rgba(232,227,217,.15);border:1px solid rgba(232,227,217,.2)}
-.radar-dots{display:flex;gap:3px;align-items:center;flex-wrap:wrap;}
-
-.j-wrap{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
-.j-tag{padding:3px 10px;border:1px solid var(--border2);font-size:9px;color:var(--marble-dim);cursor:pointer;transition:all .15s;user-select:none}
-.j-tag:hover{border-color:var(--gold-mid);color:var(--marble)}
-.j-tag.on{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+.dot-green{background:var(--green)}.dot-yellow{background:var(--yellow)}.dot-red{background:var(--red)}.dot-grey{background:rgba(232,227,217,.15);border:1px solid rgba(232,227,217,.2)}
+.radar-dots{display:flex;gap:3px;align-items:center;flex-wrap:wrap}
 
 .chk-item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid rgba(197,160,89,.06)}
 .chk-item:last-child{border-bottom:none}
-.chk-box{width:16px;height:16px;border:1px solid var(--border2);background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;margin-top:2px;}
+.chk-box{width:16px;height:16px;border:1px solid var(--border2);background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;margin-top:2px}
 .chk-box:hover{border-color:var(--gold)}
 .chk-box.done{background:var(--gold-dim);border-color:var(--gold)}
 .chk-tick{color:var(--gold);font-size:10px;display:none}
 .chk-box.done .chk-tick{display:block}
-.chk-label{font-size:11px;color:var(--marble);flex:1;line-height:1.4;}
+.chk-label{font-size:11px;color:var(--marble);flex:1;line-height:1.4}
 .chk-box.done+.chk-label{color:var(--marble-dim);text-decoration:line-through}
 .el-lock{background:rgba(138,58,58,.08);border:1px solid rgba(138,58,58,.2);padding:10px 14px;font-size:10px;color:#d47a7a;margin-bottom:14px;display:none}
 
-.countdown{display:flex;gap:4px;align-items:center;font-size:10px;margin-top:4px;white-space:nowrap;}
-.cd-ok{color:var(--green)}
-.cd-warn{color:var(--yellow)}
-.cd-over{color:#d47a7a}
+.countdown{display:flex;gap:4px;align-items:center;font-size:10px;margin-top:4px;white-space:nowrap}
+.cd-ok{color:var(--green)}.cd-warn{color:var(--yellow)}.cd-over{color:#d47a7a}
 
 .act-entry{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid rgba(197,160,89,.06)}
 .act-entry:last-child{border-bottom:none}
 .act-dot{width:6px;height:6px;border-radius:50%;background:var(--gold-mid);flex-shrink:0;margin-top:4px}
-.act-note{font-size:11px;color:var(--marble);flex:1;word-break:break-word;}
+.act-note{font-size:11px;color:var(--marble);flex:1;word-break:break-word}
 .act-ts{font-size:9px;color:var(--marble-faint)}
 
 .doc-row{background:var(--surface2);border:1px solid var(--border);padding:14px;margin-bottom:8px}
-.doc-row-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px;}
-.doc-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
-.doc-del{font-size:9px;color:#d47a7a;cursor:pointer;letter-spacing:.1em;text-transform:uppercase}
-.doc-del:hover{text-decoration:underline}
-.doc-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:10px}
 
 .comp-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(197,160,89,.06)}
 .comp-row:last-child{border-bottom:none}
 .comp-title{font-size:11px;color:var(--marble);flex:1}
-.comp-meta{font-size:9px;color:var(--marble-faint);margin-top:2px}
-.comp-status{font-size:9px;letter-spacing:.1em;text-transform:uppercase;flex-shrink:0;margin-top:1px}
-.sev-CRITICAL{color:#d47a7a}
-.sev-HIGH{color:#d4a850}
-.sev-MEDIUM{color:var(--gold)}
-.sev-LOW{color:var(--marble-dim)}
+.sev-CRITICAL{color:#d47a7a}.sev-HIGH{color:#d4a850}.sev-MEDIUM{color:var(--gold)}.sev-LOW{color:var(--marble-dim)}
 
 /* ═════════════════════════════════════════════════════════ */
-/* ═════════ 9. DETAIL PANELS (SLIDE-OUTS) ═════════════════ */
+/* ═════════ 9. DETAIL PANELS ══════════════════════════════ */
 /* ═════════════════════════════════════════════════════════ */
-#detailPanel, #prospectPanel, #flagshipPanel{position:fixed;right:0;top:0;bottom:0;background:var(--surface);border-left:1px solid var(--border2);display:none;z-index:300;flex-direction:column;overflow:hidden;width:100%;max-width:600px;}
-#detailPanel.open, #prospectPanel.open, #flagshipPanel.open{display:flex}
+#detailPanel,#prospectPanel,#flagshipPanel{position:fixed;right:0;top:0;bottom:0;background:var(--surface);border-left:1px solid var(--border2);display:none;z-index:300;flex-direction:column;overflow:hidden;width:100%;max-width:600px}
+#detailPanel.open,#prospectPanel.open,#flagshipPanel.open{display:flex}
 
-.detail-header, .pp-header{padding:24px 24px 0;border-bottom:1px solid var(--border);flex-shrink:0;padding-bottom:16px}
-.detail-name, .pp-name{font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--marble);word-break:break-word;line-height:1.2;}
-.detail-meta, .pp-meta{font-size:9px;color:var(--marble-faint);margin-top:4px;word-break:break-all;}
+.detail-header,.pp-header{padding:24px 24px 0;border-bottom:1px solid var(--border);flex-shrink:0;padding-bottom:16px}
+.detail-name,.pp-name{font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--marble);word-break:break-word;line-height:1.2}
+.detail-meta,.pp-meta{font-size:9px;color:var(--marble-faint);margin-top:4px;word-break:break-all}
 .detail-plan-badge{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-top:6px;display:inline-block}
 
 .sub-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;padding:0 24px}
 .sub-tab{padding:9px 12px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--marble-dim);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;transition:all .15s}
 .sub-tab:hover{color:var(--marble)}
 .sub-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
-.detail-body, .pp-body{flex:1;overflow-y:auto;padding:20px 24px}
+.detail-body,.pp-body{flex:1;overflow-y:auto;padding:20px 24px}
 .detail-section{margin-bottom:20px}
 .detail-section-title{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--marble-faint);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
 
 .el-status-block{background:var(--surface2);border:1px solid var(--border);padding:10px 14px;margin-bottom:14px}
-.el-status-row{display:flex;justify-content:space-between;font-size:10px;flex-wrap:wrap;gap:10px;}
-.el-status-ok{color:var(--green)}
-.el-status-miss{color:#d47a7a}
-.eng-ref{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--gold);margin-bottom:4px;word-break:break-all;}
+.el-status-row{display:flex;justify-content:space-between;font-size:10px;flex-wrap:wrap;gap:10px}
+.el-status-ok{color:var(--green)}.el-status-miss{color:#d47a7a}
+.eng-ref{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--gold);margin-bottom:4px;word-break:break-all}
 
 /* ═════════════════════════════════════════════════════════ */
 /* ═════════ 10. MODALS & TOASTS ═══════════════════════════ */
 /* ═════════════════════════════════════════════════════════ */
 #overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:250}
 #overlay.open{display:block}
-#modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border2);width:900px;max-width:95vw;max-height:90vh;display:none;z-index:260;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,0.8);}
+#modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border2);width:900px;max-width:95vw;max-height:90vh;display:none;z-index:260;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,0.8)}
 #modal.open{display:flex}
-.modal-header{padding:20px 20px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;flex-wrap:wrap;gap:10px;}
+.modal-header{padding:20px 20px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;flex-wrap:wrap;gap:10px}
 .modal-title{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--marble)}
-.modal-body{flex:1;overflow-y:auto;padding:20px;color:var(--marble);font-size:12px;line-height:1.6;}
-.modal-footer{padding:16px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0;flex-wrap:wrap;}
-.modal-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:32px;}
+.modal-body{flex:1;overflow-y:auto;padding:20px;color:var(--marble);font-size:12px;line-height:1.6}
+.modal-footer{padding:16px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0;flex-wrap:wrap}
+.modal-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:32px}
 
-#toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;font-size:11px;border:1px solid;display:none;z-index:999;letter-spacing:.05em;max-width:300px;word-break:break-word;}
+#toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;font-size:11px;border:1px solid;display:none;z-index:999;letter-spacing:.05em;max-width:300px;word-break:break-word}
 #toast.success{background:rgba(90,138,106,.1);border-color:var(--green);color:#7ab88a}
 #toast.error{background:rgba(138,58,58,.1);border-color:var(--red);color:#d47a7a}
 
 /* ═════════════════════════════════════════════════════════ */
 /* ═════════ 11. TAB-SPECIFIC STYLES ═══════════════════════ */
 /* ═════════════════════════════════════════════════════════ */
-.funnel-row{display:flex;align-items:center;gap:0;margin-bottom:2px;flex-wrap:wrap;}
-.funnel-stage{flex:1 1 60px;text-align:center;padding:10px 4px;background:var(--surface);border:1px solid var(--border);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--marble-dim)}
-.funnel-stage .fnum{font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--marble);display:block;margin-bottom:2px}
-.capacity-bar{height:6px;background:var(--surface2);border:1px solid var(--border);margin:6px 0}
-.capacity-fill{height:100%;background:var(--gold);transition:width .5s}
+.pipeline-funnel{display:flex;gap:0;flex-wrap:wrap}
+.pf-stage{flex:1 1 80px;padding:12px 8px;background:var(--surface);border:1px solid var(--border);text-align:center;border-left:none;margin-bottom:-1px}
+.pf-stage:first-child{border-left:1px solid var(--border)}
+.pf-stage .pf-num{font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--marble);display:block}
+.pf-stage .pf-label{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--marble-dim);display:block;margin-top:2px}
+.action-queue{background:var(--surface);border:1px solid var(--border)}
+.aq-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid rgba(197,160,89,.05);font-size:11px;flex-wrap:wrap;gap:10px}
+.aq-row:last-child{border-bottom:none}
+.aq-count{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--gold)}
+
+.radar-entry{background:var(--surface);border:1px solid var(--border);padding:14px 16px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.radar-title{font-size:12px;color:var(--marble);margin-bottom:3px}
+.radar-meta{font-size:9px;color:var(--marble-faint)}
+.radar-actions{display:flex;gap:6px;flex-shrink:0}
+.exposure-row{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:1px solid rgba(197,160,89,.05);font-size:11px;flex-wrap:wrap;gap:10px}
+.exposure-row:last-child{border-bottom:none}
+.exp-flag-r{font-size:10px;color:#d47a7a;white-space:nowrap}
+.exp-flag-y{font-size:10px;color:#c4a840;white-space:nowrap}
+
 .ritual-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:10px}
 .ritual-item{background:var(--surface2);border:1px solid var(--border);padding:12px 14px}
 .ritual-label{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--marble-dim);margin-bottom:6px}
 .ritual-input{width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--marble);font-size:18px;font-family:'Cormorant Garamond',serif;padding:2px 0;outline:none}
 .ritual-input:focus{border-bottom-color:var(--gold)}
-.conc-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(197,160,89,.06);font-size:11px;flex-wrap:wrap;gap:10px;}
+
+.conc-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(197,160,89,.06);font-size:11px;flex-wrap:wrap;gap:10px}
 .conc-row:last-child{border-bottom:none}
-.conc-flag{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#d47a7a}
-
-.pipeline-funnel{display:flex;gap:0;flex-wrap:wrap;}
-.pf-stage{flex:1 1 80px;padding:12px 8px;background:var(--surface);border:1px solid var(--border);text-align:center;border-left:none;margin-bottom:-1px;}
-.pf-stage:first-child{border-left:1px solid var(--border)}
-.pf-stage .pf-num{font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--marble);display:block}
-.pf-stage .pf-label{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--marble-dim);display:block;margin-top:2px}
-.action-queue{background:var(--surface);border:1px solid var(--border)}
-.aq-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid rgba(197,160,89,.05);font-size:11px;flex-wrap:wrap;gap:10px;}
-.aq-row:last-child{border-bottom:none}
-.aq-count{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--gold)}
-.email-counter{display:flex;gap:16px;flex-wrap:wrap;}
-.ec-block{flex:1 1 150px;background:var(--surface);border:1px solid var(--border);padding:14px}
-.ec-label{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--marble-dim);margin-bottom:6px}
-.ec-val{font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--marble)}
-.ec-limit{font-size:10px;color:var(--marble-faint)}
-.ec-over{color:#d47a7a}
-
-.radar-entry{background:var(--surface);border:1px solid var(--border);padding:14px 16px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
-.radar-title{font-size:12px;color:var(--marble);margin-bottom:3px}
-.radar-meta{font-size:9px;color:var(--marble-faint)}
-.radar-actions{display:flex;gap:6px;flex-shrink:0}
-.exposure-row{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:1px solid rgba(197,160,89,.05);font-size:11px;flex-wrap:wrap;gap:10px;}
-.exposure-row:last-child{border-bottom:none}
-.exp-flags{display:flex;gap:8px;flex-wrap:wrap;}
-.exp-flag-r{font-size:10px;color:#d47a7a;white-space:nowrap;}
-.exp-flag-y{font-size:10px;color:#c4a840;white-space:nowrap;}
-
-.conc-warn{background:rgba(138,58,58,.06);border:1px solid rgba(138,58,58,.2);padding:10px 14px;font-size:10px;color:#d47a7a;margin-bottom:12px;display:none}
-
-.batch-tbl{width:100%;border-collapse:collapse;font-size:11px;min-width:600px;}
-.batch-tbl th{padding:7px 10px;font-size:8px;letter-spacing:.15em;text-transform:uppercase;color:var(--marble-dim);text-align:left;border-bottom:1px solid var(--border)}
-.batch-tbl td{padding:8px 10px;border-bottom:1px solid rgba(197,160,89,.04);color:var(--marble);word-break:break-word;white-space:normal;}
 
 .loading{color:var(--marble-faint);font-size:11px;padding:40px;text-align:center;letter-spacing:.1em}
 .empty{color:var(--marble-faint);font-size:11px;padding:40px;text-align:center;border:1px solid var(--border)}
+
+.batch-tbl{width:100%;border-collapse:collapse;font-size:11px;min-width:600px}
+.batch-tbl th{padding:7px 10px;font-size:8px;letter-spacing:.15em;text-transform:uppercase;color:var(--marble-dim);text-align:left;border-bottom:1px solid var(--border)}
+.batch-tbl td{padding:8px 10px;border-bottom:1px solid rgba(197,160,89,.04);color:var(--marble);word-break:break-word;white-space:normal}
 </style>
 </head>
 <body>
 
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- LOGIN SCREEN                                               -->
+<!-- ══════════════════════════════════════════════════════════ -->
 <div id="loginScreen">
   <div class="login-box">
     <div class="login-logo">Lex Nova</div>
-    <div class="login-sub">Admin Console</div>
+    <div class="login-sub">Admin Console v5.5</div>
     <div class="fg">
       <label>Email</label>
       <input type="email" id="loginEmail" placeholder="your@email.com" onkeydown="if(event.key==='Enter')window.login()">
@@ -342,117 +309,131 @@ tbody td.dim{color:var(--marble-dim)}
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- ADMIN PANEL                                                -->
+<!-- ══════════════════════════════════════════════════════════ -->
 <div id="adminPanel">
 
+  <!-- ── SIDEBAR ────────────────────────────────────────────── -->
   <div id="sidebar">
     <div class="sb-logo">
       <div class="sb-logo-name">Lex Nova</div>
-      <div class="sb-logo-sub">Command Center</div>
+      <div class="sb-logo-sub">Command Center v5.5</div>
     </div>
 
     <div class="sb-section">Phase 1: Hunting</div>
-    <div class="nav-item active" data-tab="dashboard" onclick="if(typeof window.nav==='function') window.nav('dashboard')">
+    <div class="nav-item active" data-tab="dashboard" onclick="if(typeof window.nav==='function')window.nav('dashboard')">
       <span class="nav-icon">▣</span> Command Center
     </div>
-    <div class="nav-item" data-tab="hunt" onclick="if(typeof window.nav==='function') window.nav('hunt')">
+    <div class="nav-item" data-tab="hunt" onclick="if(typeof window.nav==='function')window.nav('hunt')">
       <span class="nav-icon">🎯</span> The Hunt
     </div>
 
     <div class="sb-section">Phase 2: Closing</div>
-    <div class="nav-item" data-tab="deals" onclick="if(typeof window.nav==='function') window.nav('deals')">
+    <div class="nav-item" data-tab="deals" onclick="if(typeof window.nav==='function')window.nav('deals')">
       <span class="nav-icon">🔥</span> Active Deals
     </div>
 
     <div class="sb-section">Phase 3: Building</div>
-    <div class="nav-item" data-tab="factory" onclick="if(typeof window.nav==='function') window.nav('factory')">
+    <div class="nav-item" data-tab="factory" onclick="if(typeof window.nav==='function')window.nav('factory')">
       <span class="nav-icon">⚡</span> The Factory
     </div>
 
     <div class="sb-section">Phase 4: Expanding</div>
-    <div class="nav-item" data-tab="syndicate" onclick="if(typeof window.nav==='function') window.nav('syndicate')">
+    <div class="nav-item" data-tab="syndicate" onclick="if(typeof window.nav==='function')window.nav('syndicate')">
       <span class="nav-icon">🛡️</span> The Syndicate
     </div>
 
+    <!-- ── NEW: Intelligence section ── -->
+    <div class="sb-section">Intelligence</div>
+    <div class="nav-item" data-tab="regulation" onclick="if(typeof window.nav==='function')window.nav('regulation')">
+      <span class="nav-icon">📋</span> Regulation DB
+    </div>
+
     <div class="sb-section">System</div>
-    <div class="nav-item" data-tab="engine" onclick="if(typeof window.nav==='function') window.nav('engine')">
+    <div class="nav-item" data-tab="engine" onclick="if(typeof window.nav==='function')window.nav('engine')">
       <span class="nav-icon">⚙️</span> Engine Room
     </div>
 
     <div class="sb-footer">
       <div class="admin-id" id="adminEmail">—</div>
-      <button class="btn btn-outline btn-sm btn-full" onclick="if(typeof window.signOut==='function') window.signOut()">Sign Out</button>
+      <button class="btn btn-outline btn-sm btn-full" onclick="if(typeof window.signOut==='function')window.signOut()">Sign Out</button>
     </div>
   </div>
 
+  <!-- ── MAIN ───────────────────────────────────────────────── -->
   <div id="main">
     <div id="alertStrip" class="hidden"></div>
 
     <div class="page-header">
       <div class="page-header-row">
         <div>
-          <div class="page-title" id="pageTitle">Dashboard</div>
-          <div class="page-sub" id="pageSub">Command center</div>
+          <div class="page-title" id="pageTitle">Command Center</div>
+          <div class="page-sub"  id="pageSub">Global metrics and Sunday Ritual inputs.</div>
         </div>
         <div id="pageActions" style="padding-bottom:16px"></div>
       </div>
     </div>
 
+    <!-- ═══════════ DASHBOARD ═══════════ -->
     <div id="tab-dashboard" class="tab-content active">
       <div class="card-grid card-grid-4" style="margin-bottom:20px">
         <div class="card card-gold">
-          <div class="card-label">Monthly Recurring Rev <span class="info-icon" onclick="showInfo('mrr')">ⓘ</span></div>
+          <div class="card-label">Monthly Recurring Rev <span class="info-icon" onclick="window.showInfo('mrr')">ⓘ</span></div>
           <div class="card-value" id="d-mrr">$0</div>
           <div class="card-sub" id="d-mrr-sub">0 active maintenance</div>
         </div>
         <div class="card">
-          <div class="card-label">Capacity / Bandwidth <span class="info-icon" onclick="showInfo('capacity')">ⓘ</span></div>
+          <div class="card-label">Capacity / Bandwidth <span class="info-icon" onclick="window.showInfo('capacity')">ⓘ</span></div>
           <div class="card-value" id="d-cap-current">0</div>
-          <div class="capacity-bar"><div class="capacity-fill" id="d-cap-bar" style="width:0%"></div></div>
+          <div style="height:6px;background:var(--surface2);border:1px solid var(--border);margin:6px 0">
+            <div class="capacity-fill" id="d-cap-bar" style="height:100%;background:var(--gold);transition:width .5s;width:0%"></div>
+          </div>
           <div style="font-size:9px;color:var(--marble-dim)" id="d-cap-label">0 / 0 slots</div>
         </div>
-        <div class="card card-gold" style="border-color:rgba(212,122,122,0.4); background:rgba(212,122,122,0.05);">
-          <div class="card-label" style="color:#d47a7a;">Actionable Gaps <span class="info-icon" onclick="showInfo('gaps')">ⓘ</span></div>
-          <div class="card-value" id="d-gaps" style="color:#d47a7a;">0</div>
-          <div class="card-sub" style="color:rgba(212,122,122,0.7);" id="d-gaps-sub">$0 Upsell Pipeline</div>
+        <div class="card card-gold" style="border-color:rgba(212,122,122,0.4);background:rgba(212,122,122,0.05)">
+          <div class="card-label" style="color:#d47a7a">Actionable Gaps <span class="info-icon" onclick="window.showInfo('gaps')">ⓘ</span></div>
+          <div class="card-value" id="d-gaps" style="color:#d47a7a">0</div>
+          <div class="card-sub" style="color:rgba(212,122,122,0.7)" id="d-gaps-sub">$0 Upsell Pipeline</div>
         </div>
-        <div class="card" style="border-color:rgba(212,122,122,0.4);">
-          <div class="card-label" style="color:#d47a7a;">SLA Critical <span class="info-icon" onclick="showInfo('sla')">ⓘ</span></div>
-          <div class="card-value" id="d-sla-crit" style="color:#d47a7a;">0</div>
-          <div class="card-sub" style="color:rgba(212,122,122,0.7);">Builds < 12h remaining</div>
+        <div class="card" style="border-color:rgba(212,122,122,0.4)">
+          <div class="card-label" style="color:#d47a7a">SLA Critical <span class="info-icon" onclick="window.showInfo('sla')">ⓘ</span></div>
+          <div class="card-value" id="d-sla-crit" style="color:#d47a7a">0</div>
+          <div class="card-sub" style="color:rgba(212,122,122,0.7)">Builds &lt; 12h remaining</div>
         </div>
       </div>
 
       <div id="d-conc-warn" class="hidden" style="background:rgba(138,58,58,.06);border:1px solid rgba(138,58,58,.2);padding:10px 16px;font-size:10px;color:#d47a7a;margin-bottom:16px;letter-spacing:.05em">
-        ⚠ Client concentration breach — a single client exceeds 30% of MRR. Review Syndicate tab.
+        ⚠ Client concentration breach — a single client exceeds 30% of MRR.
       </div>
 
       <div class="card-grid card-grid-2" style="margin-bottom:20px">
         <div>
-          <div class="section-title" style="margin-top:0">The Scanner Funnel (Inbound)</div>
+          <div class="section-title" style="margin-top:0">Scanner Funnel (Inbound)</div>
           <div class="pipeline-funnel">
             <div class="pf-stage"><span class="pf-num" id="sf-clicks">0</span><span class="pf-label">Clicked</span></div>
             <div class="pf-stage"><span class="pf-num" id="sf-comps">0</span><span class="pf-label">Completed</span></div>
-            <div class="pf-stage" style="background:var(--gold-dim); border-color:var(--gold);"><span class="pf-num" style="color:var(--gold);" id="sf-paid">0</span><span class="pf-label" style="color:var(--gold);">Paid</span></div>
+            <div class="pf-stage" style="background:var(--gold-dim);border-color:var(--gold)"><span class="pf-num" style="color:var(--gold)" id="sf-paid">0</span><span class="pf-label" style="color:var(--gold)">Paid</span></div>
           </div>
-          <div style="text-align:right; font-size:10px; color:var(--marble-dim); margin-top:4px;" id="sf-rate">— Conversion</div>
+          <div style="text-align:right;font-size:10px;color:var(--marble-dim);margin-top:4px" id="sf-rate">— Conversion</div>
         </div>
         <div>
           <div class="section-title" style="margin-top:0">Outreach Pipeline (Outbound)</div>
-          <div class="pipeline-funnel" id="d-funnel">
-            <div class="pf-stage"><span class="pf-num" id="of-cold">0</span><span class="pf-label">Cold</span></div>
-            <div class="pf-stage"><span class="pf-num" id="of-warm">0</span><span class="pf-label">Warm</span></div>
-            <div class="pf-stage"><span class="pf-num" id="of-hot">0</span><span class="pf-label">Hot</span></div>
+          <div class="pipeline-funnel">
+            <div class="pf-stage"><span class="pf-num" id="of-cold">0</span><span class="pf-label">Queued/Seq</span></div>
+            <div class="pf-stage"><span class="pf-num" id="of-warm">0</span><span class="pf-label">Engaged</span></div>
+            <div class="pf-stage"><span class="pf-num" id="of-hot">0</span><span class="pf-label">Negotiating</span></div>
             <div class="pf-stage"><span class="pf-num" id="of-replied">0</span><span class="pf-label">Replied</span></div>
-            <div class="pf-stage"><span class="pf-num" id="of-neg">0</span><span class="pf-label">Negotiating</span></div>
+            <div class="pf-stage"><span class="pf-num" id="of-neg">0</span><span class="pf-label">Won</span></div>
           </div>
         </div>
       </div>
 
       <div class="card-grid card-grid-2" style="margin-bottom:20px">
         <div>
-          <div class="section-title" style="margin-top:0; color:#d47a7a;">SLA Danger Zone</div>
+          <div class="section-title" style="margin-top:0;color:#d47a7a">SLA Danger Zone</div>
           <div class="section-sub">Active builds nearing 48h deadline</div>
-          <div class="tbl-wrap" style="border-color:rgba(212,122,122,0.3);">
+          <div class="tbl-wrap" style="border-color:rgba(212,122,122,0.3)">
             <table>
               <thead><tr><th>Client</th><th>Status</th><th>Time Left</th></tr></thead>
               <tbody id="d-sla-table"><tr><td colspan="3" class="loading">Calculating...</td></tr></tbody>
@@ -472,142 +453,55 @@ tbody td.dim{color:var(--marble-dim)}
 
       <div style="margin-top:24px">
         <div class="section-title">Sunday Ritual</div>
-        <div class="section-sub">Weekly operating metrics — Input the manual data, the engine does the rest.</div>
+        <div class="section-sub">Weekly operating metrics — manual inputs.</div>
         <div class="card-grid card-grid-2">
           <div class="ritual-grid">
             <div class="ritual-item">
-              <div class="ritual-label" style="color:var(--gold);">Outreach Volume Sent</div>
-              <input class="ritual-input" id="r-outreach" type="number" placeholder="0" onchange="if(typeof saveRitual==='function') window.saveRitual()">
-              <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Manual: Check Instantly/Lemlist</div>
+              <div class="ritual-label" style="color:var(--gold)">Outreach Volume Sent</div>
+              <input class="ritual-input" id="r-outreach" type="number" placeholder="0" onchange="if(typeof window.saveRitual==='function')window.saveRitual()">
+              <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Manual: Check Outlook</div>
             </div>
             <div class="ritual-item">
-              <div class="ritual-label" style="color:var(--gold);">Replies Received</div>
-              <input class="ritual-input" id="r-replies" type="number" placeholder="0" onchange="if(typeof saveRitual==='function') window.saveRitual()">
+              <div class="ritual-label" style="color:var(--gold)">Replies Received</div>
+              <input class="ritual-input" id="r-replies" type="number" placeholder="0" onchange="if(typeof window.saveRitual==='function')window.saveRitual()">
               <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Manual: Total valid responses</div>
             </div>
           </div>
           <div class="ritual-grid">
-            <div class="ritual-item" style="background:transparent; border-style:dashed;">
+            <div class="ritual-item" style="background:transparent;border-style:dashed">
               <div class="ritual-label">Scanner Forms (Week)</div>
-              <div class="card-value" id="r-auto-forms" style="font-size:24px;">0</div>
+              <div class="card-value" id="r-auto-forms" style="font-size:24px">0</div>
               <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Auto-calculated</div>
             </div>
-            <div class="ritual-item" style="background:transparent; border-style:dashed;">
+            <div class="ritual-item" style="background:transparent;border-style:dashed">
               <div class="ritual-label">Deals Closed (Week)</div>
-              <div class="card-value" id="r-auto-deals" style="font-size:24px;">0</div>
+              <div class="card-value" id="r-auto-deals" style="font-size:24px">0</div>
               <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Auto-calculated</div>
             </div>
-            <div class="ritual-item" style="background:transparent; border-style:dashed; grid-column:span 1 / -1;">
+            <div class="ritual-item" style="background:transparent;border-style:dashed;grid-column:span 1 / -1">
               <div class="ritual-label">Pipeline Value</div>
-              <div class="card-value" id="r-auto-pipe" style="font-size:24px; color:var(--gold);">$0</div>
-              <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Total active outreach + flagship value</div>
+              <div class="card-value" id="r-auto-pipe" style="font-size:24px;color:var(--gold)">$0</div>
+              <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Active outreach + flagship value</div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-    
-    <div id="tab-hunt" class="tab-content">
-      
-      <div class="filter-bar" style="margin-bottom:20px; display:flex; flex-direction:column; gap:10px;">
-        <div style="display:flex; gap:10px; width:100%; align-items:center; justify-content:space-between; flex-wrap:wrap;">
-          <div style="display:flex; gap:10px; flex:1 1 auto; flex-wrap:wrap; min-width:300px;">
-            <input type="text" class="fi" placeholder="Search targets…" id="op-search" oninput="if(typeof window.filterProspects==='function') window.filterProspects()" style="flex:1 1 auto;">
-            <select class="fi" id="op-batch" onchange="if(typeof window.filterProspects==='function') window.filterProspects()" style="flex:1 1 auto;"><option value="">All Batches</option></select>
-            <select class="fi" id="op-status" onchange="if(typeof window.filterProspects==='function') window.filterProspects()" style="flex:1 1 auto;">
-               <option value="">All Statuses</option><option>Cold</option><option>Warm</option><option>Hot</option><option>Replied</option><option>Negotiating</option><option>Converted</option><option>Dead</option>
-            </select>
-            <select class="fi" id="op-sort" onchange="if(typeof window.filterProspects==='function') window.filterProspects()" style="border-color:var(--gold); color:var(--gold); flex:1 1 auto;">
-              <option value="nextDate">Sort: Action Date (Urgent)</option>
-              <option value="dateAdded">Sort: Date Added (Newest)</option>
-              <option value="score">Sort: Scanner Score (Highest)</option>
-              <option value="emailsSent">Sort: Emails Sent (Highest)</option>
-              <option value="company">Sort: Company A-Z</option>
-            </select>
-          </div>
-          <button class="btn btn-primary" onclick="if(typeof window.openAddProspect==='function') window.openAddProspect()">+ Add Prospect</button>
-        </div>
-        
-        <div style="display:flex; gap:10px; width:100%; flex-wrap:wrap;">
-          <select class="fi" id="op-gap" onchange="if(typeof window.filterProspects==='function') window.filterProspects()">
-            <option value="">Severity: All</option>
-            <option value="NUCLEAR">🔴 Nuclear</option>
-            <option value="CRITICAL">🟠 Critical</option>
-            <option value="HIGH">🟡 High</option>
-            <option value="MEDIUM">⚪ Medium</option>
-          </select>
-          <select class="fi" id="op-ai" onchange="if(typeof window.filterProspects==='function') window.filterProspects()">
-            <option value="">Category: All</option>
-            <option value="The Doers">The Doers</option>
-            <option value="The Orchestrators">The Orchestrators</option>
-            <option value="The Creators">The Creators</option>
-            <option value="The Companions">The Companions</option>
-            <option value="The Readers">The Readers</option>
-            <option value="The Translators">The Translators</option>
-            <option value="The Judges">The Judges</option>
-            <option value="The Shields">The Shields</option>
-            <option value="The Movers">The Movers</option>
-            <option value="The Optimizers">The Optimizers</option>
-          </select>
-          <select class="fi" id="op-li-filter" onchange="if(typeof window.filterProspects==='function') window.filterProspects()">
-            <option value="">LinkedIn: All</option>
-            <option value="connected">Connected</option>
-            <option value="pending">Pending</option>
-            <option value="replied">Replied</option>
-          </select>
-          <select class="fi" id="op-scanner" onchange="if(typeof window.filterProspects==='function') window.filterProspects()">
-            <option value="">Scanner: All</option>
-            <option value="clicked">Clicked 🔥</option>
-            <option value="completed">Completed 🔥🔥</option>
-            <option value="none">Not Yet</option>
-          </select>
-          <select class="fi" id="op-funding" onchange="if(typeof window.filterProspects==='function') window.filterProspects()">
-            <option value="">Funding: All</option>
-            <option>Pre-seed</option><option>Seed</option><option>Series A</option><option>Series B+</option><option>Bootstrapped</option>
-          </select>
-        </div>
-      </div>
+    </div><!-- /dashboard -->
 
-      <div class="tbl-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Prospect</th>
-              <th>Company</th>
-              <th>Batch</th>
-              <th>Status <span class="info-icon" onclick="window.showInfo('hunt_status')">ⓘ</span></th>
-              <th>Category</th>
-              <th>Scanner <span class="info-icon" onclick="window.showInfo('scanner_flags')">ⓘ</span></th>
-              <th>LinkedIn</th>
-              <th>Next Action</th>
-              <th>Emails Sent</th>
-            </tr>
-          </thead>
-          <tbody id="op-tbody"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
-        </table>
-      </div>
-      
-      <div class="section-title" style="margin-top:32px;">Batch Performance</div>
-      <div class="tbl-wrap">
-        <table class="batch-tbl">
-          <thead>
-            <tr><th>Batch</th><th>Prospects</th><th>Emails Sent</th><th>Clicks</th><th>Completions</th><th>Conversions</th><th>ROI (Close %)</th></tr>
-          </thead>
-          <tbody id="oc-batches"><tr><td colspan="7" class="loading">No batches yet</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-    
+    <!-- ═══════════ THE HUNT — content injected by buildHuntTabHTML() ═══════════ -->
+    <div id="tab-hunt" class="tab-content"></div>
+
+    <!-- ═══════════ ACTIVE DEALS ═══════════ -->
     <div id="tab-deals" class="tab-content">
       <div class="view-btns" style="margin-bottom:20px">
-        <button class="view-btn active" onclick="document.getElementById('tab-deals').querySelector('.k-wrap').classList.remove('hidden'); document.getElementById('tab-deals-legacy').classList.add('hidden');">The War Board</button>
-        <button class="view-btn" onclick="document.getElementById('tab-deals').querySelector('.k-wrap').classList.add('hidden'); document.getElementById('tab-deals-legacy').classList.remove('hidden');">Legacy Data Views</button>
+        <button class="view-btn active" onclick="document.getElementById('tab-deals').querySelector('.k-wrap').classList.remove('hidden');document.getElementById('tab-deals-legacy').classList.add('hidden');this.classList.add('active');this.nextElementSibling.classList.remove('active')">The War Board</button>
+        <button class="view-btn" onclick="document.getElementById('tab-deals').querySelector('.k-wrap').classList.add('hidden');document.getElementById('tab-deals-legacy').classList.remove('hidden');this.classList.add('active');this.previousElementSibling.classList.remove('active');if(typeof window.loadLeads==='function')window.loadLeads()">Inbound Leads</button>
       </div>
 
       <div class="k-wrap">
         <div class="k-col">
           <div class="k-head"><span class="k-title">The Magazine <span class="info-icon" onclick="window.showInfo('magazine')">ⓘ</span></span><span class="k-count" id="kd-c1">0</span></div>
-          <div class="k-body" id="kd-col-1"><div class="loading">Logic mapping pending...</div></div>
+          <div class="k-body" id="kd-col-1"><div class="loading">Loading…</div></div>
         </div>
         <div class="k-col">
           <div class="k-head"><span class="k-title">Downrange <span class="info-icon" onclick="window.showInfo('downrange')">ⓘ</span></span><span class="k-count" id="kd-c2">0</span></div>
@@ -631,30 +525,31 @@ tbody td.dim{color:var(--marble-dim)}
         <div class="section-title">Flagship Pipeline</div>
         <div class="tbl-wrap" style="margin-bottom:20px">
           <table>
-            <thead><tr><th>Name</th><th>Company</th><th>Status</th><th>Price Quoted</th><th>Follow-Up Deadline</th><th>Next Step</th><th>Added</th></tr></thead>
-            <tbody id="fs-tbody"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+            <thead><tr><th>Name</th><th>Company</th><th>Status</th><th>Price Quoted</th><th>Proposal Date</th><th>Next Step</th><th>Added</th></tr></thead>
+            <tbody id="fs-tbody"><tr><td colspan="7" class="loading">Loading…</td></tr></tbody>
           </table>
         </div>
         <div class="section-title">Inbound Scanner Leads</div>
         <div class="tbl-wrap">
           <table>
             <thead><tr><th>Name</th><th>Email</th><th>Company</th><th>Type</th><th>Status</th><th>Source</th><th>Ext Score</th><th>Int Score</th><th>Date</th><th>Actions</th></tr></thead>
-            <tbody id="l-tbody"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
+            <tbody id="l-tbody"><tr><td colspan="10" class="loading">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
-    </div>
+    </div><!-- /deals -->
 
+    <!-- ═══════════ THE FACTORY ═══════════ -->
     <div id="tab-factory" class="tab-content">
       <div class="view-btns" style="margin-bottom:20px">
-        <button class="view-btn active" onclick="document.getElementById('fac-board').classList.remove('hidden'); document.getElementById('fac-table').classList.add('hidden'); this.classList.add('active'); this.nextElementSibling.classList.remove('active');">SOP Delivery Board</button>
-        <button class="view-btn" onclick="document.getElementById('fac-board').classList.add('hidden'); document.getElementById('fac-table').classList.remove('hidden'); this.classList.add('active'); this.previousElementSibling.classList.remove('active');">SLA Table View</button>
+        <button class="view-btn active" onclick="document.getElementById('fac-board').classList.remove('hidden');document.getElementById('fac-table').classList.add('hidden');this.classList.add('active');this.nextElementSibling.classList.remove('active')">SOP Delivery Board</button>
+        <button class="view-btn" onclick="document.getElementById('fac-board').classList.add('hidden');document.getElementById('fac-table').classList.remove('hidden');this.classList.add('active');this.previousElementSibling.classList.remove('active')">SLA Table View</button>
       </div>
 
       <div id="fac-board" class="k-wrap">
         <div class="k-col">
           <div class="k-head"><span class="k-title">Intake Holding <span class="info-icon" onclick="window.showInfo('intake_holding')">ⓘ</span></span><span class="k-count" id="kf-c1">0</span></div>
-          <div class="k-body" id="kf-col-1"><div class="loading">Logic mapping pending...</div></div>
+          <div class="k-body" id="kf-col-1"><div class="loading">Loading…</div></div>
         </div>
         <div class="k-col">
           <div class="k-head"><span class="k-title">The Forge <span class="info-icon" onclick="window.showInfo('the_forge')">ⓘ</span></span><span class="k-count" id="kf-c2">0</span></div>
@@ -665,30 +560,31 @@ tbody td.dim{color:var(--marble-dim)}
           <div class="k-body" id="kf-col-3"></div>
         </div>
         <div class="k-col">
-          <div class="k-head"><span class="k-title" style="color:var(--green)">Portal & Delivery</span><span class="k-count" id="kf-c4">0</span></div>
+          <div class="k-head"><span class="k-title" style="color:var(--green)">Portal &amp; Delivery</span><span class="k-count" id="kf-c4">0</span></div>
           <div class="k-body" id="kf-col-4"></div>
         </div>
       </div>
 
       <div id="fac-table" class="hidden">
         <div class="filter-bar">
-          <input type="text" class="fi" placeholder="Search name or email…" id="c-search" oninput="if(typeof window.filterClients==='function') window.filterClients()">
+          <input type="text" class="fi" placeholder="Search name or email…" id="c-search" oninput="if(typeof window.filterClients==='function')window.filterClients()">
         </div>
         <div class="tbl-wrap">
           <table>
             <thead>
               <tr><th>Client</th><th>Company</th><th>Plan</th><th>Status</th><th>SLA Clock</th><th>EL Accepted</th><th>Reg. Jurisdiction</th><th>Radar</th><th>Submitted</th></tr>
             </thead>
-            <tbody id="c-tbody"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
+            <tbody id="c-tbody"><tr><td colspan="9" class="loading">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
-    </div>
+    </div><!-- /factory -->
 
+    <!-- ═══════════ THE SYNDICATE ═══════════ -->
     <div id="tab-syndicate" class="tab-content">
       <div class="section-title" style="margin-top:0">Client Exposure Matrix (The Upsell Radar)</div>
       <div style="font-size:10px;color:var(--marble-dim);margin-bottom:14px;letter-spacing:.08em">
-        Clients with at least one 🔴 Exposed or 🟡 Scheduled regulation. Target these for $497 Gap Reviews.
+        Clients with at least one 🔴 Exposed or 🟡 Scheduled regulation. Target for $497 Gap Reviews.
       </div>
       <div class="tbl-wrap" style="margin-bottom:32px">
         <table>
@@ -696,7 +592,6 @@ tbody td.dim{color:var(--marble-dim)}
           <tbody id="rv-exposure-tbody"><tr><td colspan="6" class="loading">Calculating…</td></tr></tbody>
         </table>
       </div>
-
       <div class="card-grid card-grid-2">
         <div>
           <div class="section-title" style="margin-top:0">Active Shields (Maintenance)</div>
@@ -704,21 +599,24 @@ tbody td.dim{color:var(--marble-dim)}
         </div>
         <div>
           <div class="section-title" style="margin-top:0">The Referral Engine</div>
-          <div class="tbl-wrap">
-            <div class="empty">Referral tracking maps to Detail Panel.</div>
-          </div>
+          <div class="empty">Referral tracking maps to Client Detail Panel.</div>
         </div>
       </div>
-    </div>
+    </div><!-- /syndicate -->
 
+    <!-- ═══════════ REGULATION DB — injected by tab-regulation.js ═══════════ -->
+    <div id="tab-regulation" class="tab-content"></div>
+
+    <!-- ═══════════ ENGINE ROOM ═══════════ -->
+    <!-- Regulation DB removed from here — now its own sidebar tab -->
     <div id="tab-engine" class="tab-content">
       <div class="view-btns" style="margin-bottom:20px">
-        <button class="view-btn active" onclick="window.setEngineView('finance', this)">Finance</button>
-        <button class="view-btn" onclick="window.setEngineView('radar', this)">Regulation DB</button>
-        <button class="view-btn" onclick="window.setEngineView('content', this)">Content</button>
-        <button class="view-btn" onclick="window.setEngineView('settings', this)">Settings</button>
+        <button class="view-btn active" onclick="window.setEngineView('finance',this)">Finance</button>
+        <button class="view-btn"        onclick="window.setEngineView('content',this)">Content</button>
+        <button class="view-btn"        onclick="window.setEngineView('settings',this)">Settings</button>
       </div>
 
+      <!-- Finance -->
       <div id="ev-finance">
         <div class="card-grid card-grid-4" style="margin-bottom:20px">
           <div class="card card-gold"><div class="card-label">MRR</div><div class="card-value" id="fin-mrr">$0</div><div class="card-sub" id="fin-mrr-sub">Maintenance only</div></div>
@@ -735,62 +633,67 @@ tbody td.dim{color:var(--marble-dim)}
         </div>
       </div>
 
-      <div id="ev-radar" class="hidden">
-        <button class="btn btn-primary" style="margin-bottom:16px" onclick="if(typeof window.openRadarCMS==='function') window.openRadarCMS(-1)">+ Add Regulatory Threat</button>
-        <div id="rv-list"><div class="loading">Loading regulations…</div></div>
-      </div>
-
+      <!-- Content -->
       <div id="ev-content" class="hidden">
-        <button class="btn btn-primary" style="margin-bottom:16px" onclick="if(typeof window.openAddContent==='function') window.openAddContent()">+ Add Post</button>
+        <button class="btn btn-primary" style="margin-bottom:16px" onclick="if(typeof window.openAddContent==='function')window.openAddContent()">+ Add Post</button>
         <div class="tbl-wrap">
           <table>
             <thead><tr><th>Topic</th><th>Status</th><th>Posted</th><th>Notes</th><th>Actions</th></tr></thead>
-            <tbody id="ct-tbody"><tr><td colspan="5" class="loading">Loading...</td></tr></tbody>
+            <tbody id="ct-tbody"><tr><td colspan="5" class="loading">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
 
+      <!-- Settings -->
       <div id="ev-settings" class="hidden">
         <div class="card-grid card-grid-2">
           <div>
             <div class="section-title" style="margin-top:0">Webhook URLs</div>
-            <div class="fg"><label class="fl">Scenario 2 (Checkout)</label><input type="text" id="wh-s2" class="fi"></div>
-            <div class="fg"><label class="fl">Scenario 3 (Post-Payment)</label><input type="text" id="wh-s3" class="fi"></div>
-            <div class="fg"><label class="fl">Scenario 4 (Delivery)</label><input type="text" id="wh-s4" class="fi"></div>
-            <div class="fg"><label class="fl">Capacity Cap</label><input type="number" id="s-capacity" class="fi"></div>
-            <button class="btn btn-primary" onclick="if(typeof window.saveSettings==='function') window.saveSettings()">Save Settings</button>
+            <div class="fg"><label class="fl">Scenario 2 (Checkout Notification)</label><input type="text" id="wh-s2" class="fi" placeholder="https://hook.eu1.make.com/…"></div>
+            <div class="fg"><label class="fl">Scenario 3 (Post-Payment Activation)</label><input type="text" id="wh-s3" class="fi" placeholder="https://hook.eu1.make.com/…"></div>
+            <div class="fg"><label class="fl">Scenario 4 (Delivery Trigger)</label><input type="text" id="wh-s4" class="fi" placeholder="https://hook.eu1.make.com/…"></div>
+            <div class="fg"><label class="fl">Capacity — Max Concurrent Clients</label><input type="number" id="s-capacity" class="fi" placeholder="10" min="1" max="50"></div>
+            <!-- Case study video URL — surfaces in prospect panel Engagement Assets -->
+            <div class="fg"><label class="fl">Case Study Video URL (Standard — all prospects)</label><input type="text" id="s-case-study" class="fi" placeholder="https://… (one video, shown to all ENGAGED / NEGOTIATING prospects)"></div>
+            <button class="btn btn-primary" onclick="if(typeof window.saveSettings==='function')window.saveSettings()">Save Settings</button>
           </div>
           <div>
             <div class="section-title" style="margin-top:0">Admin Access</div>
             <div class="tbl-wrap" style="margin-bottom:14px">
-              <table><thead><tr><th>Email</th><th>Permissions</th><th>Action</th></tr></thead><tbody id="s-admins"><tr><td colspan="3" class="loading">Loading…</td></tr></tbody></table>
+              <table>
+                <thead><tr><th>Email</th><th>Permissions</th><th>Action</th></tr></thead>
+                <tbody id="s-admins"><tr><td colspan="3" class="loading">Loading…</td></tr></tbody>
+              </table>
             </div>
-            
-            <div style="background:var(--surface2); border:1px solid var(--border); padding:14px; border-radius:4px;">
-              <div class="fg" style="margin-bottom:12px;">
+            <div style="background:var(--surface2);border:1px solid var(--border);padding:14px;border-radius:4px">
+              <div class="fg" style="margin-bottom:12px">
                 <input type="email" id="s-new-admin" class="fi" placeholder="email@domain.com">
               </div>
-              <div style="margin-bottom:14px;">
-                <label class="fl" style="margin-bottom:8px; color:var(--gold);">Phase Access (Permissions)</label>
-                <div style="display:flex; gap:12px; flex-wrap:wrap;">
+              <div style="margin-bottom:14px">
+                <label class="fl" style="margin-bottom:8px;color:var(--gold)">Phase Access</label>
+                <div style="display:flex;gap:12px;flex-wrap:wrap">
                   <label style="display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer"><input type="checkbox" class="adm-perm-chk" value="hunt"> Phase 1 (Hunt)</label>
                   <label style="display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer"><input type="checkbox" class="adm-perm-chk" value="deals"> Phase 2 (Deals)</label>
                   <label style="display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer"><input type="checkbox" class="adm-perm-chk" value="factory"> Phase 3 (Factory)</label>
                   <label style="display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer"><input type="checkbox" class="adm-perm-chk" value="syndicate"> Phase 4 (Syndicate)</label>
+                  <label style="display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer"><input type="checkbox" class="adm-perm-chk" value="regulation"> Intelligence (Reg DB)</label>
                   <label style="display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer"><input type="checkbox" class="adm-perm-chk" value="engine"> System (Engine)</label>
                 </div>
               </div>
-              <button class="btn btn-outline" onclick="if(typeof window.addAdmin==='function') window.addAdmin()">+ Grant Access</button>
+              <button class="btn btn-outline" onclick="if(typeof window.addAdmin==='function')window.addAdmin()">+ Grant Access</button>
             </div>
           </div>
         </div>
       </div>
 
-    </div>
+    </div><!-- /engine -->
 
-  </div>
-</div>
+  </div><!-- /main -->
+</div><!-- /adminPanel -->
 
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- CLIENT DETAIL PANEL                                        -->
+<!-- ══════════════════════════════════════════════════════════ -->
 <div id="detailPanel">
   <div class="detail-header">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
@@ -799,59 +702,78 @@ tbody td.dim{color:var(--marble-dim)}
         <div class="detail-meta" id="dp-email">—</div>
         <div class="detail-plan-badge" id="dp-plan">—</div>
       </div>
-      <button class="btn btn-outline btn-sm" onclick="if(typeof window.closeDetail==='function') window.closeDetail()">✕ Close</button>
+      <button class="btn btn-outline btn-sm" onclick="if(typeof window.closeDetail==='function')window.closeDetail()">✕ Close</button>
     </div>
   </div>
-  
+
   <div class="sub-tabs">
-    <div class="sub-tab active" onclick="if(typeof window.detailTab==='function') window.detailTab('overview',this)">Overview</div>
-    <div class="sub-tab" onclick="if(typeof window.detailTab==='function') window.detailTab('intake',this)">Intake</div>
-    <div class="sub-tab" onclick="if(typeof window.detailTab==='function') window.detailTab('checklist',this)">Checklist</div>
-    <div class="sub-tab" onclick="if(typeof window.detailTab==='function') window.detailTab('documents',this)">Documents</div>
-    <div class="sub-tab" onclick="if(typeof window.detailTab==='function') window.detailTab('radar',this)">Radar</div>
-    <div class="sub-tab" onclick="if(typeof window.detailTab==='function') window.detailTab('gap',this)">Gap Review</div>
-    <div class="sub-tab" onclick="if(typeof window.detailTab==='function') window.detailTab('financials',this)">Financials</div>
-    <div class="sub-tab" onclick="if(typeof window.detailTab==='function') window.detailTab('activity',this)">Activity</div>
-    <div class="sub-tab" onclick="if(typeof window.detailTab==='function') window.detailTab('referrals',this)">The Syndicate</div>
-    <div class="sub-tab" onclick="if(typeof window.detailTab==='function') window.detailTab('debrief',this)">Debrief</div>
+    <div class="sub-tab active"  onclick="if(typeof window.detailTab==='function')window.detailTab('overview',this)">Overview</div>
+    <div class="sub-tab"        onclick="if(typeof window.detailTab==='function')window.detailTab('intake',this)">Intake</div>
+    <div class="sub-tab"        onclick="if(typeof window.detailTab==='function')window.detailTab('checklist',this)">Checklist</div>
+    <div class="sub-tab"        onclick="if(typeof window.detailTab==='function')window.detailTab('documents',this)">Documents</div>
+    <div class="sub-tab"        onclick="if(typeof window.detailTab==='function')window.detailTab('radar',this)">Radar</div>
+    <div class="sub-tab"        onclick="if(typeof window.detailTab==='function')window.detailTab('gap',this)">Gap Review</div>
+    <div class="sub-tab"        onclick="if(typeof window.detailTab==='function')window.detailTab('financials',this)">Financials</div>
+    <div class="sub-tab"        onclick="if(typeof window.detailTab==='function')window.detailTab('activity',this)">Activity</div>
+    <div class="sub-tab"        onclick="if(typeof window.detailTab==='function')window.detailTab('referrals',this)">The Syndicate</div>
+    <div class="sub-tab"        onclick="if(typeof window.detailTab==='function')window.detailTab('debrief',this)">Debrief</div>
   </div>
-  
+
   <div class="detail-body">
-    <div id="dt-overview" class="detail-section"></div>
-    <div id="dt-intake" class="detail-section hidden"><div id="dp-intake-content"></div></div>
-    <div id="dt-checklist" class="detail-section hidden"><div id="dp-checklist-items"></div></div>
-    <div id="dt-documents" class="detail-section hidden"><div id="docsContainer"></div></div>
-    <div id="dt-radar" class="detail-section hidden"><div id="dp-radar-list"></div></div>
-    <div id="dt-gap" class="detail-section hidden">
-        <div class="fg"><label class="fl">Gap Review Status</label><select class="fi" id="dp-gap-status"><option value="">None</option><option value="requested">Requested</option><option value="invoiced">Invoiced</option><option value="paid">Paid</option><option value="delivered">Delivered</option></select></div>
-        <div class="fg"><label class="fl">Scope Summary</label><textarea class="fi" id="dp-gap-scope" rows="4"></textarea></div>
-        <div class="fg"><label class="fl">Invoice URL</label><input type="text" class="fi" id="dp-gap-invoice"></div>
-        <button class="btn btn-primary" onclick="if(typeof window.saveGap==='function') window.saveGap()">Save Gap Review</button>
+    <div id="dt-overview"   class="detail-section"></div>
+    <div id="dt-intake"     class="detail-section hidden"><div id="dp-intake-content"></div></div>
+    <div id="dt-checklist"  class="detail-section hidden"><div id="dp-checklist-items"></div></div>
+    <div id="dt-documents"  class="detail-section hidden"><div id="docsContainer"></div></div>
+    <div id="dt-radar"      class="detail-section hidden"><div id="dp-radar-list"></div></div>
+    <div id="dt-gap"        class="detail-section hidden">
+      <div class="fg"><label class="fl">Gap Review Status</label>
+        <select class="fi" id="dp-gap-status"><option value="">None</option><option value="requested">Requested</option><option value="invoiced">Invoiced</option><option value="paid">Paid</option><option value="delivered">Delivered</option></select>
+      </div>
+      <div class="fg"><label class="fl">Scope Summary</label><textarea class="fi" id="dp-gap-scope" rows="4"></textarea></div>
+      <div class="fg"><label class="fl">Invoice URL</label><input type="text" class="fi" id="dp-gap-invoice"></div>
+      <button class="btn btn-primary" onclick="if(typeof window.saveGap==='function')window.saveGap()">Save Gap Review</button>
     </div>
     <div id="dt-financials" class="detail-section hidden">
-        <div class="card" style="margin-bottom:14px"><div class="card-label">Plan Price</div><div class="card-value" id="dp-price">—</div></div>
-        <div class="fg"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><label class="fl" style="margin:0">Maintenance Active</label><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="dp-maint" onchange="if(typeof window.toggleMaint==='function') window.toggleMaint(this.checked)"><span style="font-size:10px;color:var(--marble-dim)">$297/month</span></label></div></div>
-        <div class="fg" id="dp-maint-fields" style="display:none"><div class="fi-row"><div><label class="fl">Subscription ID</label><input type="text" class="fi" id="dp-maint-id"></div><div><label class="fl">Started</label><input type="date" class="fi" id="dp-maint-start"></div></div><button class="btn btn-outline btn-sm" onclick="if(typeof window.saveMaint==='function') window.saveMaint()">Save Maintenance</button></div>
+      <div class="card" style="margin-bottom:14px"><div class="card-label">Plan Price</div><div class="card-value" id="dp-price">—</div></div>
+      <div class="fg">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <label class="fl" style="margin:0">Maintenance Active</label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="dp-maint" onchange="if(typeof window.toggleMaint==='function')window.toggleMaint(this.checked)">
+            <span style="font-size:10px;color:var(--marble-dim)">$297/month</span>
+          </label>
+        </div>
+      </div>
+      <div class="fg" id="dp-maint-fields" style="display:none">
+        <div class="fi-row">
+          <div><label class="fl">Subscription ID</label><input type="text" class="fi" id="dp-maint-id"></div>
+          <div><label class="fl">Started</label><input type="date" class="fi" id="dp-maint-start"></div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="if(typeof window.saveMaint==='function')window.saveMaint()">Save Maintenance</button>
+      </div>
     </div>
-    <div id="dt-activity" class="detail-section hidden">
+    <div id="dt-activity"  class="detail-section hidden">
       <div id="dp-activity-log" style="margin-bottom:16px"></div>
       <div class="fg"><label class="fl">Add Note</label><textarea class="fi" id="dp-new-note" rows="2"></textarea></div>
-      <button class="btn btn-outline" onclick="if(typeof window.addActivityNote==='function') window.addActivityNote()">+ Log Note</button>
+      <button class="btn btn-outline" onclick="if(typeof window.addActivityNote==='function')window.addActivityNote()">+ Log Note</button>
     </div>
     <div id="dt-referrals" class="detail-section hidden">
-      <div id="dp-ref-list" style="margin-bottom:24px;"></div>
-      <div class="section-title" style="font-size:14px;border-top:1px solid var(--border);padding-top:16px;">Manual Add</div>
+      <div id="dp-ref-list" style="margin-bottom:24px"></div>
+      <div class="section-title" style="font-size:14px;border-top:1px solid var(--border);padding-top:16px">Manual Add</div>
       <div class="fi-row3" style="margin-top:10px">
         <div class="fg"><label class="fl">Company</label><input type="text" class="fi" id="dp-ref-co"></div>
         <div class="fg"><label class="fl">Email</label><input type="email" class="fi" id="dp-ref-email"></div>
         <div class="fg"><label class="fl">Date</label><input type="date" class="fi" id="dp-ref-date"></div>
       </div>
-      <button class="btn btn-outline" onclick="if(typeof window.addReferral==='function') window.addReferral()">+ Add</button>
+      <button class="btn btn-outline" onclick="if(typeof window.addReferral==='function')window.addReferral()">+ Add</button>
     </div>
     <div id="dt-debrief" class="detail-section hidden"><div id="dp-debrief-content"></div></div>
   </div>
-</div>
+</div><!-- /detailPanel -->
 
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- PROSPECT PANEL                                             -->
+<!-- ══════════════════════════════════════════════════════════ -->
 <div id="prospectPanel">
   <div class="pp-header">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
@@ -859,12 +781,15 @@ tbody td.dim{color:var(--marble-dim)}
         <div class="pp-name" id="pp-name">—</div>
         <div class="pp-meta" id="pp-meta">—</div>
       </div>
-      <button class="btn btn-outline btn-sm" onclick="if(typeof window.closePP==='function') window.closePP()">✕</button>
+      <button class="btn btn-outline btn-sm" onclick="if(typeof window.closePP==='function')window.closePP()">✕</button>
     </div>
   </div>
   <div class="pp-body" id="pp-body"></div>
 </div>
 
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- FLAGSHIP PANEL                                             -->
+<!-- ══════════════════════════════════════════════════════════ -->
 <div id="flagshipPanel">
   <div class="pp-header" style="padding:20px 20px 14px;border-bottom:1px solid var(--border);flex-shrink:0">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
@@ -872,99 +797,42 @@ tbody td.dim{color:var(--marble-dim)}
         <div class="pp-name" id="fsp-name">—</div>
         <div class="pp-meta" id="fsp-meta">—</div>
       </div>
-      <button class="btn btn-outline btn-sm" onclick="if(typeof window.closeFSP==='function') window.closeFSP()">✕</button>
+      <button class="btn btn-outline btn-sm" onclick="if(typeof window.closeFSP==='function')window.closeFSP()">✕</button>
     </div>
   </div>
   <div class="pp-body" id="fsp-body"></div>
 </div>
 
-<div id="overlay" onclick="if(typeof window.closeModal==='function') window.closeModal(); document.getElementById('modal-radar-cms').style.display='none';"></div>
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- OVERLAY & MODAL                                            -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div id="overlay" onclick="if(typeof window.closeModal==='function')window.closeModal()"></div>
 
 <div id="modal">
   <div class="modal-header">
     <div class="modal-title" id="modalTitle">—</div>
-    <button class="btn btn-ghost" onclick="if(typeof window.closeModal==='function') window.closeModal()">✕</button>
+    <button class="btn btn-ghost" onclick="if(typeof window.closeModal==='function')window.closeModal()">✕</button>
   </div>
-  <div class="modal-body" id="modalBody"></div>
+  <div class="modal-body"   id="modalBody"></div>
   <div class="modal-footer" id="modalFooter"></div>
 </div>
 
-<div id="modal-radar-cms" class="hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--surface); border:1px solid var(--gold); width:800px; max-width:95vw; max-height:90vh; z-index:260; display:none; flex-direction:column; box-shadow:0 20px 50px rgba(0,0,0,0.8);">
-    <div class="modal-header">
-        <div class="modal-title" style="color:var(--gold);">Regulation DB Manager</div>
-        <button class="btn btn-ghost" onclick="document.getElementById('modal-radar-cms').style.display='none'; document.getElementById('overlay').classList.remove('open');">✕</button>
-    </div>
-    <div class="modal-body" style="flex:1; overflow-y:auto; padding:24px;">
-        <div class="fi-row" style="margin-bottom:16px;">
-            <div class="fg" style="margin:0;"><label class="fl">Law / Threat Name *</label><input type="text" id="cms-reg-title" class="fi" placeholder="e.g. Colorado AI Act - SB24-205"></div>
-            <div class="fg" style="margin:0;"><label class="fl">Effective Date</label><input type="date" id="cms-reg-date" class="fi"></div>
-        </div>
-        <div class="fi-row" style="margin-bottom:24px;">
-            <div class="fg" style="margin:0;"><label class="fl">Jurisdiction Target</label>
-                <select id="cms-reg-jur" class="fi">
-                    <option value="Global">Global / All</option>
-                    <option value="US-All">US (Federal/All)</option>
-                    <option value="CA">California (US-CA)</option>
-                    <option value="EU">European Union</option>
-                    <option value="UK">United Kingdom</option>
-                </select>
-            </div>
-            <div class="fg" style="margin:0;"><label class="fl">Severity Trigger</label>
-                <select id="cms-reg-sev" class="fi">
-                    <option value="HIGH">🟡 High</option>
-                    <option value="CRITICAL">🔴 Critical</option>
-                </select>
-            </div>
-        </div>
-        <div class="fg" style="margin-bottom:24px;"><label class="fl">The Threat Description (Visible to Client)</label>
-            <textarea id="cms-reg-desc" class="fi" rows="2" placeholder="Describe the compliance requirement..."></textarea>
-        </div>
-
-        <div style="font-size:10px; color:var(--gold); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:12px; font-weight:700; border-bottom:1px solid var(--border); padding-bottom:6px;">Tripwire Targeting (EXT.6 / INT.10)</div>
-        <div style="font-size:11px; color:var(--marble-dim); margin-bottom:16px;">Select which architectural footprints this law applies to. It will dynamically cross-reference the Vault.</div>
-        
-        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
-            <div>
-                <div style="font-size:9px; letter-spacing:0.1em; color:var(--marble-faint); margin-bottom:8px; text-transform:uppercase;">Baseline</div>
-                <label style="display:flex; align-items:center; gap:6px; font-size:11px; margin-bottom:8px; cursor:pointer;"><input type="checkbox" id="cms-target-all" class="cms-chk"> Applies to Everyone</label>
-            </div>
-            <div>
-                <div style="font-size:9px; letter-spacing:0.1em; color:var(--marble-faint); margin-bottom:8px; text-transform:uppercase;">EXT. 6 Targets</div>
-                <label style="display:flex; align-items:center; gap:6px; font-size:11px; margin-bottom:8px; cursor:pointer;"><input type="checkbox" value="eu_users" class="cms-chk cms-ext"> EU/UK Users</label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:11px; margin-bottom:8px; cursor:pointer;"><input type="checkbox" value="ca_users" class="cms-chk cms-ext"> California Users</label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:11px; margin-bottom:8px; cursor:pointer;"><input type="checkbox" value="processes_pii" class="cms-chk cms-ext"> Processes PII</label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:11px; margin-bottom:8px; cursor:pointer;"><input type="checkbox" value="sensitive_data" class="cms-chk cms-ext"> Sensitive Data</label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:11px; margin-bottom:8px; cursor:pointer;"><input type="checkbox" value="finetuning" class="cms-chk cms-ext"> Fine-Tuning Models</label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:11px; margin-bottom:8px; cursor:pointer;"><input type="checkbox" value="selfhosted" class="cms-chk cms-ext"> Self-Hosted Infra</label>
-            </div>
-            <div>
-                <div style="font-size:9px; letter-spacing:0.1em; color:var(--marble-faint); margin-bottom:8px; text-transform:uppercase;">INT. 10 Targets</div>
-                <label style="display:flex; align-items:center; gap:6px; font-size:11px; margin-bottom:8px; cursor:pointer;"><input type="checkbox" value="is_doer" class="cms-chk cms-int"> The Doer (Autonomous)</label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:11px; margin-bottom:8px; cursor:pointer;"><input type="checkbox" value="is_judge_hr" class="cms-chk cms-int"> The Judge (HR)</label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:11px; margin-bottom:8px; cursor:pointer;"><input type="checkbox" value="is_judge_fin" class="cms-chk cms-int"> The Judge (Financial)</label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:11px; margin-bottom:8px; cursor:pointer;"><input type="checkbox" value="is_judge_legal" class="cms-chk cms-int"> The Judge (Legal)</label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:11px; margin-bottom:8px; cursor:pointer;"><input type="checkbox" value="is_companion" class="cms-chk cms-int"> The Companion</label>
-                <label style="display:flex; align-items:center; gap:6px; font-size:11px; margin-bottom:8px; cursor:pointer;"><input type="checkbox" value="is_orchestrator" class="cms-chk cms-int"> The Orchestrator</label>
-            </div>
-        </div>
-        <input type="hidden" id="cms-reg-idx" value="-1">
-    </div>
-    <div class="modal-footer" style="padding:16px 24px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px;">
-        <button class="btn btn-outline" onclick="document.getElementById('modal-radar-cms').style.display='none'; document.getElementById('overlay').classList.remove('open');">Cancel</button>
-        <button class="btn btn-primary" onclick="if(typeof window.saveRadarCMS==='function') window.saveRadarCMS()">Deploy to Radar</button>
-    </div>
-</div>
-
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- TOAST                                                      -->
+<!-- ══════════════════════════════════════════════════════════ -->
 <div id="toast"></div>
 
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- FIREBASE                                                   -->
+<!-- ══════════════════════════════════════════════════════════ -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <script>
 firebase.initializeApp({
-  apiKey:             "AIzaSyDO4s_W8_87XnsLnuAfyUqgsF8BgaHRYWA",
-  authDomain:         "lexnova-hq.firebaseapp.com",
+  apiKey:            "AIzaSyDO4s_W8_87XnsLnuAfyUqgsF8BgaHRYWA",
+  authDomain:        "lexnova-hq.firebaseapp.com",
   projectId:         "lexnova-hq",
   storageBucket:     "lexnova-hq.firebasestorage.app",
   messagingSenderId: "539475214055",
@@ -979,20 +847,15 @@ window.login = function() {
   const pass  = document.getElementById('loginPassword').value;
   const err   = document.getElementById('loginError');
   err.style.display = 'none';
-  window.auth.signInWithEmailAndPassword(email, pass).catch(e => {
-    err.textContent = 'Invalid credentials.';
-    err.style.display = 'block';
-  });
+  window.auth.signInWithEmailAndPassword(email, pass)
+    .catch(() => { err.textContent='Invalid credentials.'; err.style.display='block'; });
 };
 
-window.signOut = function() { 
-  window.auth.signOut(); 
-};
+window.signOut = function() { window.auth.signOut(); };
 
-// Global Auth Observer (The Gatekeeper)
 window.auth.onAuthStateChanged(async u => {
   if (!u) {
-    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('loginScreen').style.display  = 'flex';
     document.getElementById('adminPanel').classList.remove('active');
     return;
   }
@@ -1000,24 +863,25 @@ window.auth.onAuthStateChanged(async u => {
   if (!snap.exists) {
     await window.auth.signOut();
     const err = document.getElementById('loginError');
-    err.textContent = 'Access denied.';
-    err.style.display = 'block';
+    err.textContent = 'Access denied.'; err.style.display = 'block';
     return;
   }
   document.getElementById('adminEmail').textContent = u.email;
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('adminPanel').classList.add('active');
-  
-  // Initialize the application once auth clears
   if (typeof window.init === 'function') window.init();
 });
 </script>
 
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- APPLICATION SCRIPTS (load order matters)                   -->
+<!-- ══════════════════════════════════════════════════════════ -->
 <script src="admin-js/admin-core.js"></script>
 <script src="admin-js/tab-hunt-deals.js"></script>
 <script src="admin-js/tab-factory.js"></script>
 <script src="admin-js/panel-client.js"></script>
 <script src="admin-js/admin-engine.js"></script>
+<script src="admin-js/tab-regulation.js"></script>
 
 </body>
 </html>
