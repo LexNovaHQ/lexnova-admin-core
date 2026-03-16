@@ -935,6 +935,9 @@ window.saveProspect = async function() {
     };
 
     const isConverting = updates.status==='CONVERTED' && p.status!=='CONVERTED';
+    if (updates.status === 'ENGAGED' && p.status !== 'ENGAGED' && !p.repliedAt) {
+        updates.repliedAt = nowTs();
+    }
     if (isConverting) {
         if (!confirm('Migrate to Factory?')) return;
         const clientId = (p.prospectId||'').replace('LN-P-','LN-C-')||`LN-C-${Date.now()}`;
