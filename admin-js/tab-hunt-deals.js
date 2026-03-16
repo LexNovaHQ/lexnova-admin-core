@@ -1002,114 +1002,102 @@ Plan Match: ${PLANS[p.intendedPlan]||p.intendedPlan||'—'}`;
     catch { const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); if(window.toast) window.toast('Dossier copied'); }
 };
 
-window.copyToClipboard = function(id) {
-    const el=document.getElementById(id); if(!el)return;
-    el.select(); document.execCommand('copy'); if(window.toast) window.toast('Copied');
-};
-
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ SPEAR ENGINE REPORT (one-click export for Gemini) ════════════
-// ════════════════════════════════════════════════════════════════════════
-window.copySpearReport = async function(id) {
+window.copyDossier = async function(id) {
     const p = window.allProspects.find(x => x.id === id);
     if (!p) return;
 
-    // ── Product Signal → bullets ──────────────────────────────────────
-    // Option B: newlines first, sentence split fallback
-    function toProductBullets(signal) {
-        if (!signal) return '• —';
-        const trimmed = signal.trim();
-        // Try newline split first
-        const byLine = trimmed.split(/\n+/).map(s => s.trim()).filter(Boolean);
-        if (byLine.length > 1) {
-            return byLine.map(b => `• ${b}`).join('\n');
-        }
-        // Fallback: sentence split on '. ' or '.' at end of sentence
-        const bySentence = trimmed
-            .split(/(?<=\.)\s+/)
-            .map(s => s.trim())
-            .filter(s => s.length > 10); // ignore fragments
-        if (bySentence.length > 1) {
-            return bySentence.map(b => `• ${b.replace(/\.$/, '')}`).join('\n');
-        }
-        // Single sentence — just bullet it
-        return `• ${trimmed}`;
+    // ── EXISTING: Hunter forensic gaps ──
+    let gapsText = '';
+    if (p.detectedGaps && p.detectedGaps.length > 0) {
+        gapsText = p.detectedGaps.map((g, i) =>
+            `[${g.severity}] ${g.gapName} (Est. ${g.damage})\nPain: ${g.pain}\nLiability: ${g.liability}\n`
+        ).join('\n');
+    } else if (p.forensicGaps && p.forensicGaps.length > 0) {
+        // V5.5 Canon gaps from hunter.html push
+        gapsText = p.forensicGaps.map((g, i) =>
+            `[${g.severity}] [${g.ext || 'N/A'}] ${g.trap}\nPain: ${g.plain}\nSource: ${g.evidence?.source || 'N/A'}\nWhy: ${g.evidence?.reason || 'N/A'}\nDoc: ${g.doc}\n`
+        ).join('\n');
+    } else {
+        gapsText = (p.activeTraps && p.activeTraps.length)
+            ? p.activeTraps.join(', ')
+            : 'None detected';
     }
 
-    // ── Top 5 gaps — severity sorted ─────────────────────────────────
-    // getAllGaps() already merges activeGaps + forensicGaps and sorts by severity
-    const allGaps  = getAllGaps(p);
-    const top5     = allGaps.slice(0, 5);
+    // ── NEW: Scanner intelligence block (fires only if scanner completed) ──
+    let scannerSection = '';
+    if (p.scannerCompleted) {
+        const gaps    = (p.activeGaps || []);
+        const topGaps = gaps.slice(0, 5).map((g, i) =>
+            `[${i+1}] ${g.severity} [${g.ext || 'N/A'}] — ${g.trap}\n    Pain: ${g.plain}\n    Source: ${g.source || 'scanner'}\n    Doc: ${g.doc}`
+        ).join('\n\n');
 
-    function formatGap(gap, idx) {
-        const sev      = gap.severity || '—';
-        const name     = gap.trap     || gap.gapName || '—';
-        const pain     = gap.plain    || gap.pain    || '—';
-        const damage   = gap.damage   || '—';
-        const source   = gap.evidence?.source || '';
-        const evidence = gap.evidence?.reason || '';
-        return [
-            `GAP ${idx + 1} — ${sev}`,
-            `Name: ${name}`,
-            `Pain: ${pain}`,
-            `Damage: ${damage}`,
-            source   ? `Source: ${source}`   : 'Source:',
-            evidence ? `Evidence: ${evidence}` : 'Evidence:'
-        ].join('\n');
+        const surfaces = (p.trippedSurfaces || []).join(', ') || 'None';
+
+        const vaultQ = (p.vaultInputs || []).map(v =>
+            `  Q: ${v.question}\n  A: ${v.answer} (Penalty: ${v.penalty})`
+        ).join('\n');
+
+        scannerSection = `
+
+[SCANNER INTELLIGENCE — LIVE CONFESSIONS]
+Score:            ${p.scannerScore || 0}
+Unsure Flag:      ${p.unsureFlag ? 'YES — unknown vectors present' : 'No'}
+Tripped Surfaces: ${surfaces}
+Total Gaps:       ${gaps.length}
+Recommended Plan: ${p.recommendedPlan || p.intendedPlan || '—'}
+
+TOP GAPS (sorted by severity):
+${topGaps || 'None'}
+
+VAULT CONFESSIONS (raw answers):
+${vaultQ || 'None recorded'}`;
     }
 
-    const gapBlock = top5.length
-        ? top5.map(formatGap).join('\n\n')
-        : 'No gaps detected. Run Hunter audit before generating Spear Report.';
+    const text =
+`[LEX NOVA FORENSIC DOSSIER]
+ID: ${p.prospectId || '—'}
+Target: ${p.founderName || p.name || '—'} ${p.jobTitle ? '| ' + p.jobTitle : ''}
+Company: ${p.company || '—'} ${p.website ? '(' + p.website + ')' : ''}
 
-    // ── EXT Exposures ─────────────────────────────────────────────────
-    const extExp = (p.extExposures || []).join(', ') || '—';
+[FORENSIC INTELLIGENCE]
+Lanes: ${(p.lanes || []).join(', ').toUpperCase() || p.lane || '—'}
+Meta-Verbs: ${(p.metaVerbs || []).join(', ').toUpperCase() || '—'}
+INT Archetypes: ${(p.intArchetypes || []).join(', ') || p.internalCategory || '—'}
+EXT Exposures: ${(p.extExposures || []).join(', ') || p.externalCategory || '—'}
+Geography: ${p.registrationJurisdiction || p.geography || '—'}
+Service Jurisdictions: ${p.serviceJurisdictions || '—'}
+Headcount: ${p.headcount || '—'}
+Product Signal: ${p.productSignal || '—'}
 
-    // ── Archetypes ────────────────────────────────────────────────────
-    const archs = (p.intArchetypes || []).join(', ') || p.internalCategory || '—';
+[DETECTED GAPS — HUNTER FORENSIC]
+${gapsText}${scannerSection}
 
-    // ── Build report ──────────────────────────────────────────────────
-    const scanLink = p.scannerLink ||
-        `https://lexnovahq.com/scanner.html?pid=${p.prospectId || ''}`;
-
-    const report =
-`[SPEAR ENGINE REPORT]
-MODE: [COLD / FU1 / FU2 / FU3 / FU4]
-
-[TARGET]
-Founder: ${p.founderName || p.name || '—'} | ${p.jobTitle || '—'}
-Company: ${p.company || '—'}
-PID: ${p.prospectId || '—'}
-Scanner Link: ${scanLink}
-
-[PRODUCT INTELLIGENCE]
-Lanes: ${(p.lanes || []).join(', ').toUpperCase() || '—'}
-Archetypes: ${archs}
-EXT Exposures: ${extExp}
-Product Signal:
-${toProductBullets(p.productSignal)}
-
-[GAP MATRIX — sorted by severity, highest first]
-${gapBlock}
+[THE SPEAR (PAYLOAD)]
+SUB: ${p.emailSubject || '—'}
+BODY:
+"${p.personalizedHook || '—'}"
 
 [LOGISTICS]
+Status: ${p.status || '—'}
+Plan Match: ${PLANS[p.intendedPlan] || p.intendedPlan || '—'}
 Funding: ${p.fundingStage || '—'}
-Headcount: ${p.headcount || '—'}
-Geography: ${p.registrationJurisdiction || p.geography || '—'}
-Intended Plan: ${p.intendedPlan || '—'}`;
+Scanner: ${p.scannerCompleted ? 'COMPLETED 🔥🔥' : p.scannerClicked ? 'CLICKED 🔥' : 'Not started'}`;
 
     try {
-        await navigator.clipboard.writeText(report);
-        if (window.toast) window.toast('🎯 Spear Report copied — set MODE before pasting');
-    } catch {
-        // Fallback for environments where clipboard API isn't available
+        await navigator.clipboard.writeText(text);
+        if (window.toast) window.toast('Dossier copied to clipboard!');
+    } catch (err) {
         const ta = document.createElement('textarea');
-        ta.value = report;
+        ta.value = text;
         document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
+        ta.focus(); ta.select();
+        try {
+            document.execCommand('copy');
+            if (window.toast) window.toast('Dossier copied to clipboard!');
+        } catch (err2) {
+            if (window.toast) window.toast('Failed to copy', 'error');
+        }
         document.body.removeChild(ta);
-        if (window.toast) window.toast('🎯 Spear Report copied — set MODE before pasting');
     }
 };
 
