@@ -966,39 +966,51 @@ window.deleteProspect = async function(id) {
 // ═════════ DOSSIER COPY ══════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 
-
 window.copyDossier = async function(id) {
     const p = window.allProspects.find(x => x.id === id);
     if (!p) return;
 
-    // ── EXISTING: Hunter forensic gaps ──
-    let gapsText = '';
-    if (p.detectedGaps && p.detectedGaps.length > 0) {
-        gapsText = p.detectedGaps.map((g, i) =>
-            `[${g.severity}] ${g.gapName} (Est. ${g.damage})\nPain: ${g.pain}\nLiability: ${g.liability}\n`
-        ).join('\n');
-    } else if (p.forensicGaps && p.forensicGaps.length > 0) {
-        // V5.5 Canon gaps from hunter.html push
-        gapsText = p.forensicGaps.map((g, i) =>
-            `[${g.severity}] [${g.ext || 'N/A'}] ${g.trap}\nPain: ${g.plain}\nSource: ${g.evidence?.source || 'N/A'}\nWhy: ${g.evidence?.reason || 'N/A'}\nDoc: ${g.doc}\n`
-        ).join('\n');
-    } else {
-        gapsText = (p.activeTraps && p.activeTraps.length)
-            ? p.activeTraps.join(', ')
-            : 'None detected';
+    // ── EVIDENCE-BACKED GAP FILTER ──
+    // Only NUCLEAR or CRITICAL gaps with provable backing:
+    //   Hunter-backed:   evidence.source AND evidence.reason both populated
+    //   Scanner-backed:  source = 'scanner' or 'dual-verified' (self-confessed)
+    function isEvidenceBacked(g) {
+        if (!['NUCLEAR','CRITICAL'].includes(g.severity)) return false;
+        const hasHunterEvidence = !!(g.evidence?.source && g.evidence?.reason);
+        const isScannerConfessed = ['scanner','dual-verified'].includes(g.source);
+        return hasHunterEvidence || isScannerConfessed;
     }
 
-    // ── NEW: Scanner intelligence block (fires only if scanner completed) ──
+    const allGaps     = getAllGaps(p);
+    const backedGaps  = allGaps.filter(isEvidenceBacked).slice(0, 7); // cap at 7
+
+    const gapsText = backedGaps.length
+        ? backedGaps.map(g =>
+            `[${g.severity}] [${g.ext || 'N/A'}] ${g.trap}\n` +
+            `  Pain:    ${g.plain}\n` +
+            `  Damage:  ${g.damage || 'Uncapped'}\n` +
+            `  Source:  ${g.evidence?.source || g.source || 'scanner'}\n` +
+            `  Why:     ${g.evidence?.reason || 'Scanner confession'}\n` +
+            `  Doc:     ${g.doc || '—'}`
+          ).join('\n\n')
+        : 'No evidence-backed gaps detected';
+
+    // ── SCANNER INTELLIGENCE (fires only if scanner completed) ──
     let scannerSection = '';
     if (p.scannerCompleted) {
-        const gaps    = (p.activeGaps || []);
-        const topGaps = gaps.slice(0, 5).map((g, i) =>
-            `[${i+1}] ${g.severity} [${g.ext || 'N/A'}] — ${g.trap}\n    Pain: ${g.plain}\n    Source: ${g.source || 'scanner'}\n    Doc: ${g.doc}`
-        ).join('\n\n');
+        const activeGaps  = (p.activeGaps || []);
+        const scanBacked  = activeGaps
+            .filter(g => ['NUCLEAR','CRITICAL'].includes(g.severity))
+            .slice(0, 5)
+            .map((g, i) =>
+                `[${i+1}] ${g.severity} [${g.ext || 'N/A'}] — ${g.trap}\n` +
+                `    Pain:   ${g.plain}\n` +
+                `    Source: ${g.source || 'scanner'}\n` +
+                `    Doc:    ${g.doc}`
+            ).join('\n\n');
 
         const surfaces = (p.trippedSurfaces || []).join(', ') || 'None';
-
-        const vaultQ = (p.vaultInputs || []).map(v =>
+        const vaultQ   = (p.vaultInputs || []).map(v =>
             `  Q: ${v.question}\n  A: ${v.answer} (Penalty: ${v.penalty})`
         ).join('\n');
 
@@ -1008,60 +1020,57 @@ window.copyDossier = async function(id) {
 Score:            ${p.scannerScore || 0}
 Unsure Flag:      ${p.unsureFlag ? 'YES — unknown vectors present' : 'No'}
 Tripped Surfaces: ${surfaces}
-Total Gaps:       ${gaps.length}
+Total Gaps:       ${activeGaps.length}
 Recommended Plan: ${p.recommendedPlan || p.intendedPlan || '—'}
 
-TOP GAPS (sorted by severity):
-${topGaps || 'None'}
+TOP NUCLEAR/CRITICAL (scanner-confessed):
+${scanBacked || 'None'}
 
 VAULT CONFESSIONS (raw answers):
 ${vaultQ || 'None recorded'}`;
     }
 
     const text =
-`[LEX NOVA FORENSIC DOSSIER]
+`[LEX NOVA FORENSIC DOSSIER — ${new Date().toLocaleDateString('en-GB')}]
 ID: ${p.prospectId || '—'}
 Target: ${p.founderName || p.name || '—'} ${p.jobTitle ? '| ' + p.jobTitle : ''}
 Company: ${p.company || '—'} ${p.website ? '(' + p.website + ')' : ''}
+Email: ${p.email || '—'} | LinkedIn: ${p.linkedinUrl || '—'}
+Replied: ${p.repliedAt ? new Date(p.repliedAt).toLocaleDateString('en-GB') : 'Not yet'}
 
-[FORENSIC INTELLIGENCE]
-Lanes: ${(p.lanes || []).join(', ').toUpperCase() || p.lane || '—'}
-Meta-Verbs: ${(p.metaVerbs || []).join(', ').toUpperCase() || '—'}
-INT Archetypes: ${(p.intArchetypes || []).join(', ') || p.internalCategory || '—'}
-EXT Exposures: ${(p.extExposures || []).join(', ') || p.externalCategory || '—'}
-Geography: ${p.registrationJurisdiction || p.geography || '—'}
-Service Jurisdictions: ${p.serviceJurisdictions || '—'}
-Headcount: ${p.headcount || '—'}
-Product Signal: ${p.productSignal || '—'}
+[CLASSIFICATION]
+Lanes:                ${(p.lanes || []).join(', ').toUpperCase() || '—'}
+Meta-Verbs:           ${(p.metaVerbs || []).join(', ').toUpperCase() || '—'}
+INT Archetypes:       ${(p.intArchetypes || []).join(', ') || p.internalCategory || '—'}
+EXT Exposures:        ${(p.extExposures || []).join(', ') || '—'}
+Reg. Jurisdiction:    ${p.registrationJurisdiction || p.geography || '—'}
+Service Jurisdictions:${p.serviceJurisdictions || '—'}
+Funding:              ${p.fundingStage || '—'} | Headcount: ${p.headcount || '—'}
 
-[DETECTED GAPS — HUNTER FORENSIC]
+[PRODUCT SIGNAL]
+${p.productSignal || '—'}
+
+[EVIDENCE-BACKED GAPS — NUCLEAR/CRITICAL ONLY (${backedGaps.length} of ${getAllGaps(p).length} total)]
 ${gapsText}${scannerSection}
 
-[THE SPEAR (PAYLOAD)]
-SUB: ${p.emailSubject || '—'}
-BODY:
-"${p.personalizedHook || '—'}"
+[THE SPEAR]
+SUB:  ${p.emailSubject || '—'}
+BODY: "${p.personalizedHook || '—'}"
 
 [LOGISTICS]
-Status: ${p.status || '—'}
-Plan Match: ${PLANS[p.intendedPlan] || p.intendedPlan || '—'}
-Funding: ${p.fundingStage || '—'}
-Scanner: ${p.scannerCompleted ? 'COMPLETED 🔥🔥' : p.scannerClicked ? 'CLICKED 🔥' : 'Not started'}`;
+Status:    ${p.status || '—'} | Step: ${p.sequenceStep || 'C'} | Emails: ${p.emailsSent || 0}
+Plan:      ${PLANS[p.intendedPlan] || p.intendedPlan || '—'}
+Scanner:   ${p.scannerCompleted ? 'COMPLETED 🔥🔥' : p.scannerClicked ? 'CLICKED 🔥' : 'Not started'}`;
 
     try {
         await navigator.clipboard.writeText(text);
-        if (window.toast) window.toast('Dossier copied to clipboard!');
-    } catch (err) {
+        if (window.toast) window.toast('Dossier copied — ' + backedGaps.length + ' evidence-backed gaps');
+    } catch {
         const ta = document.createElement('textarea');
-        ta.value = text;
-        document.body.appendChild(ta);
+        ta.value = text; document.body.appendChild(ta);
         ta.focus(); ta.select();
-        try {
-            document.execCommand('copy');
-            if (window.toast) window.toast('Dossier copied to clipboard!');
-        } catch (err2) {
-            if (window.toast) window.toast('Failed to copy', 'error');
-        }
+        try { document.execCommand('copy'); if (window.toast) window.toast('Dossier copied'); }
+        catch { if (window.toast) window.toast('Failed to copy', 'error'); }
         document.body.removeChild(ta);
     }
 };
