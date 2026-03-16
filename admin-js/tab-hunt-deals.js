@@ -678,6 +678,7 @@ function renderPPBody(p) {
             <button class="btn btn-outline btn-sm" onclick="window.copyToClipboard('pp-scanner-url')">Copy Link</button>
         </div>
         <button class="btn btn-primary btn-sm" onclick="window.copyDossier('${window.esc(p.id)}')">📋 Full Dossier</button>
+        <button class="btn btn-outline btn-sm" onclick="window.copySpearReport('${window.esc(p.id)}')">🎯 Spear Report</button>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;height:calc(100vh - 180px);overflow:hidden;">
@@ -1004,6 +1005,112 @@ Plan Match: ${PLANS[p.intendedPlan]||p.intendedPlan||'—'}`;
 window.copyToClipboard = function(id) {
     const el=document.getElementById(id); if(!el)return;
     el.select(); document.execCommand('copy'); if(window.toast) window.toast('Copied');
+};
+
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ SPEAR ENGINE REPORT (one-click export for Gemini) ════════════
+// ════════════════════════════════════════════════════════════════════════
+window.copySpearReport = async function(id) {
+    const p = window.allProspects.find(x => x.id === id);
+    if (!p) return;
+
+    // ── Product Signal → bullets ──────────────────────────────────────
+    // Option B: newlines first, sentence split fallback
+    function toProductBullets(signal) {
+        if (!signal) return '• —';
+        const trimmed = signal.trim();
+        // Try newline split first
+        const byLine = trimmed.split(/\n+/).map(s => s.trim()).filter(Boolean);
+        if (byLine.length > 1) {
+            return byLine.map(b => `• ${b}`).join('\n');
+        }
+        // Fallback: sentence split on '. ' or '.' at end of sentence
+        const bySentence = trimmed
+            .split(/(?<=\.)\s+/)
+            .map(s => s.trim())
+            .filter(s => s.length > 10); // ignore fragments
+        if (bySentence.length > 1) {
+            return bySentence.map(b => `• ${b.replace(/\.$/, '')}`).join('\n');
+        }
+        // Single sentence — just bullet it
+        return `• ${trimmed}`;
+    }
+
+    // ── Top 5 gaps — severity sorted ─────────────────────────────────
+    // getAllGaps() already merges activeGaps + forensicGaps and sorts by severity
+    const allGaps  = getAllGaps(p);
+    const top5     = allGaps.slice(0, 5);
+
+    function formatGap(gap, idx) {
+        const sev      = gap.severity || '—';
+        const name     = gap.trap     || gap.gapName || '—';
+        const pain     = gap.plain    || gap.pain    || '—';
+        const damage   = gap.damage   || '—';
+        const source   = gap.evidence?.source || '';
+        const evidence = gap.evidence?.reason || '';
+        return [
+            `GAP ${idx + 1} — ${sev}`,
+            `Name: ${name}`,
+            `Pain: ${pain}`,
+            `Damage: ${damage}`,
+            source   ? `Source: ${source}`   : 'Source:',
+            evidence ? `Evidence: ${evidence}` : 'Evidence:'
+        ].join('\n');
+    }
+
+    const gapBlock = top5.length
+        ? top5.map(formatGap).join('\n\n')
+        : 'No gaps detected. Run Hunter audit before generating Spear Report.';
+
+    // ── EXT Exposures ─────────────────────────────────────────────────
+    const extExp = (p.extExposures || []).join(', ') || '—';
+
+    // ── Archetypes ────────────────────────────────────────────────────
+    const archs = (p.intArchetypes || []).join(', ') || p.internalCategory || '—';
+
+    // ── Build report ──────────────────────────────────────────────────
+    const scanLink = p.scannerLink ||
+        `https://lexnovahq.com/scanner.html?pid=${p.prospectId || ''}`;
+
+    const report =
+`[SPEAR ENGINE REPORT]
+MODE: [COLD / FU1 / FU2 / FU3 / FU4]
+
+[TARGET]
+Founder: ${p.founderName || p.name || '—'} | ${p.jobTitle || '—'}
+Company: ${p.company || '—'}
+PID: ${p.prospectId || '—'}
+Scanner Link: ${scanLink}
+
+[PRODUCT INTELLIGENCE]
+Lanes: ${(p.lanes || []).join(', ').toUpperCase() || '—'}
+Archetypes: ${archs}
+EXT Exposures: ${extExp}
+Product Signal:
+${toProductBullets(p.productSignal)}
+
+[GAP MATRIX — sorted by severity, highest first]
+${gapBlock}
+
+[LOGISTICS]
+Funding: ${p.fundingStage || '—'}
+Headcount: ${p.headcount || '—'}
+Geography: ${p.registrationJurisdiction || p.geography || '—'}
+Intended Plan: ${p.intendedPlan || '—'}`;
+
+    try {
+        await navigator.clipboard.writeText(report);
+        if (window.toast) window.toast('🎯 Spear Report copied — set MODE before pasting');
+    } catch {
+        // Fallback for environments where clipboard API isn't available
+        const ta = document.createElement('textarea');
+        ta.value = report;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (window.toast) window.toast('🎯 Spear Report copied — set MODE before pasting');
+    }
 };
 
 // ════════════════════════════════════════════════════════════════════════
