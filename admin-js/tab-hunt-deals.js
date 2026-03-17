@@ -1154,8 +1154,8 @@ window.copySpearReport = async function(id) {
     const allGaps = p.forensicGaps || [];
 
     // Filter: NUCLEAR and CRITICAL only. Evidence required (evidenceTier must exist).
-    const qualified = allGaps.filter(g =>
-        ['NUCLEAR','CRITICAL'].includes(g.severity) &&
+const qualified = allGaps.filter(g =>
+        ['NUCLEAR','CRITICAL'].includes(g.severity?.toUpperCase()) &&
         g.evidence?.source &&
         g.evidence?.reason
     );
