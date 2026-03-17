@@ -1088,174 +1088,217 @@ Scanner:   ${p.scannerCompleted ? 'COMPLETED 🔥🔥' : p.scannerClicked ? 'CLI
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ SPEAR REPORT COPY ═════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
+
 window.copySpearReport = async function(id) {
     const p = window.allProspects.find(x => x.id === id);
     if (!p) return;
 
+    // ── MODE DETECTION ──
     const isNEG = !!p.scannerCompleted;
 
-    // ── EVIDENCE TIER CLASSIFIER (legal sources rank highest) ──
-    function getEvidenceTier(source) {
-        if (!source) return 5;
-        const s = source.toLowerCase();
-        const tier1 = [
-            'terms of service','terms','privacy policy','privacy',
-            'dpa','data processing','msa','master service',
-            'engagement letter','contract','agreement',
-            'product trial','demo','tos','pp','eula',
-            'acceptable use','aup','sla','order form'
-        ];
-        const tier2 = [
-            'product page','feature','documentation','docs',
-            'api','technical','spec','changelog','release',
-            'help center','knowledge base','developer','readme'
-        ];
-        if (tier1.some(t => s.includes(t))) return 1;
-        if (tier2.some(t => s.includes(t))) return 2;
-        return 3;
+    // ── CONSEQUENCE TIER DERIVATION ──
+    // Mechanical mapping. Pro reads tier + rule, never infers from raw funding.
+    function getConsequenceTier(fundingStage) {
+        if (!fundingStage) return { tier:'MOMENTUM', rule:'Use deal velocity and growth blocker language. Mid-stage urgency.' };
+        const f = fundingStage.toLowerCase();
+        if (f.includes('pre-seed') || f.includes('preseed') || f.includes('seed') || f.includes('bootstrap'))
+            return { tier:'SURVIVAL', rule:'Use existential risk and runway language. Early-stage urgency. $750 founding slot permitted in FU4.' };
+        if (f.includes('series a') || f.includes('series b'))
+            return { tier:'MOMENTUM', rule:'Use deal velocity and growth blocker language. Mid-stage urgency. $750 founding slot permitted in FU4.' };
+        if (f.includes('series c') || f.includes('series d') || f.includes('series e') ||
+            f.includes('series f') || f.includes('late') || f.includes('public'))
+            return { tier:'CREDIBILITY', rule:'Use enterprise buyer rejection, procurement blocker, and indemnity trigger language. $750 SUPPRESSED — pure meet offer only in FU4. No survival language. No runway language.' };
+        return { tier:'MOMENTUM', rule:'Use deal velocity and growth blocker language. Mid-stage urgency. $750 founding slot permitted in FU4.' };
     }
 
-    // ── NEG PRIORITY SCORER ──
-    // Tier 1: legal source + scanner confession (dual-verified)
-    // Tier 2: hunter evidence + scanner confession (dual-verified)
-    // Tier 3: hunter with legal source only
-    // Tier 4: scanner confession only
-    // Tier 5: hunter general source only
-    function getNEGPriority(g) {
-        const isDualVerified = g.source === 'dual-verified';
-        const hasHunterEvidence = !!(g.evidence?.source && g.evidence?.reason);
-        const evidenceTier = getEvidenceTier(g.evidence?.source || '');
-        const isScannerOnly = g.source === 'scanner' && !hasHunterEvidence;
+    // ── RANKING FUNCTIONS ──
+    const sevWeight = { NUCLEAR:3, CRITICAL:2, HIGH:1 };
+    const velWeight = { 'Active Now':4, 'Immediate':3, 'High':2, 'Upcoming':1, 'Pending':0 };
 
-        if (isDualVerified && evidenceTier === 1) return 1; // legal + confession
-        if (isDualVerified && evidenceTier >= 2)  return 2; // hunter + confession
-        if (hasHunterEvidence && evidenceTier === 1) return 3; // legal source only
-        if (isScannerOnly)                           return 4; // confession only
-        return 5;                                              // general source only
-    }
-
-    // ── SEVERITY WEIGHT ──
-    const sevWeight = { NUCLEAR: 3, CRITICAL: 2, HIGH: 1 };
-
-    // ── SORT FUNCTION ──
-    function sortGaps(gaps, negMode) {
+    function rankCOLD(gaps) {
         return [...gaps].sort((a, b) => {
-            const sevDiff = (sevWeight[b.severity] || 0) - (sevWeight[a.severity] || 0);
-            if (sevDiff !== 0) return sevDiff;
-            if (negMode) {
-                return getNEGPriority(a) - getNEGPriority(b);
-            } else {
-                return getEvidenceTier(a.evidence?.source || '') - getEvidenceTier(b.evidence?.source || '');
-            }
+            const sev = (sevWeight[b.severity]||0) - (sevWeight[a.severity]||0);
+            if (sev !== 0) return sev;
+            const vel = (velWeight[b.velocity]||0) - (velWeight[a.velocity]||0);
+            if (vel !== 0) return vel;
+            return (a.evidenceTier||3) - (b.evidenceTier||3);
         });
     }
 
-    // ── GAP SELECTION ──
-    let sortedGaps = [];
-
-    if (isNEG) {
-        // NEG branch — use merged activeGaps (Hunter + Scanner combined)
-        const merged = p.activeGaps || [];
-        // Must have either hunter evidence OR scanner confession
-        const qualified = merged.filter(g =>
-            (g.evidence?.source && g.evidence?.reason) || // hunter evidence
-            ['scanner','dual-verified'].includes(g.source) // scanner confession
-        );
-        sortedGaps = sortGaps(qualified, true).slice(0, 5);
-    } else {
-        // COLD/FU branch — Hunter forensicGaps only, evidence required
-        const hunterGaps = p.forensicGaps && p.forensicGaps.length > 0
-            ? p.forensicGaps
-            : (p.activeGaps || []);
-        const qualified = hunterGaps.filter(g =>
-            g.evidence?.source && g.evidence?.reason
-        );
-        sortedGaps = sortGaps(qualified, false).slice(0, 5);
+    function rankNEG(gaps) {
+        return [...gaps].sort((a, b) => {
+            // dual-verified always first
+            const aDual = a.source === 'dual-verified' ? 1 : 0;
+            const bDual = b.source === 'dual-verified' ? 1 : 0;
+            if (bDual !== aDual) return bDual - aDual;
+            const sev = (sevWeight[b.severity]||0) - (sevWeight[a.severity]||0);
+            if (sev !== 0) return sev;
+            const vel = (velWeight[b.velocity]||0) - (velWeight[a.velocity]||0);
+            if (vel !== 0) return vel;
+            return (a.evidenceTier||3) - (b.evidenceTier||3);
+        });
     }
 
-    if (sortedGaps.length === 0) {
-        if (window.toast) window.toast('No qualified gaps found — run Hunter audit first', 'error');
+    // ── GAP POOL ──
+    // Use forensicGaps as single source of truth (Hunter canonical array).
+    // Scanner upgrades evidenceTier and source fields in-place on the same array.
+    const allGaps = p.forensicGaps || [];
+
+    // Filter: NUCLEAR and CRITICAL only. Evidence required (evidenceTier must exist).
+    const qualified = allGaps.filter(g =>
+        ['NUCLEAR','CRITICAL'].includes(g.severity) &&
+        g.evidence?.source &&
+        g.evidence?.reason
+    );
+
+    if (!qualified.length) {
+        if (window.toast) window.toast('No NUCLEAR/CRITICAL evidence-backed gaps — run Hunter audit first', 'error');
         return;
     }
 
-    // ── FORMAT GAP MATRIX ──
-    const gapMatrix = sortedGaps.map((g, i) => {
-        const sourceLabel = isNEG && g.source === 'dual-verified'
-            ? `${g.evidence?.source || '—'} [DUAL-VERIFIED — scanner confirmed]`
-            : isNEG && g.source === 'scanner'
-            ? 'Scanner Confession'
-            : (g.evidence?.source || '—');
+    // Rank for branch and take top 7
+    const ranked  = isNEG ? rankNEG(qualified) : rankCOLD(qualified);
+    const top7    = ranked.slice(0, 7);
 
-        return `GAP ${i + 1} — ${g.severity}\n` +
-               `Name: ${g.trap || g.gapName || '—'}\n` +
-               `Pain: ${g.plain || g.pain || '—'}\n` +
-               `Damage: ${g.damage || 'Uncapped'}\n` +
-               `Source: ${sourceLabel}\n` +
-               `Evidence: ${g.evidence?.reason || (g.source === 'scanner' ? 'Founder confessed on scanner' : '—')}`;
+    // ── PRODUCT SIGNAL FILTERING ──
+    // Only include features whose exposesExt overlaps with gaps in top 7.
+    // productSignal is now an array of feature objects from Hunter v6.0.
+    // Falls back gracefully if productSignal is still a legacy string.
+    const productSignalRaw = p.productSignal || [];
+    let featuresForReport = '';
+
+    if (Array.isArray(productSignalRaw) && productSignalRaw.length > 0) {
+        const top7Ext = new Set(top7.flatMap(g => (g.ext||'').split(',').map(e=>e.trim())));
+        const relevantFeatures = productSignalRaw.filter(f =>
+            (f.exposesExt||[]).some(ext => top7Ext.has(ext))
+        );
+        featuresForReport = relevantFeatures.length
+            ? relevantFeatures.map(f =>
+                `• [FEATURE] "${f.feature}"\n` +
+                `  [SOURCE]  ${f.source}\n` +
+                `  [INT]     ${f.triggersInt}\n` +
+                `  [EXT]     ${(f.exposesExt||[]).join(', ')}`
+              ).join('\n\n')
+            : '• [No structured feature map — re-run Hunter audit with v6.0]';
+    } else if (typeof productSignalRaw === 'string' && productSignalRaw.trim()) {
+        // Legacy string fallback
+        featuresForReport = productSignalRaw;
+    } else {
+        featuresForReport = '• [No product signal — run Hunter audit]';
+    }
+
+    // ── GAP MATRIX FORMATTING ──
+    const gapMatrix = top7.map((g, i) => {
+        const dualFlag = g.source === 'dual-verified' ? ' [DUAL-VERIFIED — scanner confirmed]' : '';
+        const tierLabel = { 1:'Legal Document', 2:'Product Page', 3:'Inferred / Text Signal' }[g.evidenceTier] || '—';
+        return (
+            `GAP ${i+1} — ${g.severity}${dualFlag}\n` +
+            `Threat ID:   ${g.threatId || '—'}\n` +
+            `Name:        ${g.trap}\n` +
+            `Legal Ammo:  ${g.legalAmmo || '—'}\n` +
+            `Pain:        ${g.thePain || g.plain || '—'}\n` +
+            `Velocity:    ${g.velocity || '—'}\n` +
+            `Fix:         ${g.theFix || g.doc || '—'}\n` +
+            `Evidence:    Tier ${g.evidenceTier||'—'} — ${tierLabel}\n` +
+            `Source:      ${g.evidence?.source || '—'}\n` +
+            `Reason:      ${g.evidence?.reason || '—'}`
+        );
     }).join('\n\n');
 
     // ── SCANNER SECTION (NEG only) ──
     let scannerSection = '';
     if (isNEG) {
-        const vaultQ = (p.vaultInputs || []).map(v =>
-            `  Q: ${v.question}\n  A: ${v.answer} (Penalty: ${v.penalty})`
-        ).join('\n');
-        const surfaces = (p.trippedSurfaces || []).join(', ') || 'None';
+        // Top 3 vault confessions ranked by penalty severity
+        const vaultRaw = p.vaultInputs || [];
+        const penaltyWeight = { 'Uncapped':4, 'High':3, 'Medium':2, 'Low':1 };
+        const top3Vault = [...vaultRaw]
+            .sort((a,b) => (penaltyWeight[b.penalty]||0) - (penaltyWeight[a.penalty]||0))
+            .slice(0,3)
+            .map((v,i) =>
+                `[${i+1}] Penalty: ${v.penalty||'—'}\n` +
+                `    Q: ${v.question||'—'}\n` +
+                `    A: ${v.answer||'—'}`
+            ).join('\n\n');
+
+        const surfaces = (p.trippedSurfaces||[]).join(', ') || 'None';
+
         scannerSection = `
+═══════════════════════════════════════
 [SCANNER INTELLIGENCE]
+═══════════════════════════════════════
 Score:            ${p.scannerScore || 0}
 Unsure Flag:      ${p.unsureFlag ? 'YES — unknown vectors present' : 'No'}
 Tripped Surfaces: ${surfaces}
-Recommended Plan: ${p.recommendedPlan || p.intendedPlan || '—'}
 
-VAULT CONFESSIONS:
-${vaultQ || 'None recorded'}`;
+TOP CONFESSIONS (ranked by penalty):
+${top3Vault || 'None recorded'}`;
     }
 
-    // ── FORMAT PRODUCT SIGNAL ──
-    const productSignal = p.productSignal
-        ? p.productSignal.split('\n').map(l => l.trim()).filter(Boolean)
-            .map(l => `• ${l.replace(/^[•\-\*]\s*/,'')}`)
-            .join('\n')
-        : '• [No product signal — run Hunter audit first]';
+    // ── CONSEQUENCE TIER ──
+    const { tier, rule } = getConsequenceTier(p.fundingStage);
 
-    // ── BUILD REPORT ──
-    const scannerLink = p.scannerLink || `https://lexnovahq.com/scanner.html?pid=${p.prospectId||''}`;
-    const modeOptions = isNEG ? '[NEG-1 / NEG-2 / NEG-3 / NEG-4]' : '[COLD / FU1 / FU2 / FU3 / FU4]';
+    // ── LOGISTICS ──
+    const logisticsSection =
+        `Funding:       ${p.fundingStage || '—'}\n` +
+        `Headcount:     ${p.headcount || '—'}\n` +
+        `Geography:     ${p.registrationJurisdiction || p.geography || '—'}\n` +
+        `Jurisdictions: ${p.serviceJurisdictions || '—'}\n` +
+        `Intended Plan: ${p.intendedPlan || 'agentic_shield'}\n` +
+        `Emails Sent:   ${p.emailsSent || 0}\n` +
+        `Sequence Step: ${p.sequenceStep || 'C'}`;
 
+    // ── ASSEMBLE REPORT ──
     const report =
-`[SPEAR ENGINE REPORT]
-MODE: ${modeOptions}
+`═══════════════════════════════════════
+[MODE]
+═══════════════════════════════════════
+MODE: ${isNEG ? 'NEG' : 'COLD'}
+SEQUENCE: ${isNEG ? 'NEG-1 → NEG-2 → NEG-3 → NEG-4' : 'Cold → FU1 → FU2 → FU3 → FU4'}
 
+═══════════════════════════════════════
 [TARGET]
-Founder: ${p.founderName || p.name || '—'} | ${p.jobTitle || '—'}
-Company: ${p.company || '—'}
-PID: ${p.prospectId || '—'}
-Scanner Link: ${scannerLink}
+═══════════════════════════════════════
+FOUNDER:      ${p.founderName || p.name || '—'} | ${p.jobTitle || '—'}
+COMPANY:      ${p.company || '—'}
+PID:          ${p.prospectId || '—'}
+SCANNER LINK: ${p.scannerLink || `https://lexnovahq.com/scanner.html?pid=${p.prospectId||''}`}
 
+═══════════════════════════════════════
+[CONSEQUENCE TIER]
+═══════════════════════════════════════
+FUNDING:           ${p.fundingStage || 'Unknown'}
+CONSEQUENCE_TIER:  ${tier}
+RULE:              ${rule}
+
+═══════════════════════════════════════
 [PRODUCT INTELLIGENCE]
-Lanes: ${(p.lanes || []).join(', ').toUpperCase() || '—'}
-Archetypes: ${(p.intArchetypes || []).join(', ') || p.internalCategory || '—'}
-EXT Exposures: ${(p.extExposures || []).join(', ') || '—'}
-Product Signal:
-${productSignal}
+═══════════════════════════════════════
+Lanes:      ${(p.lanes||[]).join(', ').toUpperCase() || '—'}
+Archetypes: ${(p.intArchetypes||[]).join(', ') || '—'}
+EXT:        ${(p.extExposures||[]).join(', ') || '—'}
 
-[GAP MATRIX — ${isNEG ? 'sorted by dual-verification + evidence tier' : 'sorted by severity + evidence tier'}]
+FEATURE MAP (gap-relevant only):
+${featuresForReport}
+
+═══════════════════════════════════════
+[GAP MATRIX — ${top7.length} gaps — ${isNEG ? 'NEG ranked: dual-verified → severity → velocity → evidence tier' : 'COLD ranked: severity → velocity → evidence tier'}]
+═══════════════════════════════════════
 ${gapMatrix}${scannerSection}
 
+═══════════════════════════════════════
 [LOGISTICS]
-Funding: ${p.fundingStage || '—'}
-Headcount: ${p.headcount || '—'}
-Geography: ${p.registrationJurisdiction || p.geography || '—'}
-Intended Plan: ${p.intendedPlan || 'agentic_shield'}`;
+═══════════════════════════════════════
+${logisticsSection}`;
 
+    // ── COPY TO CLIPBOARD ──
     try {
         await navigator.clipboard.writeText(report);
         const label = isNEG ? 'NEG Spear Report' : 'Spear Report';
-        if (window.toast) window.toast(`${label} copied — ${sortedGaps.length} gaps · ${isNEG ? 'Scanner + Hunter' : 'Hunter only'}`);
+        if (window.toast) window.toast(`${label} copied — ${top7.length} gaps · ${tier} tier · ${isNEG ? 'NEG branch' : 'COLD branch'}`);
     } catch {
         const ta = document.createElement('textarea');
-        ta.value = report; document.body.appendChild(ta);
+        ta.value = report;
+        document.body.appendChild(ta);
         ta.focus(); ta.select();
         try { document.execCommand('copy'); if (window.toast) window.toast('Report copied'); }
         catch { if (window.toast) window.toast('Failed to copy', 'error'); }
