@@ -33,7 +33,7 @@ function planBadgeClass(p){ return {agentic_shield:'b-intake',workplace_shield:'
 function statusBadgeHtml(s){
     const cls={QUEUED:'b-cold',SEQUENCE:'b-intake',ENGAGED:'b-warm',NEGOTIATING:'b-hot',CONVERTED:'b-delivered',ARCHIVED:'b-ghost',DEAD:'b-dead'}[s]||'b-ghost';
     return `<span class="badge ${cls}">${s}</span>`;
-
+}
 function getAllGaps(p) {
     const active  = p.activeGaps  || [];
     const forensic= p.forensicGaps|| [];
