@@ -291,7 +291,13 @@ WITHIN EACH GROUP: Order by evidence quality:
   2nd — Tier 2 gaps (evidence from product pages / API docs / technical documentation)
   3rd — Tier 3 gaps (observable absence — UNI_CON gaps ONLY, see Tier 3 rules below)
 
-Do NOT sort by severity or velocity. Do NOT reorder for commercial impact. Output every NUCLEAR and CRITICAL gap that passes the evidence filter.
+Do NOT sort by severity or velocity. Do NOT reorder for commercial impact.
+
+OUTPUT VOLUME RULE:
+- All Tier 1 gaps: output unconditionally (no cap)
+- All Tier 2 gaps: output unconditionally (no cap)
+- Tier 3 gaps: maximum 3 (consent-only gaps — there are only 6 possible Tier 3 entries)
+- No arbitrary count cap. The evidence filter is the gate, not a number.
 
 ═══════════════════════════════════════════════════════════════
 OUTPUT SCHEMA — output ONLY valid JSON, no markdown, no text outside JSON
