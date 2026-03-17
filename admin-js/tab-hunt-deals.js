@@ -1153,7 +1153,7 @@ window.copySpearReport = async function(id) {
 
     // Filter: NUCLEAR and CRITICAL only. Evidence required (evidenceTier must exist).
 const qualified = allGaps.filter(g =>
-        ['NUCLEAR','CRITICAL'].includes(g.severity?.toUpperCase()) &&
+        ['NUCLEAR','CRITICAL'].includes(g.severity) &&
         g.evidence?.source &&
         g.evidence?.reason
     );
