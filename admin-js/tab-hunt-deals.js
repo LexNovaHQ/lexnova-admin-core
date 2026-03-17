@@ -1153,10 +1153,10 @@ window.copySpearReport = async function(id) {
 
     // Filter: NUCLEAR and CRITICAL only. Evidence required (evidenceTier must exist).
 const qualified = allGaps.filter(g =>
-        ['NUCLEAR','CRITICAL'].includes(g.severity) &&
-        g.evidence?.source &&
-        g.evidence?.reason
-    );
+    ['NUCLEAR','CRITICAL'].includes(g.severity?.toUpperCase()) &&
+    g.evidence?.source &&
+    g.evidence?.reason
+);
 
     if (!qualified.length) {
         if (window.toast) window.toast('No NUCLEAR/CRITICAL evidence-backed gaps — run Hunter audit first', 'error');
