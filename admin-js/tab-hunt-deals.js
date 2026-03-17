@@ -45,13 +45,11 @@ function getAllGaps(p) {
             return agKey && agKey === fgKey;
         })) merged.push(fg);
     });
-    const sevWeight = { NUCLEAR:3, CRITICAL:2, HIGH:1 };
-    merged.sort((a,b) =>
-        (sevWeight[a.severity?.toUpperCase()]||0) >
-        (sevWeight[b.severity?.toUpperCase()]||0) ? -1 : 1
-    );
+    const sw = { NUCLEAR:3, CRITICAL:2, HIGH:1 };
+    merged.sort((a,b) => (sw[b.severity?.toUpperCase()]||0) - (sw[a.severity?.toUpperCase()]||0));
     return merged;
 }
+
 
 function getActionText(p) {
     const step = p.sequenceStep||'C';
