@@ -94,6 +94,22 @@ function buildHuntTabHTML() {
                     </select>
                 </div>
                 <button class="btn btn-primary" onclick="if(typeof window.openAddProspect==='function')window.openAddProspect()">+ Add Prospect</button>
+<button class="btn btn-outline" onclick="window.copyICPTable()" style="border-color:var(--gold);color:var(--gold);">📋 Copy List</button>
+```
+
+---
+
+**What it copies:**
+```
+LEX NOVA — ICP PIPELINE SNAPSHOT
+No filters — showing full pipeline
+
+#  | Founder               | Company               | Status       | Step | Emails | Scanner
+---|----------------------|----------------------|--------------|------|--------|--------
+ 1 | Shikhar Shrestha     | Ambient AI, Inc.     | SEQUENCE     | FU1  | 1      | —
+ 2 | Alex Johnson         | Stainless            | QUEUED       | C    | 0      | —
+
+Total: 49 prospects
             </div>
             <div style="display:flex;gap:10px;width:100%;flex-wrap:wrap;">
                 <select class="fi" id="op-gap" onchange="if(typeof window.filterProspects==='function')window.filterProspects()">
