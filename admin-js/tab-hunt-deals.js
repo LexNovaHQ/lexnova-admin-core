@@ -33,14 +33,23 @@ function planBadgeClass(p){ return {agentic_shield:'b-intake',workplace_shield:'
 function statusBadgeHtml(s){
     const cls={QUEUED:'b-cold',SEQUENCE:'b-intake',ENGAGED:'b-warm',NEGOTIATING:'b-hot',CONVERTED:'b-delivered',ARCHIVED:'b-ghost',DEAD:'b-dead'}[s]||'b-ghost';
     return `<span class="badge ${cls}">${s}</span>`;
-}
 
 function getAllGaps(p) {
     const active  = p.activeGaps  || [];
     const forensic= p.forensicGaps|| [];
     const merged  = [...active];
-    forensic.forEach(fg => { if (!merged.find(ag=>ag.id===fg.id)) merged.push(fg); });
-    merged.sort((a,b)=>({NUCLEAR:3,CRITICAL:2,HIGH:1}[b.severity]||0)-({NUCLEAR:3,CRITICAL:2,HIGH:1}[a.severity]||0));
+    forensic.forEach(fg => {
+        const fgKey = fg.threatId || fg.id || fg.trap || '';
+        if (!merged.find(ag => {
+            const agKey = ag.threatId || ag.id || ag.trap || '';
+            return agKey && agKey === fgKey;
+        })) merged.push(fg);
+    });
+    const sevWeight = { NUCLEAR:3, CRITICAL:2, HIGH:1 };
+    merged.sort((a,b) =>
+        (sevWeight[a.severity?.toUpperCase()]||0) >
+        (sevWeight[b.severity?.toUpperCase()]||0) ? -1 : 1
+    );
     return merged;
 }
 
