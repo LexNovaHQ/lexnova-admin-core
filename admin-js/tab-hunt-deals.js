@@ -1084,6 +1084,129 @@ Scanner:   ${p.scannerCompleted ? 'COMPLETED 🔥🔥' : p.scannerClicked ? 'CLI
 };
 
 // ════════════════════════════════════════════════════════════════════════
+// ═════════ SPEAR REPORT COPY ═════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
+window.copySpearReport = async function(id) {
+    const p = window.allProspects.find(x => x.id === id);
+    if (!p) return;
+
+    // ── EVIDENCE TIER CLASSIFIER ──
+    // Tier 1 = legal documents (highest credibility)
+    // Tier 2 = product/technical sources
+    // Tier 3 = general sources (lowest credibility)
+    function getEvidenceTier(source) {
+        if (!source) return 3;
+        const s = source.toLowerCase();
+        const tier1 = [
+            'terms of service', 'terms', 'privacy policy', 'privacy',
+            'dpa', 'data processing', 'msa', 'master service',
+            'engagement letter', 'contract', 'agreement',
+            'product trial', 'demo', 'tos', 'pp', 'eula',
+            'acceptable use', 'aup', 'sla', 'order form'
+        ];
+        const tier2 = [
+            'product page', 'feature', 'documentation', 'docs',
+            'api', 'technical', 'spec', 'changelog', 'release',
+            'help center', 'knowledge base', 'developer', 'readme'
+        ];
+        if (tier1.some(t => s.includes(t))) return 1;
+        if (tier2.some(t => s.includes(t))) return 2;
+        return 3;
+    }
+
+    // ── GAP SORT: severity first, then evidence tier within same severity ──
+    const sevWeight = { NUCLEAR: 3, CRITICAL: 2, HIGH: 1 };
+
+    function sortGaps(gaps) {
+        return [...gaps].sort((a, b) => {
+            const sevDiff = (sevWeight[b.severity] || 0) - (sevWeight[a.severity] || 0);
+            if (sevDiff !== 0) return sevDiff;
+            // Same severity — sort by evidence tier (lower number = higher rank)
+            const aTier = getEvidenceTier(a.evidence?.source || a.source || '');
+            const bTier = getEvidenceTier(b.evidence?.source || b.source || '');
+            return aTier - bTier;
+        });
+    }
+
+    // ── BUILD GAP LIST ──
+    // Use forensicGaps (Hunter) as primary source
+    // Only include gaps with evidence.source AND evidence.reason populated
+    const rawGaps = p.forensicGaps || p.activeGaps || [];
+    const evidencedGaps = rawGaps.filter(g =>
+        g.evidence?.source && g.evidence?.reason
+    );
+    const sortedGaps = sortGaps(evidencedGaps).slice(0, 5);
+
+    if (sortedGaps.length === 0) {
+        if (window.toast) window.toast('No evidence-backed gaps found for this prospect', 'error');
+        return;
+    }
+
+    // ── FORMAT GAP MATRIX ──
+    const gapMatrix = sortedGaps.map((g, i) =>
+        `GAP ${i + 1} — ${g.severity}\n` +
+        `Name: ${g.trap || g.gapName || '—'}\n` +
+        `Pain: ${g.plain || g.pain || '—'}\n` +
+        `Damage: ${g.damage || 'Uncapped'}\n` +
+        `Source: ${g.evidence?.source || '—'}\n` +
+        `Evidence: ${g.evidence?.reason || '—'}`
+    ).join('\n\n');
+
+    // ── FORMAT PRODUCT SIGNAL ──
+    const productSignal = p.productSignal
+        ? p.productSignal.split('\n').map(l => l.trim()).filter(Boolean).map(l => `• ${l.replace(/^[•\-\*]\s*/,'')}`).join('\n')
+        : '• [No product signal — run Hunter audit first]';
+
+    // ── FORMAT ARCHETYPES & EXPOSURES ──
+    const archetypes = (p.intArchetypes || []).join(', ') || p.internalCategory || '—';
+    const exposures  = (p.extExposures  || []).join(', ') || '—';
+    const lanes      = (p.lanes || []).join(', ').toUpperCase() || '—';
+
+    // ── BUILD REPORT ──
+    const scannerLink = p.scannerLink || `https://lexnovahq.com/scanner.html?pid=${p.prospectId || ''}`;
+    const founderName = p.founderName || p.name || '—';
+    const jobTitle    = p.jobTitle || '—';
+
+    const report =
+`[SPEAR ENGINE REPORT]
+MODE: [COLD / FU1 / FU2 / FU3 / FU4]
+
+[TARGET]
+Founder: ${founderName} | ${jobTitle}
+Company: ${p.company || '—'}
+PID: ${p.prospectId || '—'}
+Scanner Link: ${scannerLink}
+
+[PRODUCT INTELLIGENCE]
+Lanes: ${lanes}
+Archetypes: ${archetypes}
+EXT Exposures: ${exposures}
+Product Signal:
+${productSignal}
+
+[GAP MATRIX — sorted by severity + evidence tier]
+${gapMatrix}
+
+[LOGISTICS]
+Funding: ${p.fundingStage || '—'}
+Headcount: ${p.headcount || '—'}
+Geography: ${p.registrationJurisdiction || p.geography || '—'}
+Intended Plan: ${p.intendedPlan || 'agentic_shield'}`;
+
+    try {
+        await navigator.clipboard.writeText(report);
+        if (window.toast) window.toast(`Spear Report copied — ${sortedGaps.length} evidence-backed gaps`);
+    } catch {
+        const ta = document.createElement('textarea');
+        ta.value = report; document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        try { document.execCommand('copy'); if (window.toast) window.toast('Spear Report copied'); }
+        catch { if (window.toast) window.toast('Failed to copy', 'error'); }
+        document.body.removeChild(ta);
+    }
+};
+
+// ════════════════════════════════════════════════════════════════════════
 // ═════════ PIVOT TO FLAGSHIP ═════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 window.pivotToFlagship = async function() {
