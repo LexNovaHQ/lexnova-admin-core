@@ -1,5 +1,11 @@
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ LEX NOVA ADMIN: THE CRM ENGINE (tab-hunt-deals.js) V5.5 ══════
+// ═════════ LEX NOVA ADMIN: THE CRM ENGINE (tab-hunt-deals.js) V5.6 ══════
+// ════════════════════════════════════════════════════════════════════════
+// V5.6 CHANGES:
+// - copySpearReport: removed 7-gap cap, removed rankCOLD/rankNEG
+// - New rule: All Tier 1 + All Tier 2 + max 3 Tier 3
+// - No commercial ranking — Gemini Pro handles prioritization
+// - copyDossier: removed 7-gap cap, same tier-based rule
 // ════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -34,6 +40,7 @@ function statusBadgeHtml(s){
     const cls={QUEUED:'b-cold',SEQUENCE:'b-intake',ENGAGED:'b-warm',NEGOTIATING:'b-hot',CONVERTED:'b-delivered',ARCHIVED:'b-ghost',DEAD:'b-dead'}[s]||'b-ghost';
     return `<span class="badge ${cls}">${s}</span>`;
 }
+
 function getAllGaps(p) {
     const active  = p.activeGaps  || [];
     const forensic= p.forensicGaps|| [];
@@ -50,6 +57,19 @@ function getAllGaps(p) {
     return merged;
 }
 
+// ── SHARED: Evidence-backed gap filter (used by Dossier + Spear) ──
+function getEvidenceBackedGaps(p) {
+    const allGaps = p.forensicGaps || [];
+    const qualified = allGaps.filter(g =>
+        ['NUCLEAR','CRITICAL'].includes(g.severity?.toUpperCase()) &&
+        g.evidence?.source &&
+        g.evidence?.reason
+    );
+    const tier1 = qualified.filter(g => g.evidenceTier === 1);
+    const tier2 = qualified.filter(g => g.evidenceTier === 2);
+    const tier3 = qualified.filter(g => g.evidenceTier === 3).slice(0, 3);
+    return [...tier1, ...tier2, ...tier3];
+}
 
 function getActionText(p) {
     const step = p.sequenceStep||'C';
@@ -994,24 +1014,29 @@ window.copyDossier = async function(id) {
     const p = window.allProspects.find(x => x.id === id);
     if (!p) return;
 
-    function isEvidenceBacked(g) {
+    // V5.6: Use shared tier-based filter (All T1 + All T2 + max 3 T3)
+    const backedGaps = getEvidenceBackedGaps(p);
+
+    // Also include scanner-confessed gaps that aren't in forensicGaps
+    const scannerOnly = (p.activeGaps || []).filter(g => {
         if (!['NUCLEAR','CRITICAL'].includes(g.severity)) return false;
-        const hasHunterEvidence = !!(g.evidence?.source && g.evidence?.reason);
         const isScannerConfessed = ['scanner','dual-verified'].includes(g.source);
-        return hasHunterEvidence || isScannerConfessed;
-    }
+        if (!isScannerConfessed) return false;
+        // Don't double-count if already in backed gaps
+        const key = g.threatId || g.trap || '';
+        return !backedGaps.find(bg => (bg.threatId || bg.trap || '') === key);
+    });
 
-    const allGaps    = getAllGaps(p);
-    const backedGaps = allGaps.filter(isEvidenceBacked).slice(0, 7);
+    const allBacked = [...backedGaps, ...scannerOnly];
 
-    const gapsText = backedGaps.length
-        ? backedGaps.map(g =>
-            `[${g.severity}] [${g.ext || 'N/A'}] ${g.trap}\n` +
-            `  Pain:    ${g.plain}\n` +
+    const gapsText = allBacked.length
+        ? allBacked.map(g =>
+            `[${g.severity}] [Tier ${g.evidenceTier||'—'}] [${g.ext || 'N/A'}] ${g.trap}\n` +
+            `  Pain:    ${g.thePain || g.plain}\n` +
             `  Damage:  ${g.damage || 'Uncapped'}\n` +
             `  Source:  ${g.evidence?.source || g.source || 'scanner'}\n` +
             `  Why:     ${g.evidence?.reason || 'Scanner confession'}\n` +
-            `  Doc:     ${g.doc || '—'}`
+            `  Doc:     ${g.theFix || g.doc || '—'}`
           ).join('\n\n')
         : 'No evidence-backed gaps detected';
 
@@ -1067,7 +1092,7 @@ Funding:              ${p.fundingStage || '—'} | Headcount: ${p.headcount || '
 [PRODUCT SIGNAL]
 ${p.productSignal || '—'}
 
-[EVIDENCE-BACKED GAPS — NUCLEAR/CRITICAL ONLY (${backedGaps.length} of ${getAllGaps(p).length} total)]
+[EVIDENCE-BACKED GAPS — NUCLEAR/CRITICAL ONLY (${allBacked.length} total, organized: Tier 1 → Tier 2 → Tier 3)]
 ${gapsText}${scannerSection}
 
 [THE SPEAR]
@@ -1081,7 +1106,7 @@ Scanner:   ${p.scannerCompleted ? 'COMPLETED 🔥🔥' : p.scannerClicked ? 'CLI
 
     try {
         await navigator.clipboard.writeText(text);
-        if (window.toast) window.toast('Dossier copied — ' + backedGaps.length + ' evidence-backed gaps');
+        if (window.toast) window.toast('Dossier copied — ' + allBacked.length + ' evidence-backed gaps');
     } catch {
         const ta = document.createElement('textarea');
         ta.value = text; document.body.appendChild(ta);
@@ -1104,7 +1129,6 @@ window.copySpearReport = async function(id) {
     const isNEG = !!p.scannerCompleted;
 
     // ── CONSEQUENCE TIER DERIVATION ──
-    // Mechanical mapping. Pro reads tier + rule, never infers from raw funding.
     function getConsequenceTier(fundingStage) {
         if (!fundingStage) return { tier:'MOMENTUM', rule:'Use deal velocity and growth blocker language. Mid-stage urgency.' };
         const f = fundingStage.toLowerCase();
@@ -1118,66 +1142,24 @@ window.copySpearReport = async function(id) {
         return { tier:'MOMENTUM', rule:'Use deal velocity and growth blocker language. Mid-stage urgency. $750 founding slot permitted in FU4.' };
     }
 
-    // ── RANKING FUNCTIONS ──
-    const sevWeight = { NUCLEAR:3, CRITICAL:2, HIGH:1 };
-    const velWeight = { 'Active Now':4, 'Immediate':3, 'High':2, 'Upcoming':1, 'Pending':0 };
-
-    function rankCOLD(gaps) {
-        return [...gaps].sort((a, b) => {
-  const sev = (sevWeight[b.severity?.toUpperCase()]||0) - (sevWeight[a.severity?.toUpperCase()]||0);
-            if (sev !== 0) return sev;
-            const vel = (velWeight[b.velocity]||0) - (velWeight[a.velocity]||0);
-            if (vel !== 0) return vel;
-            return (a.evidenceTier||3) - (b.evidenceTier||3);
-        });
-    }
-
-    function rankNEG(gaps) {
-        return [...gaps].sort((a, b) => {
-            // dual-verified always first
-            const aDual = a.source === 'dual-verified' ? 1 : 0;
-            const bDual = b.source === 'dual-verified' ? 1 : 0;
-            if (bDual !== aDual) return bDual - aDual;
-            const sev = (sevWeight[b.severity?.toUpperCase()]||0) - (sevWeight[a.severity?.toUpperCase()]||0);
-            if (sev !== 0) return sev;
-            const vel = (velWeight[b.velocity]||0) - (velWeight[a.velocity]||0);
-            if (vel !== 0) return vel;
-            return (a.evidenceTier||3) - (b.evidenceTier||3);
-        });
-    }
-
     // ── GAP POOL ──
-    // Use forensicGaps as single source of truth (Hunter canonical array).
-    // Scanner upgrades evidenceTier and source fields in-place on the same array.
-    const allGaps = p.forensicGaps || [];
+    // V5.6: No ranking. No cap. All Tier 1 + All Tier 2 + max 3 Tier 3.
+    // Gemini Pro handles commercial prioritization downstream.
+    const gapPool = getEvidenceBackedGaps(p);
 
-    // Filter: NUCLEAR and CRITICAL only. Evidence required (evidenceTier must exist).
-const qualified = allGaps.filter(g =>
-    ['NUCLEAR','CRITICAL'].includes(g.severity?.toUpperCase()) &&
-    g.evidence?.source &&
-    g.evidence?.reason
-);
-
-    if (!qualified.length) {
+    if (!gapPool.length) {
         if (window.toast) window.toast('No NUCLEAR/CRITICAL evidence-backed gaps — run Hunter audit first', 'error');
         return;
     }
 
-    // Rank for branch and take top 7
-    const ranked  = isNEG ? rankNEG(qualified) : rankCOLD(qualified);
-    const top7    = ranked.slice(0, 7);
-
     // ── PRODUCT SIGNAL FILTERING ──
-    // Only include features whose exposesExt overlaps with gaps in top 7.
-    // productSignal is now an array of feature objects from Hunter v6.0.
-    // Falls back gracefully if productSignal is still a legacy string.
     const productSignalRaw = p.productSignal || [];
     let featuresForReport = '';
 
     if (Array.isArray(productSignalRaw) && productSignalRaw.length > 0) {
-        const top7Ext = new Set(top7.flatMap(g => (g.ext||'').split(',').map(e=>e.trim())));
+        const poolExt = new Set(gapPool.flatMap(g => (g.ext||'').split(',').map(e=>e.trim())));
         const relevantFeatures = productSignalRaw.filter(f =>
-            (f.exposesExt||[]).some(ext => top7Ext.has(ext))
+            (f.exposesExt||[]).some(ext => poolExt.has(ext))
         );
         featuresForReport = relevantFeatures.length
             ? relevantFeatures.map(f =>
@@ -1186,20 +1168,19 @@ const qualified = allGaps.filter(g =>
                 `  [INT]     ${f.triggersInt}\n` +
                 `  [EXT]     ${(f.exposesExt||[]).join(', ')}`
               ).join('\n\n')
-            : '• [No structured feature map — re-run Hunter audit with v6.0]';
+            : '• [No structured feature map — re-run Hunter audit with v6.1]';
     } else if (typeof productSignalRaw === 'string' && productSignalRaw.trim()) {
-        // Legacy string fallback
         featuresForReport = productSignalRaw;
     } else {
         featuresForReport = '• [No product signal — run Hunter audit]';
     }
 
     // ── GAP MATRIX FORMATTING ──
-    const gapMatrix = top7.map((g, i) => {
+    const gapMatrix = gapPool.map((g, i) => {
         const dualFlag = g.source === 'dual-verified' ? ' [DUAL-VERIFIED — scanner confirmed]' : '';
-        const tierLabel = { 1:'Legal Document', 2:'Product Page', 3:'Inferred / Text Signal' }[g.evidenceTier] || '—';
+        const tierLabel = { 1:'Legal Document', 2:'Product Page', 3:'Observable Absence' }[g.evidenceTier] || '—';
         return (
-            `GAP ${i+1} — ${g.severity}${dualFlag}\n` +
+            `GAP ${i+1} — ${g.severity} — Tier ${g.evidenceTier||'—'}${dualFlag}\n` +
             `Threat ID:   ${g.threatId || '—'}\n` +
             `Name:        ${g.trap}\n` +
             `Legal Ammo:  ${g.legalAmmo || '—'}\n` +
@@ -1215,7 +1196,6 @@ const qualified = allGaps.filter(g =>
     // ── SCANNER SECTION (NEG only) ──
     let scannerSection = '';
     if (isNEG) {
-        // Top 3 vault confessions ranked by penalty severity
         const vaultRaw = p.vaultInputs || [];
         const penaltyWeight = { 'Uncapped':4, 'High':3, 'Medium':2, 'Low':1 };
         const top3Vault = [...vaultRaw]
@@ -1288,7 +1268,7 @@ FEATURE MAP (gap-relevant only):
 ${featuresForReport}
 
 ═══════════════════════════════════════
-[GAP MATRIX — ${top7.length} gaps — ${isNEG ? 'NEG ranked: dual-verified → severity → velocity → evidence tier' : 'COLD ranked: severity → velocity → evidence tier'}]
+[GAP MATRIX — ${gapPool.length} gaps — organized by evidence tier (Tier 1 → Tier 2 → Tier 3) — Gemini Pro selects per email]
 ═══════════════════════════════════════
 ${gapMatrix}${scannerSection}
 
@@ -1301,7 +1281,7 @@ ${logisticsSection}`;
     try {
         await navigator.clipboard.writeText(report);
         const label = isNEG ? 'NEG Spear Report' : 'Spear Report';
-        if (window.toast) window.toast(`${label} copied — ${top7.length} gaps · ${tier} tier · ${isNEG ? 'NEG branch' : 'COLD branch'}`);
+        if (window.toast) window.toast(`${label} copied — ${gapPool.length} gaps · ${tier} tier · ${isNEG ? 'NEG' : 'COLD'}`);
     } catch {
         const ta = document.createElement('textarea');
         ta.value = report;
@@ -1314,12 +1294,9 @@ ${logisticsSection}`;
 };
 
 window.copyICPTable = function() {
-    // Reads the currently rendered pipeline rows — respects active filters
     const tbodies = document.querySelectorAll('#op-tbody');
     if (!tbodies.length) { if(window.toast) window.toast('No pipeline visible', 'error'); return; }
 
-    // Get currently filtered + sorted list from allProspects
-    // We re-run the same filter logic to get the live filtered list
     const s   = (document.getElementById('op-search')?.value||'').toLowerCase();
     const st  = document.getElementById('op-status')?.value||'';
     const bt  = document.getElementById('op-batch')?.value||'';
@@ -1355,7 +1332,6 @@ window.copyICPTable = function() {
 
     if (!list.length) { if(window.toast) window.toast('No prospects in current view', 'error'); return; }
 
-    // Build copy text
     const header = `#  | Founder               | Company               | Status       | Step | Emails | Scanner`;
     const divider = `---|----------------------|----------------------|--------------|------|--------|--------`;
     const rows = list.map((p, i) => {
