@@ -1124,7 +1124,7 @@ window.copySpearReport = async function(id) {
 
     function rankCOLD(gaps) {
         return [...gaps].sort((a, b) => {
-            const sev = (sevWeight[b.severity]||0) - (sevWeight[a.severity]||0);
+  const sev = (sevWeight[b.severity?.toUpperCase()]||0) - (sevWeight[a.severity?.toUpperCase()]||0);
             if (sev !== 0) return sev;
             const vel = (velWeight[b.velocity]||0) - (velWeight[a.velocity]||0);
             if (vel !== 0) return vel;
@@ -1138,7 +1138,7 @@ window.copySpearReport = async function(id) {
             const aDual = a.source === 'dual-verified' ? 1 : 0;
             const bDual = b.source === 'dual-verified' ? 1 : 0;
             if (bDual !== aDual) return bDual - aDual;
-            const sev = (sevWeight[b.severity]||0) - (sevWeight[a.severity]||0);
+            const sev = (sevWeight[b.severity?.toUpperCase()]||0) - (sevWeight[a.severity?.toUpperCase()]||0);
             if (sev !== 0) return sev;
             const vel = (velWeight[b.velocity]||0) - (velWeight[a.velocity]||0);
             if (vel !== 0) return vel;
