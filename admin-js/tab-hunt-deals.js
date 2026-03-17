@@ -441,7 +441,8 @@ function renderTodayQueue() {
             </div>
         </div>`;
 
-   el.innerHTML = renderOutreachStats() + 
+   el.innerHTML = renderOutreachStats() + `
+        ${overdue.length?`
         <div style="margin-bottom:20px;">
             <div style="font-size:9px;color:#d47a7a;text-transform:uppercase;letter-spacing:.15em;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
                 🔴 OVERDUE <span style="background:rgba(212,122,122,.15);border:1px solid rgba(212,122,122,.3);padding:2px 8px;border-radius:8px;">${overdue.length}</span>
