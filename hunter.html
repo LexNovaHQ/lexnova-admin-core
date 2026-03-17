@@ -139,7 +139,7 @@
   // ════════════════════════════════════════════════════════════════════════
   function ForensicEngine({ user }) {
     const [apiKey,  setApiKey]  = useState(() => localStorage.getItem('lnApiKey')||'');
-    const [model,   setModel]   = useState('gemini-2.5-flash');
+    const [model,   setModel]   = useState('gemini-2.5-flash-preview-04-17');
     const [loading, setLoading] = useState(false);
     const [status,  setStatus]  = useState('');
     const [error,   setError]   = useState('');
@@ -352,9 +352,11 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
             <div style={S.field}>
               <label style={S.label}>Model</label>
               <select value={model} onChange={e=>setModel(e.target.value)} style={{...S.input,borderColor:'var(--gold)',color:'var(--gold)'}}>
-                <option value="gemini-2.5-flash">2.5 Flash (Standard)</option>
-                <option value="gemini-2.5-pro">2.5 Pro (High Accuracy)</option>
-                <option value="gemini-3.1-flash-preview">3.1 Flash Preview</option>
+                <option value="gemini-2.5-flash-preview-04-17">2.5 Flash (Standard Hunt)</option>
+                <option value="gemini-2.5-pro-preview-03-25">2.5 Pro (High Accuracy)</option>
+                <option value="gemini-3.1-flash-preview">3.1 Flash Preview (Speed)</option>
+                <option value="gemini-3.1-pro-preview">3.1 Pro Preview (Deep Architect)</option>
+                <option value="gemini-3.1-flash-lite-preview">3.1 Flash-Lite (Volume Hunting)</option>
               </select>
             </div>
             <div style={S.field}>
