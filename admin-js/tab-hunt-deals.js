@@ -1,6 +1,9 @@
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ LEX NOVA ADMIN: THE CRM ENGINE (tab-hunt-deals.js) V5.7 ══════
+// ═════════ LEX NOVA ADMIN: THE CRM ENGINE (tab-hunt-deals.js) V5.8 ══════
 // ════════════════════════════════════════════════════════════════════════
+// V5.8 CHANGES:
+// - 25-per-batch hard limit enforced on add, convert, and batch edit
+// - Batch capacity indicator (X/25) in queue and pipeline batch cards
 // V5.7 CHANGES:
 // - Batch number now visible + editable in prospect panel
 // - saveProspect now writes batchNumber to Firestore
@@ -41,6 +44,15 @@ function nextQuarter()    { const q=['Q1','Q2','Q3','Q4']; return q[(q.indexOf(c
 function fmtMoney(n)      { return (n==null||isNaN(n))?'—':'$'+Number(n).toLocaleString(); }
 function fmtDate(ts)      { if(!ts)return'—'; const d=ts.toDate?ts.toDate():new Date(ts); return isNaN(d)?'—':d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
 function planBadgeClass(p){ return {agentic_shield:'b-intake',workplace_shield:'b-warm',complete_stack:'b-production',flagship:'b-hot'}[p]||'b-ghost'; }
+
+var BATCH_LIMIT = 25;
+function getBatchCount(batchNumber) {
+    if (!batchNumber) return 0;
+    return window.allProspects.filter(p => p.batchNumber === batchNumber && p.status !== 'DEAD').length;
+}
+function isBatchFull(batchNumber) {
+    return getBatchCount(batchNumber) >= BATCH_LIMIT;
+}
 function statusBadgeHtml(s){
     const cls={QUEUED:'b-cold',SEQUENCE:'b-intake',ENGAGED:'b-warm',NEGOTIATING:'b-hot',CONVERTED:'b-delivered',ARCHIVED:'b-ghost',DEAD:'b-dead'}[s]||'b-ghost';
     return `<span class="badge ${cls}">${s}</span>`;
@@ -171,8 +183,8 @@ function buildHuntTabHTML() {
         <div class="section-title" style="margin-top:32px;">Batch Performance</div>
         <div class="tbl-wrap">
             <table>
-                <thead><tr><th>#</th><th>Batch</th><th>Prospects</th><th>Emails Sent</th><th>Clicks</th><th>Completions</th><th>Conversions</th><th>Close %</th></tr></thead>
-                <tbody id="oc-batches"><tr><td colspan="8" class="loading">No batches yet</td></tr></tbody>
+                <thead><tr><th>#</th><th>Batch</th><th>Capacity</th><th>Prospects</th><th>Emails Sent</th><th>Clicks</th><th>Completions</th><th>Conversions</th><th>Close %</th></tr></thead>
+                <tbody id="oc-batches"><tr><td colspan="9" class="loading">No batches yet</td></tr></tbody>
             </table>
         </div>
     </div>`;
@@ -264,13 +276,17 @@ function renderBatchPerformance() {
         if (p.status==='CONVERTED') batches[b].cv++;
     });
     const keys = Object.keys(batches).sort();
-    const html = !keys.length ? '<tr><td colspan="8" class="loading">No batches yet</td></tr>'
+    const html = !keys.length ? '<tr><td colspan="9" class="loading">No batches yet</td></tr>'
         : keys.map((b, i) => {
             const r=batches[b];
             const roi=r.co>0?Math.round((r.cv/r.co)*100)+'%':'0%';
+            const capColor = r.p >= BATCH_LIMIT ? '#ef4444' : r.p >= BATCH_LIMIT - 5 ? '#f97316' : 'var(--marble-dim)';
+            const capText = r.p >= BATCH_LIMIT ? 'FULL' : `${r.p}/${BATCH_LIMIT}`;
             return `<tr>
                 <td class="dim" style="font-size:10px;text-align:center;">${i+1}</td>
-                <td>${window.esc(b)}</td><td>${r.p}</td><td>${r.e}</td>
+                <td>${window.esc(b)}</td>
+                <td><span style="font-size:10px;font-weight:600;color:${capColor}">${capText}</span></td>
+                <td>${r.p}</td><td>${r.e}</td>
                 <td>${r.cl}</td><td>${r.co}</td><td>${r.cv}</td>
                 <td style="color:var(--gold)">${roi}</td>
             </tr>`;
@@ -296,9 +312,14 @@ function renderQueueBatchSummary() {
         const r = batches[b];
         const closeRate = r.co>0 ? Math.round((r.cv/r.co)*100)+'%' : '0%';
         const clickRate = r.p>0 ? Math.round((r.cl/r.p)*100)+'%' : '0%';
+        const capColor = r.p >= BATCH_LIMIT ? '#ef4444' : r.p >= BATCH_LIMIT - 5 ? '#f97316' : 'var(--marble-dim)';
+        const capLabel = r.p >= BATCH_LIMIT ? 'FULL' : `${r.p}/${BATCH_LIMIT}`;
         return `
         <div style="background:var(--surface);border:1px solid var(--border);padding:12px;border-radius:4px;min-width:160px;">
-            <div style="font-size:10px;font-weight:700;color:var(--gold);margin-bottom:8px;">${window.esc(b)}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:10px;font-weight:700;color:var(--gold);">${window.esc(b)}</span>
+                <span style="font-size:8px;font-weight:700;color:${capColor};border:1px solid ${capColor};padding:1px 6px;border-radius:8px;">${capLabel}</span>
+            </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:9px;">
                 <div><span style="color:var(--marble-faint);">Prospects</span><div style="font-size:14px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${r.p}</div></div>
                 <div><span style="color:var(--marble-faint);">Active</span><div style="font-size:14px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${r.active}</div></div>
@@ -1036,6 +1057,15 @@ window.saveProspect = async function() {
         updatedAt:        nowTs()
     };
     const isConverting = updates.status==='CONVERTED' && p.status!=='CONVERTED';
+    const batchChanged = updates.batchNumber && updates.batchNumber !== (p.batchNumber||'');
+    if (batchChanged && isBatchFull(updates.batchNumber)) {
+        // Don't count this prospect if they're already in the target batch
+        const alreadyInBatch = p.batchNumber === updates.batchNumber;
+        if (!alreadyInBatch) {
+            if(window.toast) window.toast(`Batch ${updates.batchNumber} is full (${BATCH_LIMIT}/${BATCH_LIMIT}). Choose a different batch.`,'error');
+            return;
+        }
+    }
     if (updates.status === 'ENGAGED' && p.status !== 'ENGAGED' && !p.repliedAt) {
         updates.repliedAt = nowTs();
     }
@@ -1384,6 +1414,7 @@ window.copyICPTable = function() {
     else if (srt==='score')      list.sort((a,b)=>(b.scannerScore||0)-(a.scannerScore||0));
     else if (srt==='company')    list.sort((a,b)=>(a.company||'').localeCompare(b.company||''));
     else if (srt==='emailsSent') list.sort((a,b)=>(b.emailsSent||0)-(a.emailsSent||0));
+    else if (srt==='batch')      list.sort((a,b)=>(a.batchNumber||'ZZZ').localeCompare(b.batchNumber||'ZZZ'));
     else                         list.sort((a,b)=>(a.nextActionDate||'9999').localeCompare(b.nextActionDate||'9999'));
 
     if (!list.length) { if(window.toast) window.toast('No prospects in current view', 'error'); return; }
@@ -1446,7 +1477,16 @@ window.convertLead = async function(leadId) {
         if(!snap.exists){if(window.toast)window.toast('Lead not found','error');return;}
         const l=snap.data();
         const month=String(new Date().getMonth()+1).padStart(2,'0');
-        const batch=`${month}I`;
+        let batch=`${month}I`;
+        if(isBatchFull(batch)){
+            // Auto-increment batch letter if current inbound batch is full
+            const letters='IJKLMNOP';
+            for(let i=1;i<letters.length;i++){
+                const tryBatch=`${month}${letters[i]}`;
+                if(!isBatchFull(tryBatch)){batch=tryBatch;break;}
+            }
+            if(isBatchFull(batch)){if(window.toast)window.toast(`All inbound batches for month ${month} are full (${BATCH_LIMIT} each). Create a new batch manually.`,'error');return;}
+        }
         const pid=await window.genProspectId(batch);
         const data={
             founderName:l.name||'',email:l.email||leadId,company:l.company||'',
@@ -1487,7 +1527,12 @@ window.openAddProspect = function() {
         </div>
         <div>
             <div class="section-sub">Logistics</div>
-            <div class="fi-row"><div class="fg"><label class="fl">Geography</label><input type="text" class="fi" id="ap-geo" value="US"></div><div class="fg"><label class="fl">Batch</label><input type="text" class="fi" id="ap-batch" value="${month}A"></div></div>
+            <div class="fi-row"><div class="fg"><label class="fl">Geography</label><input type="text" class="fi" id="ap-geo" value="US"></div><div class="fg"><label class="fl">Batch</label><input type="text" class="fi" id="ap-batch" value="${month}A" oninput="
+                const b=this.value.trim();
+                const ct=window.allProspects.filter(p=>p.batchNumber===b&&p.status!=='DEAD').length;
+                const el=document.getElementById('ap-batch-cap');
+                if(el){el.textContent=ct+'/${BATCH_LIMIT}';el.style.color=ct>=${BATCH_LIMIT}?'#ef4444':ct>=${BATCH_LIMIT-5}?'#f97316':'var(--marble-dim)';}
+            "><span id="ap-batch-cap" style="font-size:9px;color:var(--marble-dim);">${getBatchCount(month+'A')}/${BATCH_LIMIT}</span></div></div>
             <div class="fg"><label class="fl">Initial Hook</label><textarea class="fi" id="ap-hook" rows="4"></textarea></div>
         </div>
     </div>`,
@@ -1498,6 +1543,7 @@ window.saveNewProspect = async function() {
     const email=$h('ap-email')?.value?.trim().toLowerCase();
     const batch=$h('ap-batch')?.value?.trim()||'01A';
     if(!email){if(window.toast)window.toast('Email required','error');return;}
+    if(isBatchFull(batch)){if(window.toast)window.toast(`Batch ${batch} is full (${BATCH_LIMIT}/${BATCH_LIMIT}). Use a different batch code.`,'error');return;}
     try {
         const pid=await window.genProspectId(batch);
         await window.db.collection('prospects').doc(pid).set({
