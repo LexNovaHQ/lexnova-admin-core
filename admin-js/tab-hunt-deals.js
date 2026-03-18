@@ -1331,8 +1331,10 @@ SEQUENCE: ${isNEG ? 'NEG-1 → NEG-2 → NEG-3 → NEG-4' : 'Cold → FU1 → FU
 ═══════════════════════════════════════
 [TARGET]
 ═══════════════════════════════════════
-FOUNDER:      ${p.founderName || p.name || '—'} | ${p.jobTitle || '—'}
+FOUNDER:      ${p.founderName || p.name || '—'} 
+JOB TITLE:    ${p.jobTitle || '—'}
 COMPANY:      ${p.company || '—'}
+EMAIL:        ${p.email || '—'}
 PID:          ${p.prospectId || '—'}
 SCANNER LINK: ${p.scannerLink || `https://lexnovahq.com/scanner.html?pid=${p.prospectId||''}`}
 
