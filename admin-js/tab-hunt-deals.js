@@ -1,6 +1,11 @@
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ LEX NOVA ADMIN: THE CRM ENGINE (tab-hunt-deals.js) V5.6 ══════
+// ═════════ LEX NOVA ADMIN: THE CRM ENGINE (tab-hunt-deals.js) V5.7 ══════
 // ════════════════════════════════════════════════════════════════════════
+// V5.7 CHANGES:
+// - Batch number now visible + editable in prospect panel
+// - saveProspect now writes batchNumber to Firestore
+// - Added "Sort: Batch" option to pipeline sort dropdown
+// - Added batch performance summary to queue view
 // V5.6 CHANGES:
 // - copySpearReport: removed 7-gap cap, removed rankCOLD/rankNEG
 // - New rule: All Tier 1 + All Tier 2 + max 3 Tier 3
@@ -115,6 +120,7 @@ function buildHuntTabHTML() {
                     <select class="fi" id="op-sort" onchange="if(typeof window.filterProspects==='function')window.filterProspects()" style="border-color:var(--gold);color:var(--gold);flex:1 1 auto;">
                         <option value="nextDate">Sort: Action Date (Urgent)</option>
                         <option value="dateAdded">Sort: Date Added (Newest)</option>
+                        <option value="batch">Sort: Batch</option>
                         <option value="score">Sort: Scanner Score</option>
                         <option value="emailsSent">Sort: Emails Sent</option>
                         <option value="company">Sort: Company A-Z</option>
@@ -270,6 +276,49 @@ function renderBatchPerformance() {
             </tr>`;
         }).join('');
     tbodies.forEach(tb => tb.innerHTML = html);
+}
+
+function renderQueueBatchSummary() {
+    const batches = {};
+    window.allProspects.forEach(p => {
+        const b = p.batchNumber||'Unassigned';
+        if (!batches[b]) batches[b]={p:0,e:0,cl:0,co:0,cv:0,active:0};
+        batches[b].p++;
+        batches[b].e += p.emailsSent||0;
+        if (p.scannerClicked||p.scannerCompleted) batches[b].cl++;
+        if (p.scannerCompleted) batches[b].co++;
+        if (p.status==='CONVERTED') batches[b].cv++;
+        if (!['CONVERTED','DEAD','ARCHIVED'].includes(p.status)) batches[b].active++;
+    });
+    const keys = Object.keys(batches).sort();
+    if (!keys.length) return '';
+    const cards = keys.map(b => {
+        const r = batches[b];
+        const closeRate = r.co>0 ? Math.round((r.cv/r.co)*100)+'%' : '0%';
+        const clickRate = r.p>0 ? Math.round((r.cl/r.p)*100)+'%' : '0%';
+        return `
+        <div style="background:var(--surface);border:1px solid var(--border);padding:12px;border-radius:4px;min-width:160px;">
+            <div style="font-size:10px;font-weight:700;color:var(--gold);margin-bottom:8px;">${window.esc(b)}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:9px;">
+                <div><span style="color:var(--marble-faint);">Prospects</span><div style="font-size:14px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${r.p}</div></div>
+                <div><span style="color:var(--marble-faint);">Active</span><div style="font-size:14px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${r.active}</div></div>
+                <div><span style="color:var(--marble-faint);">Emails</span><div style="font-size:14px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${r.e}</div></div>
+                <div><span style="color:var(--marble-faint);">Click %</span><div style="font-size:14px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${clickRate}</div></div>
+                <div><span style="color:var(--marble-faint);">Completed</span><div style="font-size:14px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${r.co}</div></div>
+                <div><span style="color:var(--marble-faint);">Close %</span><div style="font-size:14px;font-family:'Cormorant Garamond',serif;color:var(--gold);font-weight:600;">${closeRate}</div></div>
+            </div>
+        </div>`;
+    }).join('');
+
+    return `
+    <div style="margin-bottom:20px;">
+        <div style="font-size:9px;color:var(--marble-dim);text-transform:uppercase;letter-spacing:.15em;font-weight:700;margin-bottom:10px;">
+            📊 BATCH PERFORMANCE
+        </div>
+        <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;">
+            ${cards}
+        </div>
+    </div>`;
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -450,8 +499,9 @@ function renderTodayQueue() {
                 📦 REVIVAL DUE — ${cq} <span style="background:rgba(90,138,106,.15);border:1px solid rgba(90,138,106,.3);padding:2px 8px;border-radius:8px;color:#7ab88a;">${revivalDue.length}</span>
             </div>
             <div class="action-queue">${revivalDue.map(renderRevivalRow).join('')}</div>
-        </div>`:''}`;
-}
+        </div>`:''}
+
+        ${renderQueueBatchSummary()}`;}
 
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ FILTER & PIPELINE TABLE ═══════════════════════════════════════
@@ -487,6 +537,7 @@ window.filterProspects = function() {
     else if (srt==='score')      list.sort((a,b)=>(b.scannerScore||0)-(a.scannerScore||0));
     else if (srt==='company')    list.sort((a,b)=>(a.company||'').localeCompare(b.company||''));
     else if (srt==='emailsSent') list.sort((a,b)=>(b.emailsSent||0)-(a.emailsSent||0));
+    else if (srt==='batch')      list.sort((a,b)=>(a.batchNumber||'ZZZ').localeCompare(b.batchNumber||'ZZZ'));
     else                         list.sort((a,b)=>(a.nextActionDate||'9999').localeCompare(b.nextActionDate||'9999'));
 
     renderPipeline(list);
@@ -803,6 +854,10 @@ function renderPPBody(p) {
                     </div>
                     <div class="fg" style="margin:0;"><label class="fl">Headcount</label><input type="text" class="fi" id="pp-headcount" value="${window.esc(p.headcount||'')}"></div>
                 </div>
+                <div class="fi-row" style="margin-bottom:12px;">
+                    <div class="fg" style="margin:0;"><label class="fl">Batch</label><input type="text" class="fi" id="pp-batch-edit" value="${window.esc(p.batchNumber||'')}" placeholder="e.g. 03A"></div>
+                    <div class="fg" style="margin:0;"><label class="fl">Geography</label><input type="text" class="fi" id="pp-geo-edit" value="${window.esc(p.registrationJurisdiction||p.geography||'')}" placeholder="e.g. US"></div>
+                </div>
                 <div class="fg" style="margin-bottom:14px;"><label class="fl">Notes</label><textarea class="fi" id="pp-notes" rows="2">${window.esc(p.notes||'')}</textarea></div>
                 <button class="btn btn-primary btn-full" style="padding:14px;margin-bottom:8px;" onclick="window.saveProspect()">💾 Save Dossier</button>
                 <div style="display:flex;gap:8px;margin-bottom:14px;">
@@ -814,8 +869,7 @@ function renderPPBody(p) {
                 </div>
             </div>
         </div>
-    </div>
-    <input type="hidden" id="pp-batch-edit" value="${window.esc(p.batchNumber||'')}">`;
+    </div>`;
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -970,6 +1024,8 @@ window.saveProspect = async function() {
         linkedinUrl:      $h('pp-linkedin-edit')?.value?.trim()||'',
         fundingStage:     $h('pp-funding-text')?.value||'',
         headcount:        $h('pp-headcount')?.value||'',
+        batchNumber:      $h('pp-batch-edit')?.value?.trim()||p.batchNumber||'',
+        registrationJurisdiction: $h('pp-geo-edit')?.value?.trim()||p.registrationJurisdiction||p.geography||'',
         status:           $h('pp-status')?.value||p.status,
         intendedPlan:     $h('pp-plan')?.value||'',
         notes:            $h('pp-notes')?.value?.trim()||'',
