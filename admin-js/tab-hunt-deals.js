@@ -1461,7 +1461,7 @@ window.copyICPTable = function() {
             catch { if(window.toast) window.toast('Failed to copy','error'); }
             document.body.removeChild(ta);
         });
-});
+};
 
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ PIVOT TO FLAGSHIP ═════════════════════════════════════════════
