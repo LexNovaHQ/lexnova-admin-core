@@ -1421,32 +1421,21 @@ window.copyICPTable = function() {
 
     if (!list.length) { if(window.toast) window.toast('No prospects in current view', 'error'); return; }
 
-    const header = `#  | Founder               | Company               | Status       | Step | Emails | Scanner`;
-    const divider = `---|----------------------|----------------------|--------------|------|--------|--------`;
+    // THE SPREADSHEET ENGINE (TSV Format)
+    const header = `S. No.\tPID\tBatch Number\tFounder\tCompany\tRole\tFounder Email`;
     const rows = list.map((p, i) => {
-        const name    = (p.founderName||p.name||'—').padEnd(20).slice(0,20);
-        const company = (p.company||'—').padEnd(20).slice(0,20);
-        const status  = (p.status||'—').padEnd(12).slice(0,12);
-        const step    = (p.sequenceStep||'—').padEnd(4).slice(0,4);
-        const emails  = String(p.emailsSent||0).padEnd(6).slice(0,6);
-        const scanner = p.scannerCompleted?'✓ Done':p.scannerClicked?'Clicked':'—';
-        return `${String(i+1).padStart(2)} | ${name} | ${company} | ${status} | ${step} | ${emails} | ${scanner}`;
+        return `${i+1}\t${p.prospectId||'—'}\t${p.batchNumber||'—'}\t${p.founderName||p.name||'—'}\t${p.company||'—'}\t${p.jobTitle||'—'}\t${p.email||'—'}`;
     }).join('\n');
 
-    const summary = `\nTotal: ${list.length} prospects`;
-    const filterNote = [st,bt,fs,sc,gap,ai,s].some(Boolean)
-        ? `Filters active: ${[st&&'Status:'+st, bt&&'Batch:'+bt, fs&&'Funding:'+fs, sc&&'Scanner:'+sc, gap&&'Gap:'+gap, ai&&'Archetype:'+ai, s&&'Search:'+s].filter(Boolean).join(', ')}`
-        : 'No filters — showing full pipeline';
-
-    const text = `LEX NOVA — ICP PIPELINE SNAPSHOT\n${filterNote}\n\n${header}\n${divider}\n${rows}\n${summary}`;
+    const text = `${header}\n${rows}`;
 
     navigator.clipboard.writeText(text)
-        .then(() => { if(window.toast) window.toast(`Copied ${list.length} prospects to clipboard`); })
+        .then(() => { if(window.toast) window.toast(`Copied ${list.length} rows for Sheets`); })
         .catch(() => {
             const ta = document.createElement('textarea');
             ta.value = text; document.body.appendChild(ta);
             ta.focus(); ta.select();
-            try { document.execCommand('copy'); if(window.toast) window.toast('Copied'); }
+            try { document.execCommand('copy'); if(window.toast) window.toast('Copied for Sheets'); }
             catch { if(window.toast) window.toast('Failed to copy','error'); }
             document.body.removeChild(ta);
         });
