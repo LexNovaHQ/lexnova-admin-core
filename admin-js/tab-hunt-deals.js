@@ -1419,27 +1419,49 @@ window.copyICPTable = function() {
     else if (srt==='batch')      list.sort((a,b)=>(a.batchNumber||'ZZZ').localeCompare(b.batchNumber||'ZZZ'));
     else                         list.sort((a,b)=>(a.nextActionDate||'9999').localeCompare(b.nextActionDate||'9999'));
 
-    if (!list.length) { if(window.toast) window.toast('No prospects in current view', 'error'); return; }
+  if (!list.length) { if(window.toast) window.toast('No prospects in current view', 'error'); return; }
+
+    // THE RANGE INTERCEPTOR
+    let slicedList = list;
+    let offset = 0;
+    const range = prompt("Enter S.No. range to copy (e.g., 1-25) or leave blank for ALL:", "");
+    
+    if (range) {
+        const parts = range.split('-');
+        if (parts.length === 2) {
+            const startIdx = parseInt(parts[0].trim(), 10);
+            const endIdx = parseInt(parts[1].trim(), 10);
+            if (!isNaN(startIdx) && !isNaN(endIdx)) {
+                offset = startIdx - 1;
+                slicedList = list.slice(offset, endIdx);
+            } else {
+                if(window.toast) window.toast('Invalid format. Copying all.');
+            }
+        }
+    }
+
+    if (!slicedList.length) { if(window.toast) window.toast('No rows in that range', 'error'); return; }
 
     // THE SPREADSHEET ENGINE (TSV Format)
     const header = `S. No.\tPID\tBatch Number\tFounder\tCompany\tRole\tFounder Email`;
-    const rows = list.map((p, i) => {
-        return `${i+1}\t${p.prospectId||'—'}\t${p.batchNumber||'—'}\t${p.founderName||p.name||'—'}\t${p.company||'—'}\t${p.jobTitle||'—'}\t${p.email||'—'}`;
+    const rows = slicedList.map((p, i) => {
+        const sno = offset + i + 1; // Preserves accurate S.No numbering
+        return `${sno}\t${p.prospectId||'—'}\t${p.batchNumber||'—'}\t${p.founderName||p.name||'—'}\t${p.company||'—'}\t${p.jobTitle||'—'}\t${p.email||'—'}`;
     }).join('\n');
 
     const text = `${header}\n${rows}`;
 
     navigator.clipboard.writeText(text)
-        .then(() => { if(window.toast) window.toast(`Copied ${list.length} rows for Sheets`); })
+        .then(() => { if(window.toast) window.toast(`Copied rows ${offset + 1} to ${offset + slicedList.length}`); })
         .catch(() => {
             const ta = document.createElement('textarea');
             ta.value = text; document.body.appendChild(ta);
             ta.focus(); ta.select();
-            try { document.execCommand('copy'); if(window.toast) window.toast('Copied for Sheets'); }
+            try { document.execCommand('copy'); if(window.toast) window.toast(`Copied rows ${offset + 1} to ${offset + slicedList.length}`); }
             catch { if(window.toast) window.toast('Failed to copy','error'); }
             document.body.removeChild(ta);
         });
-};
+});
 
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ PIVOT TO FLAGSHIP ═════════════════════════════════════════════
