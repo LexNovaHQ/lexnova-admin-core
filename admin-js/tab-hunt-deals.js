@@ -1443,10 +1443,11 @@ window.copyICPTable = function() {
     if (!slicedList.length) { if(window.toast) window.toast('No rows in that range', 'error'); return; }
 
     // THE SPREADSHEET ENGINE (TSV Format)
-    const header = `S. No.\tPID\tBatch Number\tFounder\tCompany\tRole\tFounder Email`;
+    const header = `S. No.\tBatch\tFounder\tCompany\tRole\tScanner Link\tEmail`;
     const rows = slicedList.map((p, i) => {
-        const sno = offset + i + 1; // Preserves accurate S.No numbering
-        return `${sno}\t${p.prospectId||'—'}\t${p.batchNumber||'—'}\t${p.founderName||p.name||'—'}\t${p.company||'—'}\t${p.jobTitle||'—'}\t${p.email||'—'}`;
+        const sno = offset + i + 1;
+        const scannerLink = p.scannerLink || `https://lexnovahq.com/scanner.html?pid=${p.prospectId||''}`;
+        return `${sno}\t${p.batchNumber||'—'}\t${p.founderName||p.name||'—'}\t${p.company||'—'}\t${p.jobTitle||'—'}\t${scannerLink}\t${p.email||'—'}`;
     }).join('\n');
 
     const text = `${header}\n${rows}`;
