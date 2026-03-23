@@ -1274,9 +1274,20 @@ window.copySpearReport = async function(id) {
         }
 
         // Feature citation — ready for Architect to drop into JSON
+        // When Tier 1 gap has a feature: Product Source is null from the
+        // tier rule, but the Chisel sentence 1 still needs a source.
+        // Feature Source is output as a SEPARATE field so the Architect
+        // can use it as product_source in that case.
+        // Rule: if Product Source is null AND Feature to Cite is not null
+        //       → Architect uses Feature Source as product_source
         const featureBlock = feature
             ? `Feature to Cite: "${feature.feature}"\nFeature Source:  ${feature.source || '—'}`
             : `Feature to Cite: null\nFeature Source:  null`;
+
+        // Explicit override hint for Architect when Tier 1 + feature conflict
+        const sourceOverride = (feature && productSource === 'null')
+            ? `\nSOURCE OVERRIDE: Product Source is null (Tier 1 rule) but Feature to Cite exists.\n  → Use Feature Source as product_source in JSON.\n  → Use Evidence Source as evidence_source in JSON.`
+            : '';
 
         return [
             `── GAP ${i+1} ─────────────────────────────────────────`,
