@@ -1188,7 +1188,7 @@ window.copySpearReport = async function(id) {
         if (!threatId) return null;
         const m = threatId.match(/^INT(\d{2})/);
         if (!m) return null;
-        return `INT.${m[1]}`; // INT.01, INT.02, ... INT.10
+        return `INT.${m[1]}`; // preserve raw match — "05" stays "05", matches Feature Map format
     }
 
     // ── FEATURE-TO-GAP LINKING ────────────────────────────────────────
