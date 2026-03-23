@@ -1,18 +1,26 @@
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ LEX NOVA ADMIN: FULFILLMENT ENGINE (panel-client.js) V5.5 ════
+// ═════════ LEX NOVA ADMIN: FULFILLMENT ENGINE (panel-client.js) V5.6 ════
 // ════════════════════════════════════════════════════════════════════════
-// Schema aligned to vault.js V5.5 rebuild:
-//   baseline.*        — Module 1 (company, products, jurisdiction, market,
-//                        delivery, revenue, sla_type, integrations, threshold)
-//   architecture.*    — Module 2 (memory, models, sub_processors, cloud/vector)
-//   archetypes.*      — Module 3 (all 10 INT flags + agent limits)
-//   compliance.*      — Module 4 (pii, eu/ca, sens_*, minors, distress)
+// V5.6 CHANGES FROM V5.5:
 //
-// Backwards compat: falls back to old action_scopes.* and architecture.*
-// fields so pre-V5.5 client records still render correctly.
+// populateDetailOverview — gap merge dedup fixed: threatId||trap primary
+//   key, ag.id removed (same V5.8 bug as tab-hunt-deals.js)
+// populateDetailOverview — gap display: thePain replaces plain,
+//   damage field removed (doesn't exist in v6.1 schema), velDisplay()
+//   added to gap rows
+// populateDetailOverview — productSignal: now handles Hunter v6.1 array
+//   format AND legacy string format
+// populateDetailOverview — verdict + viabilityFlags now surfaced in
+//   Intelligence Portfolio section
+// populateDetailOverview — all additional gaps (beyond kill shot) now
+//   rendered in a scrollable list with source badge + legalAmmo
 //
-// wh-s4 FIX: deployArchitecture() now reads webhookS4 from
-//   /settings/config and fires it after Firestore status → delivered write.
+// wh-s4 FIX: preserved from V5.5 — deployArchitecture() reads webhookS4
+//   from /settings/config and fires it after status → delivered write
+//
+// All schema helpers (getB/getA/getArc/getComp/getOld) unchanged
+// All other tabs (Checklist, Documents, Radar, Gap, Financials,
+//   Activity, Referrals, Debrief) unchanged from V5.5
 // ════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -30,26 +38,60 @@ function fmtMoneyC(n) { return (n==null||isNaN(n)) ? '—' : '$'+Number(n).toLoc
 function setTextC(id,txt) { const el=$c(id); if(el) el.textContent=String(txt??''); }
 function setValC(id,val)  { const el=$c(id); if(el) el.value=val??''; }
 
-var planLabel = k => ({agentic_shield:'Agentic Shield',workplace_shield:'Workplace Shield',complete_stack:'Complete Stack',flagship:'Flagship'}[k]||k);
-var PLAN_PRICES = {agentic_shield:997,workplace_shield:997,complete_stack:2500,flagship:15000};
+// Velocity display — same mapping as scanner and hunt tab
+var VELOCITY_DISPLAY_P = { 'Immediate':'Active Now', 'High':'This Year', 'Upcoming':'Incoming', 'Pending':'Watch' };
+function velDisplayP(v) { return VELOCITY_DISPLAY_P[v]||v||'—'; }
 
-// ── Schema helpers — read new schema, fall back to old ────────────────
-function getB(c)     { return c.baseline      || {}; }
-function getA(c)     { return c.architecture  || {}; }
-function getArc(c)   { return c.archetypes    || {}; }
-function getComp(c)  { return c.compliance    || {}; }
-function getOld(c)   { return c.action_scopes || {}; } // legacy fallback
+var planLabel  = k => ({agentic_shield:'Agentic Shield',workplace_shield:'Workplace Shield',complete_stack:'Complete Stack',flagship:'Flagship'}[k]||k);
+var PLAN_PRICES= {agentic_shield:997,workplace_shield:997,complete_stack:2500,flagship:15000};
 
-function isDoer(c)        { return !!(getArc(c).is_doer        || getOld(c).is_doer); }
-function isOrch(c)        { return !!(getArc(c).is_orchestrator|| getOld(c).is_orchestrator); }
-function isJudge(c)       { return !!(getArc(c).is_judge       || getOld(c).is_judge_hr || getOld(c).is_judge_fin || getOld(c).is_judge_legal); }
-function isCompanion(c)   { return !!(getArc(c).conversational_ui || getOld(c).is_companion); }
-function hasBio(c)        { return !!(getArc(c).sens_bio); }
-function hasEU(c)         { return !!(getComp(c).eu_users   || getB(c).eu_users); }
-function hasCA(c)         { return !!(getComp(c).ca_users   || getB(c).ca_users); }
-function hasPII(c)        { return !!(getComp(c).processes_pii); }
-function slaType(c)       { return getB(c).sla_type || (getOld(c)?.uptime !== 'none' ? 'standard' : 'no'); }
-function finetuning(c)    { return getA(c).memory === 'finetuning'; }
+// ── SCHEMA HELPERS — read new vault schema, fall back to old ──────────
+function getB(c)    { return c.baseline      || {}; }
+function getA(c)    { return c.architecture  || {}; }
+function getArc(c)  { return c.archetypes    || {}; }
+function getComp(c) { return c.compliance    || {}; }
+function getOld(c)  { return c.action_scopes || {}; } // legacy fallback
+
+function isDoer(c)      { return !!(getArc(c).is_doer        || getOld(c).is_doer); }
+function isOrch(c)      { return !!(getArc(c).is_orchestrator|| getOld(c).is_orchestrator); }
+function isJudge(c)     { return !!(getArc(c).is_judge       || getOld(c).is_judge_hr || getOld(c).is_judge_fin || getOld(c).is_judge_legal); }
+function isCompanion(c) { return !!(getArc(c).conversational_ui || getOld(c).is_companion); }
+function hasBio(c)      { return !!(getArc(c).sens_bio); }
+function hasEU(c)       { return !!(getComp(c).eu_users   || getB(c).eu_users); }
+function hasCA(c)       { return !!(getComp(c).ca_users   || getB(c).ca_users); }
+function hasPII(c)      { return !!(getComp(c).processes_pii); }
+function slaType(c)     { return getB(c).sla_type || (getOld(c)?.uptime !== 'none' ? 'standard' : 'no'); }
+function finetuning(c)  { return getA(c).memory === 'finetuning'; }
+
+// FIXED V5.6: dedup uses threatId||trap — ag.id removed (was Firestore
+// document ID leaking in, not a gap ID, causing silent dedup failures)
+function _mergeGaps(c) {
+    const active   = c.activeGaps   || [];
+    const forensic = c.forensicGaps || [];
+    const merged   = [...active];
+    forensic.forEach(fg => {
+        const fgKey = fg.threatId || fg.trap || '';
+        if (!fgKey) { merged.push(fg); return; }
+        if (!merged.find(ag => {
+            const k = ag.threatId || ag.trap || '';
+            return k && k === fgKey;
+        })) merged.push(fg);
+    });
+    const sw = {NUCLEAR:3,CRITICAL:2,HIGH:1};
+    merged.sort((a,b)=>(sw[(b.severity||'').toUpperCase()]||0)-(sw[(a.severity||'').toUpperCase()]||0));
+    return merged;
+}
+
+// FIXED V5.6: handles Hunter v6.1 array format AND legacy string
+function _productSignalDisplay(c) {
+    const ps = c.productSignal;
+    if (!ps) return '—';
+    if (Array.isArray(ps) && ps.length) {
+        return ps.map(f => `• ${window.esc(f.feature||'—')} <span style="font-size:9px;color:var(--marble-faint)">[${window.esc(f.triggersInt||'—')}]</span>`).join('<br>');
+    }
+    if (typeof ps === 'string') return window.esc(ps);
+    return '—';
+}
 
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ CORE PANEL ROUTING ════════════════════════════════════════════
@@ -96,7 +138,6 @@ window.detailTab = function(key, el) {
     const tabs=['overview','intake','checklist','documents','radar','gap','financials','activity','referrals','debrief'];
     tabs.forEach(t => { const s=$c('dt-'+t); if(s) s.classList.add('hidden'); });
     const act=$c('dt-'+key); if(act) act.classList.remove('hidden');
-
     document.querySelectorAll('.sub-tab').forEach(b=>b.classList.remove('active'));
     if (el) { el.classList.add('active'); }
     else {
@@ -106,52 +147,156 @@ window.detailTab = function(key, el) {
 };
 
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ TAB 1: OVERVIEW ════════════════════════════════════════════════
+// ═════════ TAB 1: OVERVIEW — V5.6 ════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
+// FIXED V5.6:
+//   · Gap merge uses threatId||trap dedup (ag.id removed)
+//   · Gap display: thePain replaces plain, damage removed, velDisplay added
+//   · productSignal handles array (Hunter v6.1) + string (legacy)
+//   · verdict + viabilityFlags surfaced in Intelligence Portfolio
+//   · Additional gaps rendered in scrollable list below kill shot
 function populateDetailOverview(c) {
     const sec = $c('dt-overview');
     if (!sec) return;
 
     const isAccepted = !!c.elAccepted;
-    const b = getB(c); const arc=getArc(c);
+    const b = getB(c);
 
-    // All gaps — prefer scanner merged, fall back to Hunter forensicGaps
-    const activeG  = c.activeGaps   || [];
-    const forensicG= c.forensicGaps || [];
-    const allGaps  = [...activeG];
-    forensicG.forEach(fg=>{ if(!allGaps.find(ag=>ag.id===fg.id)) allGaps.push(fg); });
-    allGaps.sort((a,b)=>({NUCLEAR:3,CRITICAL:2,HIGH:1}[b.severity]||0)-({NUCLEAR:3,CRITICAL:2,HIGH:1}[a.severity]||0));
+    // FIXED: use shared merge with correct dedup
+    const allGaps = _mergeGaps(c);
 
-    let gapHtml='';
+    // ── Kill Shot card ─────────────────────────────────────────────────
+    let gapHtml = '';
     if (allGaps.length) {
-        const ks=allGaps[0]; const ksc=ks.severity==='NUCLEAR'?'#ef4444':'#f97316';
-        gapHtml=`<div style="border:1px solid ${ksc};background:rgba(239,68,68,.04);padding:12px;border-left:3px solid ${ksc};border-radius:3px;margin-bottom:10px;">
-            <div style="color:${ksc};font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px;">🎯 Kill Shot (${ks.severity})</div>
-            <div style="font-size:12px;font-weight:700;color:var(--marble);margin-bottom:4px;">${window.esc(ks.trap||ks.gapName||'—')}</div>
-            <div style="font-size:10px;color:var(--marble-dim);">${window.esc(ks.plain||ks.pain||'—')}</div>
-            <div style="font-size:10px;color:${ksc};margin-top:4px;font-weight:600;">Damage: ${window.esc(ks.damage||'Uncapped')}</div>
+        const ks  = allGaps[0];
+        const ksc = (ks.severity||'').toUpperCase()==='NUCLEAR' ? '#ef4444' : '#f97316';
+
+        // Source badge
+        const srcBadge = ks.source==='dual-verified'
+            ? '<span style="font-size:8px;color:#d47a7a;font-weight:700;margin-left:6px;">DUAL-VERIFIED</span>'
+            : ks.source==='scrape'||ks.evidence?.source
+                ? '<span style="font-size:8px;color:#60a5fa;font-weight:700;margin-left:6px;">SCRAPE</span>'
+                : '<span style="font-size:8px;color:var(--gold);font-weight:700;margin-left:6px;">SCANNER</span>';
+
+        gapHtml = `
+        <div style="border:1px solid ${ksc};background:rgba(239,68,68,.04);padding:12px;border-left:3px solid ${ksc};border-radius:3px;margin-bottom:10px;">
+            <div style="color:${ksc};font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;">
+                🎯 Kill Shot (${ks.severity||'—'}) ${srcBadge}
+            </div>
+            <div style="font-size:12px;font-weight:700;color:var(--marble);margin-bottom:4px;">${window.esc(ks.trap||'—')}</div>
+            <!-- FIXED: thePain not plain, damage removed -->
+            <div style="font-size:10px;color:var(--marble-dim);margin-bottom:4px;">${window.esc(ks.thePain||ks.plain||'—')}</div>
+            <div style="font-size:9px;color:var(--marble-faint);">${window.esc(ks.legalAmmo||'—')}</div>
+            ${ks.evidence?.source||ks.evidence?.reason ? `<div style="font-size:10px;background:#050505;border:1px solid #1a1a1a;padding:6px;margin-top:6px;font-family:monospace;">
+                ${ks.evidence.source?`<div style="color:var(--gold);font-size:9px;">SOURCE: ${window.esc(ks.evidence.source)}</div>`:''}
+                ${ks.evidence.reason?`<div style="color:#ccc;font-size:9px;margin-top:1px;">WHY: ${window.esc(ks.evidence.reason)}</div>`:''}
+            </div>` : ''}
+            <!-- FIXED: velDisplay replaces raw velocity; damage field removed -->
+            <div style="font-size:10px;color:${ksc};margin-top:6px;font-weight:600;">
+                ${window.esc(ks.ext||'')} · ${velDisplayP(ks.velocity)}
+                ${ks.theFix ? ` · <span style="color:var(--gold)">${window.esc(ks.theFix||ks.doc||'—')}</span>` : ''}
+            </div>
+        </div>`;
+
+        // Additional gaps — scrollable list
+        if (allGaps.length > 1) {
+            gapHtml += `<div style="font-size:9px;color:var(--marble-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">${allGaps.length-1} more gap${allGaps.length-1!==1?'s':''}</div>`;
+            gapHtml += `<div style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;">`;
+            allGaps.slice(1).forEach(g => {
+                const col = (g.severity||'').toUpperCase()==='NUCLEAR'?'#ef4444':'#f97316';
+                const src = g.source==='dual-verified'
+                    ? '<span style="font-size:8px;color:#d47a7a;font-weight:700">DUAL</span>'
+                    : g.source==='scrape'||g.evidence?.source
+                        ? '<span style="font-size:8px;color:#60a5fa;font-weight:700">SCRAPE</span>'
+                        : '<span style="font-size:8px;color:var(--gold);font-weight:700">SCANNER</span>';
+                gapHtml += `
+                <div style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid ${col};padding:8px;border-radius:3px;">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px;gap:6px;flex-wrap:wrap;">
+                        <span style="font-size:10px;font-weight:600;color:var(--marble);flex:1;">${window.esc(g.trap||'—')}</span>
+                        <span style="display:flex;gap:4px;flex-shrink:0;">
+                            <span style="font-size:9px;color:${col};font-weight:700">${g.severity||'—'}</span>${src}
+                        </span>
+                    </div>
+                    <!-- FIXED: thePain not plain, no damage -->
+                    <div style="font-size:10px;color:var(--marble-dim);">${window.esc(g.thePain||g.plain||'—')}</div>
+                    <div style="font-size:9px;color:var(--marble-faint);margin-top:2px;">
+                        ${window.esc(g.ext||'')} · ${velDisplayP(g.velocity)} · ${window.esc(g.theFix||g.doc||'—')}
+                    </div>
+                    ${g.evidence?.reason ? `<div style="font-size:9px;color:#777;margin-top:3px;font-style:italic;">${window.esc(g.evidence.reason)}</div>` : ''}
+                </div>`;
+            });
+            gapHtml += `</div>`;
+        }
+    }
+
+    // FIXED V5.6: viabilityFlags block
+    let viabilityHtml = '';
+    const vf = c.viabilityFlags;
+    if (vf) {
+        const gi = ok => ok===true
+            ? '<span style="color:#7ab88a">✓</span>'
+            : ok===false ? '<span style="color:#d47a7a">✗</span>'
+            : '<span style="color:var(--marble-faint)">?</span>';
+        const rc = vf.recommendation==='PUSH' ? '#7ab88a' : '#d4a850';
+        viabilityHtml = `
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+            <div style="font-size:9px;letter-spacing:.15em;color:var(--marble-faint);text-transform:uppercase;margin-bottom:7px;">Viability Gates (Hunter)</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:10px;margin-bottom:6px;">
+                <div>${gi(vf.gate1_productFit)} <span style="color:var(--marble-dim);">G1 Product Fit</span></div>
+                <div>${gi(vf.gate2_gapSeverity)} <span style="color:var(--marble-dim);">G2 Gap Severity</span></div>
+                <div>${gi(vf.gate3_contactComplete)} <span style="color:var(--marble-dim);">G3 Contact</span></div>
+                <div style="font-size:9px;color:var(--marble-faint);">G4: ${window.esc(vf.gate4_funding||'—')}</div>
+            </div>
+            <div style="font-size:10px;font-weight:700;color:${rc};">${window.esc(vf.recommendation||'—')}${vf.reason?' — '+window.esc(vf.reason):''}</div>
         </div>`;
     }
 
     sec.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;height:calc(100vh - 220px);overflow:hidden;">
+
+        <!-- LEFT: Intelligence Portfolio -->
         <div style="overflow-y:auto;padding-right:8px;display:flex;flex-direction:column;gap:16px;">
             <div class="card" style="padding:16px;">
                 <div style="font-size:9px;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:12px;">Intelligence Portfolio</div>
-                <div style="margin-bottom:8px;"><label class="fl">INT Archetypes</label>
+
+                <div style="margin-bottom:8px;">
+                    <label class="fl">INT Archetypes</label>
                     <div style="font-size:11px;color:var(--marble);">${window.esc((c.intArchetypes||[]).join(', ')||c.internalCategory||'—')}</div>
                 </div>
-                <div style="margin-bottom:8px;"><label class="fl">EXT Exposures</label>
+
+                <div style="margin-bottom:8px;">
+                    <label class="fl">EXT Exposures</label>
                     <div style="font-size:11px;color:#ef4444;font-weight:600">${window.esc((c.extExposures||[]).join(', ')||'—')}</div>
                 </div>
+
+                <div style="margin-bottom:8px;">
+                    <label class="fl">Lanes</label>
+                    <div style="font-size:11px;color:var(--gold);font-weight:600">${window.esc((c.lanes||[]).join(', ').toUpperCase()||'—')}</div>
+                </div>
+
+                <!-- FIXED V5.6: verdict surfaced -->
+                ${c.verdict ? `<div style="margin-bottom:8px;">
+                    <label class="fl">Verdict</label>
+                    <div style="font-size:11px;color:${c.verdict==='GREEN LIGHT'?'#7ab88a':c.verdict==='RED LIGHT'?'#d47a7a':'var(--gold)'};">
+                        ${window.esc(c.verdict)}${c.verdictReason?' — '+window.esc(c.verdictReason):''}
+                    </div>
+                </div>` : ''}
+
                 <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);">
                     <label class="fl">Product Signal</label>
-                    <div style="font-size:11px;color:var(--marble-dim);line-height:1.5;">${window.esc(c.productSignal||'—')}</div>
+                    <!-- FIXED V5.6: handles array (Hunter v6.1) and string (legacy) -->
+                    <div style="font-size:11px;color:var(--marble-dim);line-height:1.6;">${_productSignalDisplay(c)}</div>
                 </div>
-                ${gapHtml}
+
+                <!-- FIXED V5.6: viabilityFlags shown -->
+                ${viabilityHtml}
+
+                <div style="font-size:9px;color:var(--marble-dim);text-transform:uppercase;letter-spacing:.1em;margin:12px 0 8px;">${allGaps.length} Gap${allGaps.length!==1?'s':''} Detected</div>
+                ${allGaps.length ? gapHtml : '<div class="empty" style="border:1px dashed var(--border);padding:12px;text-align:center;font-size:11px;">No gaps on record.</div>'}
             </div>
         </div>
 
+        <!-- RIGHT: Production Controls -->
         <div style="overflow-y:auto;padding-right:8px;display:flex;flex-direction:column;gap:16px;">
             <div class="card" style="padding:16px;">
                 <div style="font-size:9px;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:12px;">Production Controls</div>
@@ -211,6 +356,7 @@ window.saveOverview = async function() {
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ TAB 2: INTAKE — V5.5 FULL 4-MODULE DISPLAY ═══════════════════
 // ════════════════════════════════════════════════════════════════════════
+// Unchanged from V5.5 — schema already correct
 function populateDetailIntake(c) {
     const el = $c('dp-intake-content');
     if (!el) return;
@@ -221,7 +367,6 @@ function populateDetailIntake(c) {
     const comp = getComp(c);
     const old  = getOld(c);
 
-    // Check if new vault data exists at all
     const hasNewVault = !!(b.company || arc.is_doer !== undefined || comp.eu_users !== undefined);
     const hasOldVault = !!old.uptime || !!c.architecture?.processes_pii;
 
@@ -231,35 +376,31 @@ function populateDetailIntake(c) {
 
     // ── WARNINGS ──
     let warn='';
-    if (hasEU(c))     warn+=`<div style="font-size:11px;color:#d4a850;margin-bottom:6px;">⚠️ <strong>EU/UK Users:</strong> GDPR SCCs required → inject DOC_DPA §6.2/6.3/6.4 + Schedule D.</div>`;
-    if (hasCA(c))     warn+=`<div style="font-size:11px;color:#d4a850;margin-bottom:6px;">⚠️ <strong>California Users:</strong> CCPA Service Provider shield → DOC_DPA §13.x + DOC_PP.</div>`;
-    if (finetuning(c))warn+=`<div style="font-size:11px;color:#ef4444;margin-bottom:6px;">🔴 <strong>Fine-Tuning:</strong> Cannot mathematically delete user data. Override DPA deletion clauses.</div>`;
-    if (isDoer(c))    warn+=`<div style="font-size:11px;color:#ef4444;margin-bottom:6px;">🔴 <strong>Autonomous Actions:</strong> UETA §14 agency liability. DOC_AGT required.</div>`;
-    if (hasBio(c))    warn+=`<div style="font-size:11px;color:#ef4444;margin-bottom:6px;">🔴 <strong>Biometrics:</strong> BIPA strict liability. DOC_AUP §3.6 pass-through mandate required.</div>`;
-    if (comp.minors)  warn+=`<div style="font-size:11px;color:#ef4444;margin-bottom:6px;">🔴 <strong>Minors:</strong> COPPA + CA SB 243 + NY S3008. Crisis escalation protocols required.</div>`;
+    if (hasEU(c))      warn+=`<div style="font-size:11px;color:#d4a850;margin-bottom:6px;">⚠️ <strong>EU/UK Users:</strong> GDPR SCCs required → inject DOC_DPA §6.2/6.3/6.4 + Schedule D.</div>`;
+    if (hasCA(c))      warn+=`<div style="font-size:11px;color:#d4a850;margin-bottom:6px;">⚠️ <strong>California Users:</strong> CCPA Service Provider shield → DOC_DPA §13.x + DOC_PP.</div>`;
+    if (finetuning(c)) warn+=`<div style="font-size:11px;color:#ef4444;margin-bottom:6px;">🔴 <strong>Fine-Tuning:</strong> Cannot mathematically delete user data. Override DPA deletion clauses.</div>`;
+    if (isDoer(c))     warn+=`<div style="font-size:11px;color:#ef4444;margin-bottom:6px;">🔴 <strong>Autonomous Actions:</strong> UETA §14 agency liability. DOC_AGT required.</div>`;
+    if (hasBio(c))     warn+=`<div style="font-size:11px;color:#ef4444;margin-bottom:6px;">🔴 <strong>Biometrics:</strong> BIPA strict liability. DOC_AUP §3.6 pass-through mandate required.</div>`;
+    if (comp.minors)   warn+=`<div style="font-size:11px;color:#ef4444;margin-bottom:6px;">🔴 <strong>Minors:</strong> COPPA + CA SB 243 + NY S3008. Crisis escalation protocols required.</div>`;
 
     const row  = (label,val,gold) => `<div style="font-size:11px;margin-bottom:6px;"><span class="dim">${label}:</span> <strong ${gold?'style="color:var(--gold)"':''}>${window.esc(String(val??'—'))}</strong></div>`;
     const bool = (label,val)      => row(label, val?'Yes':'No', val);
     const sep  = title            => `<div style="font-size:9px;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid var(--border);padding-bottom:5px;margin:14px 0 10px;">${title}</div>`;
 
-    // Products array
     const products = b.products||[];
     const prodHtml = products.length
         ? products.map((p,i)=>`<div style="background:var(--surface2);border:1px solid var(--border);padding:8px 10px;margin-bottom:6px;border-radius:3px;"><div style="font-size:10px;font-weight:600;color:var(--marble);">${window.esc(p.name||`Product ${i+1}`)}</div>${p.desc?`<div style="font-size:9px;color:var(--marble-dim);margin-top:2px;">${window.esc(p.desc)}</div>`:''}</div>`).join('')
         : '<div style="font-size:11px;color:var(--marble-dim);">—</div>';
 
-    // Sub-processors
     const sub = a.sub_processors||{};
     const subNames = ['openai','anthropic','google','cohere','mistral'].filter(k=>sub[k]).map(k=>k.charAt(0).toUpperCase()+k.slice(1));
     if (sub.other) subNames.push(sub.other);
     const subDisplay = subNames.length ? subNames.join(', ') : '—';
 
-    // Integrations
     const ints = b.integrations||{};
     const intNames = Object.entries(ints).filter(([k,v])=>v&&k!=='none').map(([k])=>k);
     const intDisplay = intNames.length ? intNames.join(', ') : (ints.none?'None':'—');
 
-    // Agent limits
     const lims = arc.agent_limits||{};
 
     el.innerHTML = `
@@ -286,9 +427,7 @@ function populateDetailIntake(c) {
             ${row('SLA Type',     b.sla_type||'—')}
             ${row('Integrations', intDisplay)}
             ${row('Reliance Threshold', b.reliance_threshold?fmtMoneyC(b.reliance_threshold):'—')}
-
             <div style="margin-top:10px;"><label class="fl">Products</label>${prodHtml}</div>
-
             ${sep('Module 2 — Tech Stack & AI Memory')}
             ${row('AI Memory',     a.memory?.toUpperCase())}
             ${row('Model Infra',   a.models?.toUpperCase())}
@@ -301,13 +440,12 @@ function populateDetailIntake(c) {
         <div>
             ${sep('Module 3 — AI Archetypes')}
             ${bool('The Doer (Autonomous)',       isDoer(c))}
-            ${isDoer(c)?`
-                <div style="padding:8px 10px;background:var(--surface2);border:1px solid var(--border);margin-bottom:8px;font-size:10px;border-left:2px solid var(--gold);">
-                    <div>↳ Session Cap: <strong>${window.esc(lims.session_cap||getOld(c).spend_limit||'—')}</strong></div>
-                    <div>↳ Period Cap: <strong>${window.esc(lims.period_cap||'—')}</strong></div>
-                    <div>↳ Retry Limit: <strong>${window.esc(lims.retry_limit||'—')}</strong></div>
-                    <div>↳ Loop Threshold: <strong>${window.esc(lims.loop_threshold||'—')}</strong></div>
-                </div>`:''}
+            ${isDoer(c)?`<div style="padding:8px 10px;background:var(--surface2);border:1px solid var(--border);margin-bottom:8px;font-size:10px;border-left:2px solid var(--gold);">
+                <div>↳ Session Cap: <strong>${window.esc(lims.session_cap||getOld(c).spend_limit||'—')}</strong></div>
+                <div>↳ Period Cap: <strong>${window.esc(lims.period_cap||'—')}</strong></div>
+                <div>↳ Retry Limit: <strong>${window.esc(lims.retry_limit||'—')}</strong></div>
+                <div>↳ Loop Threshold: <strong>${window.esc(lims.loop_threshold||'—')}</strong></div>
+            </div>`:''}
             ${bool('The Orchestrator',            isOrch(c))}
             ${bool('The Creator (Gen Media)',      arc.is_creator)}
             ${bool('The Reader (RAG/Scraping)',    arc.is_reader)}
@@ -318,7 +456,6 @@ function populateDetailIntake(c) {
             ${bool('The Shield (Cyber Defense)',   arc.is_shield)}
             ${bool('The Mover (Hardware)',         arc.is_mover)}
             ${bool('Catch-All (Generalist)',       arc.is_generalist)}
-
             ${sep('Module 4 — Compliance Exposures')}
             ${bool('Processes PII',                hasPII(c))}
             ${bool('EU / UK Users',                hasEU(c))}
@@ -336,9 +473,9 @@ function populateDetailIntake(c) {
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ TAB 3: CHECKLIST — DYNAMIC DEATH CHECKS V5.5 ═════════════════
 // ════════════════════════════════════════════════════════════════════════
+// Unchanged from V5.5 — schema already correct
 function populateDetailChecklist(c) {
     const el=$c('dp-checklist-items'); if(!el)return;
-
     const arc=getArc(c); const comp=getComp(c); const b=getB(c); const a=getA(c);
 
     const core=[
@@ -395,7 +532,6 @@ function populateDetailChecklist(c) {
     renderSection('Death Checks (Conditional)', death, true);
 
     if (!death.length) html+=`<div class="dim" style="font-size:11px;padding:10px 0;">No severe Death Checks triggered. Standard deployment.</div>`;
-
     el.innerHTML=html;
 }
 
@@ -419,17 +555,16 @@ window.saveChecklistState = async function() {
 };
 
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ TAB 4: DOCUMENTS — V5.5 SCHEMA + wh-s4 FIX ═══════════════════
+// ═════════ TAB 4: DOCUMENTS + wh-s4 DEPLOY ═══════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
+// wh-s4 fix preserved from V5.5 — unchanged
 function populateDetailDocuments(c) {
     const container=$c('docsContainer'); if(!container)return;
     container.innerHTML='';
 
     const isAgentic   = ['agentic_shield','complete_stack','flagship'].includes(c.plan);
     const isWorkplace = ['workplace_shield','complete_stack','flagship'].includes(c.plan);
-
-    const arc=getArc(c); const b=getB(c); const a=getA(c);
-    const files=c.files||{};
+    const b=getB(c); const files=c.files||{};
 
     container.innerHTML+=`
     <div class="card" style="margin-bottom:20px;border-color:var(--gold-mid);background:var(--void);">
@@ -448,8 +583,7 @@ function populateDetailDocuments(c) {
                 ${!req?'<span style="font-size:9px;color:var(--marble-dim);border:1px solid var(--border);padding:2px 6px;">Not Required</span>':''}
             </div>
             <div style="font-size:10px;color:var(--marble-dim);margin-bottom:${req?'12px':'0'};">${sub}</div>
-            ${req?`<div class="fg" style="margin-bottom:0;">
-                <label class="fl">Final PDF URL</label>
+            ${req?`<div class="fg" style="margin-bottom:0;"><label class="fl">Final PDF URL</label>
                 <input type="text" class="fi payload-input" data-docid="${docId}" value="${window.esc(val)}" placeholder="https://…">
             </div>`:''}
         </div>`;
@@ -457,26 +591,21 @@ function populateDetailDocuments(c) {
 
     let html='';
     if (isAgentic) {
-        html+=slot('DOC_TOS', 'Terms of Service',           'Core operating terms, liability limits, AI output disclaimers.',true);
-        html+=slot('DOC_PP',  'Privacy Policy',             'Data collection, storage, global privacy law compliance.',true);
-        html+=slot('DOC_AUP', 'Acceptable Use Policy',      'Prohibits prompt injection, jailbreaking, malicious use.',true);
-        // Use new schema: compliance.processes_pii (fall back to architecture.processes_pii)
-        const reqDPA = hasPII(c) !== false;
-        html+=slot('DOC_DPA', 'Data Processing Agreement',  'GDPR/CCPA compliance, RAG-Only mandate, algorithmic disgorgement shield.',reqDPA);
-        // New schema: archetypes.is_doer
-        html+=slot('DOC_AGT', 'Agentic Addendum',           'Waives liability for autonomous actions, circuit breakers, kill switch.',isDoer(c));
-        // New schema: baseline.sla_type
-        const reqSLA = b.sla_type && b.sla_type!=='no';
-        html+=slot('DOC_SLA', 'Service Level Agreement',    'Uptime and TTFT performance guarantees.',reqSLA);
-        html+=slot('DOC_PBK_A','Negotiation Playbook',      'Enterprise procurement defense — exact scripts, concession limits.',true);
+        html+=slot('DOC_TOS',  'Terms of Service',           'Core operating terms, liability limits, AI output disclaimers.', true);
+        html+=slot('DOC_PP',   'Privacy Policy',             'Data collection, storage, global privacy law compliance.', true);
+        html+=slot('DOC_AUP',  'Acceptable Use Policy',      'Prohibits prompt injection, jailbreaking, malicious use.', true);
+        html+=slot('DOC_DPA',  'Data Processing Agreement',  'GDPR/CCPA compliance, RAG-Only mandate, algorithmic disgorgement shield.', hasPII(c)!==false);
+        html+=slot('DOC_AGT',  'Agentic Addendum',           'Waives liability for autonomous actions, circuit breakers, kill switch.', isDoer(c));
+        html+=slot('DOC_SLA',  'Service Level Agreement',    'Uptime and TTFT performance guarantees.', !!(b.sla_type && b.sla_type!=='no'));
+        html+=slot('DOC_PBK_A','Negotiation Playbook',       'Enterprise procurement defense — exact scripts, concession limits.', true);
     }
     if (isWorkplace) {
-        html+=slot('DOC_SCAN', 'Shadow AI Audit',           'Internal risk matrix mapping unauthorized AI tool usage.',true);
-        html+=slot('DOC_HND',  'Employee AI Handbook',      'Corporate guidelines — permitted AI tools on company networks.',true);
-        html+=slot('DOC_IP',   'IP Ownership Deed',         'Ensures company owns all AI-generated code, copy, and assets.',true);
-        html+=slot('DOC_SOP',  'HITL Protocol',             'Human-in-the-loop verification SOPs before deploying AI outputs.',true);
-        html+=slot('DOC_DPIA', 'Impact Assessment',         'Data Protection Impact Assessment for internal AI deployments.',true);
-        html+=slot('DOC_PBK_B','Operations Playbook',       'Managerial deployment guide for Workplace Shield across teams.',true);
+        html+=slot('DOC_SCAN', 'Shadow AI Audit',            'Internal risk matrix mapping unauthorized AI tool usage.', true);
+        html+=slot('DOC_HND',  'Employee AI Handbook',       'Corporate guidelines — permitted AI tools on company networks.', true);
+        html+=slot('DOC_IP',   'IP Ownership Deed',          'Ensures company owns all AI-generated code, copy, and assets.', true);
+        html+=slot('DOC_SOP',  'HITL Protocol',              'Human-in-the-loop verification SOPs before deploying AI outputs.', true);
+        html+=slot('DOC_DPIA', 'Impact Assessment',          'Data Protection Impact Assessment for internal AI deployments.', true);
+        html+=slot('DOC_PBK_B','Operations Playbook',        'Managerial deployment guide for Workplace Shield across teams.', true);
     }
 
     container.innerHTML+=html;
@@ -486,22 +615,19 @@ function populateDetailDocuments(c) {
     </button>`;
 }
 
-// ── DEPLOY — with wh-s4 fix ───────────────────────────────────────────
+// ── DEPLOY — wh-s4 fix preserved from V5.5 ───────────────────────────
 window.deployArchitecture = async function() {
     if (!window.currentClient) return;
 
-    // Validate Death Checks
     const deathBoxes=qsac('.death-check');
     if (deathBoxes.length) {
         const allDone=deathBoxes.every(b=>b.classList.contains('done'));
         if (!allDone) {
             if(window.toast) window.toast('Cannot deploy — Death Checks incomplete.','error');
-            window.detailTab('checklist');
-            return;
+            window.detailTab('checklist'); return;
         }
     }
 
-    // Collect file URLs
     const files={};
     qsac('.payload-input').forEach(inp=>{
         const id=inp.getAttribute('data-docid'); const url=inp.value.trim();
@@ -515,25 +641,24 @@ window.deployArchitecture = async function() {
             files, walkthroughUrl:videoUrl, status:'delivered', deliveredAt
         });
 
-        // ── wh-s4 FIX: read webhook URL from /settings/config, fire it ──
+        // ── wh-s4: read from /settings/config, fire delivery webhook ──
         try {
             const cfgSnap = await window.db.collection('settings').doc('config').get();
             const wh4 = cfgSnap.exists ? (cfgSnap.data().webhookS4||'') : '';
             if (wh4) {
-                const c=window.currentClient; const b=getB(c);
+                const cl=window.currentClient; const b2=getB(cl);
                 fetch(wh4, {
-                    method:'POST',
-                    headers:{'Content-Type':'application/json'},
+                    method:'POST', headers:{'Content-Type':'application/json'},
                     body: JSON.stringify({
-                        email:       c.id,
-                        name:        c.name || b.company || '',
-                        company:     b.company || c.company || '',
-                        plan:        c.plan,
+                        email:          cl.id,
+                        name:           cl.name || b2.company || '',
+                        company:        b2.company || cl.company || '',
+                        plan:           cl.plan,
                         files,
                         walkthroughUrl: videoUrl,
                         deliveredAt,
-                        engagementRef: c.engagementRef||'',
-                        timestamp:   deliveredAt
+                        engagementRef:  cl.engagementRef||'',
+                        timestamp:      deliveredAt
                     })
                 }).catch(e=>console.warn('wh-s4 fire failed (non-critical):',e));
             } else {
@@ -551,12 +676,9 @@ window.deployArchitecture = async function() {
 };
 
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ TAB 5: RADAR — DATE DELTA ENGINE (Option B) ═══════════════════
+// ═════════ TAB 5: RADAR — DATE DELTA ENGINE ══════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
-// GREEN  = effectiveDate <= deliveredAt   (kit was built covering it)
-// RED    = effectiveDate > deliveredAt AND effectiveDate <= today  (active gap)
-// YELLOW = effectiveDate > today          (upcoming — maintenance upsell)
-// ════════════════════════════════════════════════════════════════════════
+// Unchanged from V5.5
 function populateDetailRadar(c) {
     const el=$c('dp-radar-list'); if(!el)return;
     el.innerHTML='<div class="loading">Calculating exposure…</div>';
@@ -567,23 +689,19 @@ function populateDetailRadar(c) {
         return;
     }
 
-    const today      = new Date(); today.setHours(0,0,0,0);
+    const today=new Date(); today.setHours(0,0,0,0);
     const deliveredAt = c.deliveredAt
         ? (c.deliveredAt.toDate ? c.deliveredAt.toDate() : new Date(c.deliveredAt))
         : null;
     const hasDelivery= !!(deliveredAt && !isNaN(deliveredAt));
 
-    // Bridge function from admin-engine.js — use the same matching logic
-    // (defined on window via admin-engine.js)
     const matchFn = typeof window._clientMatchesRegulation === 'function'
         ? window._clientMatchesRegulation
         : (reg, client) => {
-            // Inline fallback so radar works even if admin-engine loads after
             if (reg.target_all) return true;
             const intT=reg.intTriggers||reg.target_int||[];
             const extT=reg.extTriggers||reg.target_ext||[];
             if (intT.includes('UNIVERSAL')) return true;
-            const arc=getArc(client); const comp=getComp(client); const b2=getB(client); const a2=getA(client);
             const intMap={'INT.01':isDoer,'INT.02':isOrch,'INT.03':cl=>!!getArc(cl).is_creator,'INT.04':isCompanion,'INT.05':cl=>!!getArc(cl).is_reader,'INT.06':hasBio,'INT.07':isJudge,'INT.08':cl=>!!getArc(cl).is_shield,'INT.09':cl=>!!getArc(cl).is_optimizer,'INT.10':cl=>!!getArc(cl).is_mover,'is_doer':isDoer,'is_orchestrator':isOrch,'is_judge_hr':cl=>!!(getArc(cl).is_judge_hr||getOld(cl).is_judge_hr),'is_companion':isCompanion,'finetuning':finetuning,'selfhosted':cl=>getA(cl).models==='selfhosted'};
             const extMap={'EXT.01':hasEU,'EXT.02':hasCA,'EXT.03':hasPII,'EXT.04':hasBio,'EXT.06':cl=>!!getComp(cl).minors,'EXT.07':cl=>!!(getArc(cl).is_judge_hr||getComp(cl).sens_employment),'EXT.08':cl=>['b2c','hybrid'].includes(getB(cl).market)||!getB(cl).market,'EXT.09':cl=>['b2b','hybrid'].includes(getB(cl).market)||!getB(cl).market,'EXT.10':cl=>!getA(cl).models||getA(cl).models==='thirdparty','eu_users':hasEU,'ca_users':hasCA,'processes_pii':hasPII,'sensitive_data':cl=>!!(getComp(cl).sens_health||getComp(cl).sens_fin||getComp(cl).sens_employment||getArc(cl).sens_bio)};
             for(const t of intT){const fn=intMap[t];if(fn&&fn(client))return true;}
@@ -598,14 +716,11 @@ function populateDetailRadar(c) {
     }
 
     const green=[], yellow=[], red=[];
-
     relevant.forEach(reg => {
         const effDate = reg.effectiveDate ? new Date(reg.effectiveDate) : null;
         if (!effDate || isNaN(effDate)) { yellow.push({reg,label:'Date Unknown'}); return; }
         effDate.setHours(0,0,0,0);
-
         if (!hasDelivery) {
-            // Not delivered yet — bucket by effective date vs today
             if (effDate<=today) yellow.push({reg,label:'Active — pre-delivery'});
             else yellow.push({reg,label:`Activates ${Math.ceil((effDate-today)/86400000)}d from now`});
         } else {
@@ -623,8 +738,8 @@ function populateDetailRadar(c) {
         }
     });
 
-    const hasMaint = !!c.maintenanceActive;
-    const needsMaint = red.length > 0 || yellow.length > 0;
+    const hasMaint=!!c.maintenanceActive;
+    const needsMaint=red.length>0||yellow.length>0;
 
     const renderCard=(item,bucket)=>{
         const reg=item.reg;
@@ -648,29 +763,16 @@ function populateDetailRadar(c) {
         </div>`;
     };
 
-    let html='';
-
-    // Stats bar
-    html+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
-        <div style="background:rgba(138,58,58,.1);border:1px solid rgba(138,58,58,.3);padding:6px 14px;flex:1;min-width:80px;text-align:center;">
-            <div style="font-size:20px;color:#d47a7a;font-family:'Cormorant Garamond',serif;">${red.length}</div>
-            <div style="font-size:8px;color:#d47a7a;text-transform:uppercase;letter-spacing:.1em;">🔴 Exposed</div>
-        </div>
-        <div style="background:rgba(154,128,48,.08);border:1px solid rgba(154,128,48,.25);padding:6px 14px;flex:1;min-width:80px;text-align:center;">
-            <div style="font-size:20px;color:#c4a840;font-family:'Cormorant Garamond',serif;">${yellow.length}</div>
-            <div style="font-size:8px;color:#c4a840;text-transform:uppercase;letter-spacing:.1em;">🟡 Scheduled</div>
-        </div>
-        <div style="background:rgba(90,138,106,.08);border:1px solid rgba(90,138,106,.25);padding:6px 14px;flex:1;min-width:80px;text-align:center;">
-            <div style="font-size:20px;color:#7ab88a;font-family:'Cormorant Garamond',serif;">${green.length}</div>
-            <div style="font-size:8px;color:#7ab88a;text-transform:uppercase;letter-spacing:.1em;">✓ Covered</div>
-        </div>
+    let html=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+        <div style="background:rgba(138,58,58,.1);border:1px solid rgba(138,58,58,.3);padding:6px 14px;flex:1;min-width:80px;text-align:center;"><div style="font-size:20px;color:#d47a7a;font-family:'Cormorant Garamond',serif;">${red.length}</div><div style="font-size:8px;color:#d47a7a;text-transform:uppercase;letter-spacing:.1em;">🔴 Exposed</div></div>
+        <div style="background:rgba(154,128,48,.08);border:1px solid rgba(154,128,48,.25);padding:6px 14px;flex:1;min-width:80px;text-align:center;"><div style="font-size:20px;color:#c4a840;font-family:'Cormorant Garamond',serif;">${yellow.length}</div><div style="font-size:8px;color:#c4a840;text-transform:uppercase;letter-spacing:.1em;">🟡 Scheduled</div></div>
+        <div style="background:rgba(90,138,106,.08);border:1px solid rgba(90,138,106,.25);padding:6px 14px;flex:1;min-width:80px;text-align:center;"><div style="font-size:20px;color:#7ab88a;font-family:'Cormorant Garamond',serif;">${green.length}</div><div style="font-size:8px;color:#7ab88a;text-transform:uppercase;letter-spacing:.1em;">✓ Covered</div></div>
     </div>`;
 
-    // Maintenance upsell if needed
     if (needsMaint && !hasMaint) {
         html+=`<div style="background:rgba(197,160,89,.06);border:1px solid var(--gold-mid);padding:14px;margin-bottom:16px;">
             <div style="font-size:10px;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">⚡ Active Shields Recommended</div>
-            <div style="font-size:11px;color:var(--marble-dim);margin-bottom:8px;">${red.length} exposed + ${yellow.length} incoming regulations. Client is not on maintenance. <strong>$297/month</strong> closes these gaps.</div>
+            <div style="font-size:11px;color:var(--marble-dim);margin-bottom:8px;">${red.length} exposed + ${yellow.length} incoming. Client is not on maintenance. <strong>$297/month</strong> closes these gaps.</div>
             <button class="btn btn-primary btn-sm" onclick="window.detailTab('financials')">Activate Maintenance →</button>
         </div>`;
     } else if (hasMaint) {
@@ -678,11 +780,11 @@ function populateDetailRadar(c) {
     }
 
     if (!hasDelivery) {
-        html+=`<div style="background:rgba(90,90,150,.08);border:1px solid rgba(90,90,180,.2);padding:10px 14px;margin-bottom:16px;font-size:10px;color:#7a7ae0;">ⓘ Kit not yet delivered — date delta engine will activate on deployment. Showing current exposure status.</div>`;
+        html+=`<div style="background:rgba(90,90,150,.08);border:1px solid rgba(90,90,180,.2);padding:10px 14px;margin-bottom:16px;font-size:10px;color:#7a7ae0;">ⓘ Kit not yet delivered — date delta engine activates on deployment.</div>`;
     }
 
-    if (red.length)    { html+=`<div style="font-size:9px;color:#d47a7a;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:8px;">🔴 EXPOSED — Active After Delivery (${red.length})</div>`; red.forEach(it=>html+=renderCard(it,'RED')); }
-    if (yellow.length) { html+=`<div style="font-size:9px;color:#c4a840;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin:14px 0 8px;">🟡 SCHEDULED — Upcoming (${yellow.length})</div>`; yellow.forEach(it=>html+=renderCard(it,'YELLOW')); }
+    if (red.length)    { html+=`<div style="font-size:9px;color:#d47a7a;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:8px;">🔴 EXPOSED (${red.length})</div>`; red.forEach(it=>html+=renderCard(it,'RED')); }
+    if (yellow.length) { html+=`<div style="font-size:9px;color:#c4a840;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin:14px 0 8px;">🟡 SCHEDULED (${yellow.length})</div>`; yellow.forEach(it=>html+=renderCard(it,'YELLOW')); }
     if (green.length) {
         html+=`<div style="font-size:9px;color:#7ab88a;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin:14px 0 8px;">✓ COVERED BY KIT (${green.length}) <button onclick="this.closest('div').nextElementSibling.classList.toggle('hidden');this.textContent=this.closest('div').nextElementSibling.classList.contains('hidden')?'Show':'Hide';" class="btn btn-ghost btn-sm" style="margin-left:8px;">Show</button></div>`;
         html+=`<div class="hidden">${green.map(it=>renderCard(it,'GREEN')).join('')}</div>`;
@@ -692,7 +794,7 @@ function populateDetailRadar(c) {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ TABS 6-10: LEGACY (UNCHANGED SCHEMA) ══════════════════════════
+// ═════════ TABS 6-10: UNCHANGED FROM V5.5 ════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 function populateDetailGap(c) {
     const g=c.gapReview||{};
