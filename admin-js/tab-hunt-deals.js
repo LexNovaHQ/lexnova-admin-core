@@ -1192,20 +1192,51 @@ window.copySpearReport = async function(id) {
     }
 
     // ── FEATURE-TO-GAP LINKING ────────────────────────────────────────
-    // Matches productSignal entries to gaps by INT code
-    // UNI gaps never have a feature — always null
-    // Each INT code is used only once (first match wins)
+    // Matches productSignal entries to gaps by INT code + EXT overlap scoring
+    //
+    // V6.2 FIX: Removed usedIntCodes set — old logic claimed INT code on
+    // first match, leaving every subsequent gap with the same INT code
+    // returning null. For Chroma all 7 INT gaps are INT.05 — only Gap 5
+    // was getting a feature, Gaps 6/9/10/11 all got null.
+    //
+    // New logic: for each gap, find all candidate features sharing the
+    // same INT code, then score by EXT overlap. The feature whose EXT
+    // codes best match the gap's EXT codes wins. Multiple gaps with the
+    // same INT code each independently find their best-match feature.
+    // A single feature can be cited by multiple gaps — that's correct
+    // because one product capability can trigger multiple legal surfaces.
     const productSignalRaw = Array.isArray(p.productSignal) ? p.productSignal : [];
-    const usedIntCodes     = new Set();
 
     function findFeatureForGap(g) {
         if (!productSignalRaw.length) return null;
         const intCode = getIntCode(g.threatId);
-        if (!intCode) return null; // UNI gap — no feature match
-        if (usedIntCodes.has(intCode)) return null; // already linked to a higher-priority gap
-        const match = productSignalRaw.find(f => f.triggersInt === intCode);
-        if (match) usedIntCodes.add(intCode);
-        return match || null;
+        if (!intCode) return null; // UNI gap — no feature match possible
+
+        // All candidates sharing this INT code
+        const candidates = productSignalRaw.filter(f => f.triggersInt === intCode);
+        if (!candidates.length) return null;
+
+        // Score each candidate by EXT overlap with gap
+        const gapExt = getExtArray(g);
+        let best = null, bestScore = -1;
+
+        candidates.forEach(f => {
+            const fExt = Array.isArray(f.exposesExt) ? f.exposesExt : [];
+            const overlap = gapExt.filter(e => fExt.includes(e)).length;
+            // Prefer higher overlap; tiebreak on feature string length
+            // (longer = more specific description)
+            if (
+                overlap > bestScore ||
+                (overlap === bestScore && best && (f.feature||'').length > (best.feature||'').length)
+            ) {
+                bestScore = overlap;
+                best = f;
+            }
+        });
+
+        // If no EXT overlap at all, fall back to first candidate rather
+        // than returning null — a same-INT feature is still relevant
+        return best || candidates[0];
     }
 
     // ── GAP MATRIX ────────────────────────────────────────────────────
