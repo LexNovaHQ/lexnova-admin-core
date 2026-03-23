@@ -1,28 +1,44 @@
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ LEX NOVA ADMIN: THE CRM ENGINE (tab-hunt-deals.js) V5.8 ══════
+// ═════════ LEX NOVA ADMIN: THE CRM ENGINE (tab-hunt-deals.js) V6.0 ══════
 // ════════════════════════════════════════════════════════════════════════
-// V5.8 CHANGES:
-// - 25-per-batch hard limit enforced on add, convert, and batch edit
-// - Batch capacity indicator (X/25) in queue and pipeline batch cards
-// V5.7 CHANGES:
-// - Batch number now visible + editable in prospect panel
-// - saveProspect now writes batchNumber to Firestore
-// - Added "Sort: Batch" option to pipeline sort dropdown
-// - Added batch performance summary to queue view
-// V5.6 CHANGES:
-// - copySpearReport: removed 7-gap cap, removed rankCOLD/rankNEG
-// - New rule: All Tier 1 + All Tier 2 + max 3 Tier 3
-// - No commercial ranking — Gemini Pro handles prioritization
-// - copyDossier: removed 7-gap cap, same tier-based rule
+// V6.0 CHANGES FROM V5.8:
+// - BUG FIX: getAllGaps — dedup key now uses threatId||trap only; ag.id removed
+//   (ag.id was the Firestore doc id leaking in, not a gap id — caused silent
+//   dedup failures for any gap lacking threatId)
+// - BUG FIX: getEvidenceBackedGaps — now merges activeGaps (scanner confessions)
+//   alongside forensicGaps; Spear Report was blank for scanner-only leads
+// - BUG FIX: saveProspect — alreadyInBatch variable removed; it was always false
+//   inside the batchChanged block (unreachable dead code)
+// - SCHEMA: renderPPBody now reads thePain/theFix throughout; g.plain/g.doc/
+//   g.damage references removed from UI rendering
+// - NEW: VELOCITY_DISPLAY constant + velDisplay() helper — registry velocity
+//   values mapped to client-facing labels; used in renderPPBody gap rows
+// - NEW: viabilityFlags section added to Intel Brief in renderPPBody — shows
+//   G1-G4 gate results and recommendation when present on prospect
+// - copyDossier + copySpearReport: fallback bridge kept (thePain||plain,
+//   theFix||doc) for backward compat with stale Firestore records
 // ════════════════════════════════════════════════════════════════════════
 'use strict';
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────
-var PLANS = { agentic_shield:'Agentic Shield', workplace_shield:'Workplace Shield', complete_stack:'Complete Stack', flagship:'Flagship' };
+var PLANS = {
+    agentic_shield:   'Agentic Shield',
+    workplace_shield: 'Workplace Shield',
+    complete_stack:   'Complete Stack',
+    flagship:         'Flagship'
+};
 var STEP_NEXT      = { C:'FU1', FU1:'FU2', FU2:'FU3', FU3:'FU4', FU4:null };
 var STEP_INTERVALS = { C:3, FU1:3, FU2:4, FU3:4, FU4:2 };
 var STEP_LABELS    = { C:'Cold Email', FU1:'Follow-Up 1', FU2:'Follow-Up 2', FU3:'Follow-Up 3', FU4:'Follow-Up 4' };
 var STATUSES       = ['QUEUED','SEQUENCE','ENGAGED','NEGOTIATING','CONVERTED','ARCHIVED','DEAD'];
+
+// Velocity values pulled verbatim from threat registry → client-facing display labels
+var VELOCITY_DISPLAY = {
+    'Immediate': 'Active Now',
+    'High':      'This Year',
+    'Upcoming':  'Incoming',
+    'Pending':   'Watch'
+};
 
 // ── STATE ──────────────────────────────────────────────────────────────
 window.allProspects    = [];
@@ -44,53 +60,76 @@ function nextQuarter()    { const q=['Q1','Q2','Q3','Q4']; return q[(q.indexOf(c
 function fmtMoney(n)      { return (n==null||isNaN(n))?'—':'$'+Number(n).toLocaleString(); }
 function fmtDate(ts)      { if(!ts)return'—'; const d=ts.toDate?ts.toDate():new Date(ts); return isNaN(d)?'—':d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
 function planBadgeClass(p){ return {agentic_shield:'b-intake',workplace_shield:'b-warm',complete_stack:'b-production',flagship:'b-hot'}[p]||'b-ghost'; }
+function velDisplay(v)    { return VELOCITY_DISPLAY[v] || v || '—'; }
 
 var BATCH_LIMIT = 25;
 function getBatchCount(batchNumber) {
     if (!batchNumber) return 0;
     return window.allProspects.filter(p => p.batchNumber === batchNumber && p.status !== 'DEAD').length;
 }
-function isBatchFull(batchNumber) {
-    return getBatchCount(batchNumber) >= BATCH_LIMIT;
-}
-function statusBadgeHtml(s){
-    const cls={QUEUED:'b-cold',SEQUENCE:'b-intake',ENGAGED:'b-warm',NEGOTIATING:'b-hot',CONVERTED:'b-delivered',ARCHIVED:'b-ghost',DEAD:'b-dead'}[s]||'b-ghost';
+function isBatchFull(batchNumber) { return getBatchCount(batchNumber) >= BATCH_LIMIT; }
+
+function statusBadgeHtml(s) {
+    const cls = {
+        QUEUED:'b-cold', SEQUENCE:'b-intake', ENGAGED:'b-warm',
+        NEGOTIATING:'b-hot', CONVERTED:'b-delivered', ARCHIVED:'b-ghost', DEAD:'b-dead'
+    }[s] || 'b-ghost';
     return `<span class="badge ${cls}">${s}</span>`;
 }
 
+// ── GAP MERGING ────────────────────────────────────────────────────────
+// FIXED V6.0: dedup key uses threatId||trap only. ag.id was the Firestore
+// document id (not a gap id) and caused silent dedup failures.
 function getAllGaps(p) {
-    const active  = p.activeGaps  || [];
-    const forensic= p.forensicGaps|| [];
-    const merged  = [...active];
+    const active   = p.activeGaps  || [];
+    const forensic = p.forensicGaps|| [];
+    const merged   = [...active];
     forensic.forEach(fg => {
-        const fgKey = fg.threatId || fg.id || fg.trap || '';
+        const fgKey = fg.threatId || fg.trap || '';
+        if (!fgKey) { merged.push(fg); return; }
         if (!merged.find(ag => {
-            const agKey = ag.threatId || ag.id || ag.trap || '';
+            const agKey = ag.threatId || ag.trap || '';
             return agKey && agKey === fgKey;
         })) merged.push(fg);
     });
     const sw = { NUCLEAR:3, CRITICAL:2, HIGH:1 };
-    merged.sort((a,b) => (sw[b.severity?.toUpperCase()]||0) - (sw[a.severity?.toUpperCase()]||0));
+    merged.sort((a,b) => (sw[(b.severity||'').toUpperCase()]||0) - (sw[(a.severity||'').toUpperCase()]||0));
     return merged;
 }
 
-// ── SHARED: Evidence-backed gap filter (used by Dossier + Spear) ──
+// FIXED V6.0: now merges activeGaps (scanner confessions) alongside
+// forensicGaps so Spear Report is populated for scanner-only leads.
+// Rule: All T1 + All T2 + max 3 T3 (forensic-backed)
+//       + scanner NUCLEAR/CRITICAL not already covered by forensic pool
 function getEvidenceBackedGaps(p) {
-    const allGaps = p.forensicGaps || [];
-    const qualified = allGaps.filter(g =>
-        ['NUCLEAR','CRITICAL'].includes(g.severity?.toUpperCase()) &&
-        g.evidence?.source &&
-        g.evidence?.reason
+    // Hunter-backed gaps (evidence required)
+    const forensicQualified = (p.forensicGaps || []).filter(g =>
+        ['NUCLEAR','CRITICAL'].includes((g.severity||'').toUpperCase()) &&
+        g.evidence?.source && g.evidence?.reason
     );
-    const tier1 = qualified.filter(g => g.evidenceTier === 1);
-    const tier2 = qualified.filter(g => g.evidenceTier === 2);
-    const tier3 = qualified.filter(g => g.evidenceTier === 3).slice(0, 3);
-    return [...tier1, ...tier2, ...tier3];
+    const tier1 = forensicQualified.filter(g => g.evidenceTier === 1);
+    const tier2 = forensicQualified.filter(g => g.evidenceTier === 2);
+    const tier3 = forensicQualified.filter(g => g.evidenceTier === 3).slice(0, 3);
+    const forensicResult = [...tier1, ...tier2, ...tier3];
+
+    // Scanner-confessed gaps (no Hunter evidence — prospect self-reported NUCLEAR/CRITICAL)
+    // Include only if not already covered by forensicResult
+    const coveredKeys = new Set(
+        forensicResult.map(g => g.threatId || g.trap || '').filter(Boolean)
+    );
+    const scannerOnly = (p.activeGaps || []).filter(g =>
+        ['NUCLEAR','CRITICAL'].includes((g.severity||'').toUpperCase()) &&
+        !coveredKeys.has(g.threatId || '__none__') &&
+        !coveredKeys.has(g.trap    || '__none__')
+    );
+
+    return [...forensicResult, ...scannerOnly];
 }
 
+// Action text drives Today's Queue row labels
 function getActionText(p) {
-    const step = p.sequenceStep||'C';
-    switch(p.status) {
+    const step = p.sequenceStep || 'C';
+    switch (p.status) {
         case 'QUEUED':      return 'Ready — send cold email';
         case 'SEQUENCE':    return `Send ${STEP_LABELS[step]||'next follow-up'}`;
         case 'ENGAGED':
@@ -139,14 +178,15 @@ function buildHuntTabHTML() {
                     </select>
                 </div>
                 <button class="btn btn-primary" onclick="if(typeof window.openAddProspect==='function')window.openAddProspect()">+ Add Prospect</button>
-<button class="btn btn-outline" onclick="window.copyICPTable()" style="border-color:var(--gold);color:var(--gold);">📋 Copy List</button>
-
+                <button class="btn btn-outline" onclick="window.copyICPTable()" style="border-color:var(--gold);color:var(--gold);">📋 Copy List</button>
             </div>
             <div style="display:flex;gap:10px;width:100%;flex-wrap:wrap;">
                 <select class="fi" id="op-gap" onchange="if(typeof window.filterProspects==='function')window.filterProspects()">
                     <option value="">Severity: All</option>
-                    <option value="NUCLEAR">🔴 Nuclear</option><option value="CRITICAL">🟠 Critical</option>
-                    <option value="HIGH">🟡 High</option><option value="MEDIUM">⚪ Medium</option>
+                    <option value="NUCLEAR">🔴 Nuclear</option>
+                    <option value="CRITICAL">🟠 Critical</option>
+                    <option value="HIGH">🟡 High</option>
+                    <option value="MEDIUM">⚪ Medium</option>
                 </select>
                 <select class="fi" id="op-ai" onchange="if(typeof window.filterProspects==='function')window.filterProspects()">
                     <option value="">Archetype: All</option>
@@ -170,9 +210,7 @@ function buildHuntTabHTML() {
                 <thead>
                     <tr>
                         <th>#</th><th>Prospect</th><th>Company</th><th>Batch</th>
-                        <th>Status / Step</th>
-                        <th>Archetype</th>
-                        <th>Scanner</th>
+                        <th>Status / Step</th><th>Archetype</th><th>Scanner</th>
                         <th>Next Action</th><th>Emails</th>
                     </tr>
                 </thead>
@@ -198,17 +236,20 @@ window.loadOutreach = function() {
     if (pa) pa.innerHTML = '';
     buildHuntTabHTML();
     window.db.collection('settings').doc('config').get()
-        .then(snap => { if(snap.exists) caseStudyUrl = snap.data().caseStudyVideoUrl||''; })
-        .catch(()=>{});
+        .then(snap => { if (snap.exists) caseStudyUrl = snap.data().caseStudyVideoUrl || ''; })
+        .catch(() => {});
     if (outreachListener) outreachListener();
     outreachListener = window.db.collection('prospects').onSnapshot(snap => {
         window.allProspects = [];
-        snap.forEach(d => window.allProspects.push({ id:d.id, ...d.data() }));
-        try { populateCommandCenter(); } catch(e) { console.error('CC Error',e); }
-        try { window.renderDealsBoard(); } catch(e) { console.error('Deals Error',e); }
-        try { renderHuntView(); }          catch(e) { console.error('Hunt Error',e); }
-        try { populateBatchFilter(); }     catch(e) { console.error('Batch Error',e); }
-    }, e => { console.error(e); if(window.toast) window.toast('Outreach sync failed','error'); });
+        snap.forEach(d => window.allProspects.push({ id: d.id, ...d.data() }));
+        try { populateCommandCenter(); } catch(e) { console.error('CC Error', e); }
+        try { window.renderDealsBoard(); } catch(e) { console.error('Deals Error', e); }
+        try { renderHuntView(); }          catch(e) { console.error('Hunt Error', e); }
+        try { populateBatchFilter(); }     catch(e) { console.error('Batch Error', e); }
+    }, e => {
+        console.error(e);
+        if (window.toast) window.toast('Outreach sync failed', 'error');
+    });
 };
 
 // ════════════════════════════════════════════════════════════════════════
@@ -218,36 +259,40 @@ function populateCommandCenter() {
     let clicks=0, comps=0, paid=0, fuToday=0, fuOver=0, liPending=0;
     const today = todayStr();
     window.allProspects.forEach(p => {
-        if (p.scannerClicked||p.scannerCompleted) clicks++;
+        if (p.scannerClicked || p.scannerCompleted) clicks++;
         if (p.scannerCompleted) comps++;
-        if (p.status==='CONVERTED') paid++;
+        if (p.status === 'CONVERTED') paid++;
         if (!['CONVERTED','DEAD','ARCHIVED'].includes(p.status)) {
-            if (p.nextActionDate===today) fuToday++;
-            if (p.nextActionDate && p.nextActionDate<today) fuOver++;
+            if (p.nextActionDate === today) fuToday++;
+            if (p.nextActionDate && p.nextActionDate < today) fuOver++;
             if (['pending','connected_no_reply'].includes(p.linkedinStatus)) liPending++;
         }
     });
-    const setText = window.setText||((id,v)=>{const e=$h(id);if(e)e.textContent=String(v??'');});
+    const setText = window.setText || ((id,v) => { const e=$h(id); if(e) e.textContent=String(v??''); });
     setText('sf-clicks', clicks);
     setText('sf-comps',  comps);
     setText('sf-paid',   paid);
-    setText('sf-rate',   clicks>0?Math.round((paid/clicks)*100)+'% Conversion':'— Conversion');
-    let cold=0, warm=0, hot=0, neg=0;
+    setText('sf-rate',   clicks > 0 ? Math.round((paid/clicks)*100)+'% Conversion' : '— Conversion');
+
+    let cold=0, warm=0, hot=0;
     window.allProspects.forEach(p => {
-        if (p.status==='QUEUED'||p.status==='SEQUENCE')   cold++;
-        else if (p.status==='ENGAGED')                    warm++;
-        else if (p.status==='NEGOTIATING')                hot++;
+        if (p.status==='QUEUED'||p.status==='SEQUENCE') cold++;
+        else if (p.status==='ENGAGED')     warm++;
+        else if (p.status==='NEGOTIATING') hot++;
     });
     setText('of-cold', cold); setText('of-warm', warm);
-    setText('of-hot',  hot);  setText('of-replied', 0); setText('of-neg', neg);
+    setText('of-hot',  hot);  setText('of-replied', 0); setText('of-neg', 0);
     setText('aq-today', fuToday);
     setText('aq-over',  fuOver);
     setText('aq-li',    liPending);
-    let mrr=0;
-    window.allProspects.forEach(p => { if(p.maintenanceActive) mrr+=297; });
-    setText('d-mrr', window.fmtMoney?window.fmtMoney(mrr):'$'+mrr);
+
+    let mrr = 0;
+    window.allProspects.forEach(p => { if (p.maintenanceActive) mrr += 297; });
+    setText('d-mrr', window.fmtMoney ? window.fmtMoney(mrr) : '$'+mrr);
+
     window.db.collection('leads').where('status','in',['new','scanner_submitted']).get()
-        .then(snap => setText('aq-inbound', snap.size)).catch(()=>{});
+        .then(snap => setText('aq-inbound', snap.size)).catch(() => {});
+
     renderBatchPerformance();
 }
 
@@ -257,31 +302,33 @@ function populateCommandCenter() {
 window.populateBatchFilter = function() {
     const sel = $h('op-batch');
     if (!sel || sel.options.length > 1) return;
-    [...new Set(window.allProspects.map(p=>p.batchNumber).filter(Boolean))].sort().forEach(b => {
-        const o = document.createElement('option'); o.value=b; o.textContent=b; sel.appendChild(o);
+    [...new Set(window.allProspects.map(p => p.batchNumber).filter(Boolean))].sort().forEach(b => {
+        const o = document.createElement('option');
+        o.value = b; o.textContent = b; sel.appendChild(o);
     });
 };
 
 function renderBatchPerformance() {
-    const tbodies = document.querySelectorAll('#oc-batches');
+    const tbodies = document.querySelectorAll('#oc-batches, #cc-batches');
     if (!tbodies.length) return;
     const batches = {};
     window.allProspects.forEach(p => {
-        const b = p.batchNumber||'Unassigned';
-        if (!batches[b]) batches[b]={p:0,e:0,cl:0,co:0,cv:0};
+        const b = p.batchNumber || 'Unassigned';
+        if (!batches[b]) batches[b] = { p:0, e:0, cl:0, co:0, cv:0 };
         batches[b].p++;
-        batches[b].e += p.emailsSent||0;
-        if (p.scannerClicked||p.scannerCompleted) batches[b].cl++;
+        batches[b].e += p.emailsSent || 0;
+        if (p.scannerClicked || p.scannerCompleted) batches[b].cl++;
         if (p.scannerCompleted) batches[b].co++;
-        if (p.status==='CONVERTED') batches[b].cv++;
+        if (p.status === 'CONVERTED') batches[b].cv++;
     });
     const keys = Object.keys(batches).sort();
-    const html = !keys.length ? '<tr><td colspan="9" class="loading">No batches yet</td></tr>'
+    const html = !keys.length
+        ? '<tr><td colspan="9" class="loading">No batches yet</td></tr>'
         : keys.map((b, i) => {
-            const r=batches[b];
-            const roi=r.co>0?Math.round((r.cv/r.co)*100)+'%':'0%';
+            const r = batches[b];
+            const roi = r.co > 0 ? Math.round((r.cv/r.co)*100)+'%' : '0%';
             const capColor = r.p >= BATCH_LIMIT ? '#ef4444' : r.p >= BATCH_LIMIT - 5 ? '#f97316' : 'var(--marble-dim)';
-            const capText = r.p >= BATCH_LIMIT ? 'FULL' : `${r.p}/${BATCH_LIMIT}`;
+            const capText  = r.p >= BATCH_LIMIT ? 'FULL' : `${r.p}/${BATCH_LIMIT}`;
             return `<tr>
                 <td class="dim" style="font-size:10px;text-align:center;">${i+1}</td>
                 <td>${window.esc(b)}</td>
@@ -297,23 +344,23 @@ function renderBatchPerformance() {
 function renderQueueBatchSummary() {
     const batches = {};
     window.allProspects.forEach(p => {
-        const b = p.batchNumber||'Unassigned';
-        if (!batches[b]) batches[b]={p:0,e:0,cl:0,co:0,cv:0,active:0};
+        const b = p.batchNumber || 'Unassigned';
+        if (!batches[b]) batches[b] = { p:0, e:0, cl:0, co:0, cv:0, active:0 };
         batches[b].p++;
-        batches[b].e += p.emailsSent||0;
-        if (p.scannerClicked||p.scannerCompleted) batches[b].cl++;
+        batches[b].e += p.emailsSent || 0;
+        if (p.scannerClicked || p.scannerCompleted) batches[b].cl++;
         if (p.scannerCompleted) batches[b].co++;
-        if (p.status==='CONVERTED') batches[b].cv++;
+        if (p.status === 'CONVERTED') batches[b].cv++;
         if (!['CONVERTED','DEAD','ARCHIVED'].includes(p.status)) batches[b].active++;
     });
     const keys = Object.keys(batches).sort();
     if (!keys.length) return '';
     const cards = keys.map(b => {
         const r = batches[b];
-        const closeRate = r.co>0 ? Math.round((r.cv/r.co)*100)+'%' : '0%';
-        const clickRate = r.p>0 ? Math.round((r.cl/r.p)*100)+'%' : '0%';
-        const capColor = r.p >= BATCH_LIMIT ? '#ef4444' : r.p >= BATCH_LIMIT - 5 ? '#f97316' : 'var(--marble-dim)';
-        const capLabel = r.p >= BATCH_LIMIT ? 'FULL' : `${r.p}/${BATCH_LIMIT}`;
+        const closeRate = r.co > 0 ? Math.round((r.cv/r.co)*100)+'%' : '0%';
+        const clickRate = r.p  > 0 ? Math.round((r.cl/r.p)*100)+'%'  : '0%';
+        const capColor  = r.p >= BATCH_LIMIT ? '#ef4444' : r.p >= BATCH_LIMIT-5 ? '#f97316' : 'var(--marble-dim)';
+        const capLabel  = r.p >= BATCH_LIMIT ? 'FULL' : `${r.p}/${BATCH_LIMIT}`;
         return `
         <div style="background:var(--surface);border:1px solid var(--border);padding:12px;border-radius:4px;min-width:160px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -330,15 +377,10 @@ function renderQueueBatchSummary() {
             </div>
         </div>`;
     }).join('');
-
     return `
     <div style="margin-bottom:20px;">
-        <div style="font-size:9px;color:var(--marble-dim);text-transform:uppercase;letter-spacing:.15em;font-weight:700;margin-bottom:10px;">
-            📊 BATCH PERFORMANCE
-        </div>
-        <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;">
-            ${cards}
-        </div>
+        <div style="font-size:9px;color:var(--marble-dim);text-transform:uppercase;letter-spacing:.15em;font-weight:700;margin-bottom:10px;">📊 BATCH PERFORMANCE</div>
+        <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;">${cards}</div>
     </div>`;
 }
 
@@ -351,7 +393,7 @@ window.setHuntView = function(view, el) {
     huntViewMode = view;
     const qEl = $h('hunt-queue-view');
     const pEl = $h('hunt-pipeline-view');
-    if (view==='queue') {
+    if (view === 'queue') {
         if (qEl) qEl.classList.remove('hidden');
         if (pEl) pEl.classList.add('hidden');
         renderTodayQueue();
@@ -363,7 +405,7 @@ window.setHuntView = function(view, el) {
 };
 
 function renderHuntView() {
-    if (huntViewMode==='queue') renderTodayQueue();
+    if (huntViewMode === 'queue') renderTodayQueue();
     else filterProspects();
 }
 
@@ -396,12 +438,7 @@ function renderOutreachStats() {
         if (p.status === 'CONVERTED') converted++;
     });
 
-    const pct = (n, d) => d > 0 ? Math.round((n / d) * 100) + '%' : '—';
-    const emailReplyRate  = pct(repliedTotal, totalWithEmails);
-    const replyScanRate   = pct(scanComp, repliedTotal);
-    const scanConvRate    = pct(converted, scanComp);
-    const overallConvRate = pct(converted, totalWithEmails);
-
+    const pct = (n, d) => d > 0 ? Math.round((n/d)*100)+'%' : '—';
     return `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:24px;">
         <div style="background:var(--surface);border:1px solid var(--border);padding:14px;border-radius:4px;">
@@ -427,10 +464,10 @@ function renderOutreachStats() {
         <div style="background:var(--surface);border:1px solid var(--gold-mid);padding:14px;border-radius:4px;grid-column:span 2;">
             <div style="font-size:8px;color:var(--gold);text-transform:uppercase;letter-spacing:.12em;margin-bottom:10px;font-weight:700;">📊 Conversion Rates</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                <div><div style="font-size:9px;color:var(--marble-faint);margin-bottom:2px;">Email → Reply</div><div style="font-size:16px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${emailReplyRate}</div></div>
-                <div><div style="font-size:9px;color:var(--marble-faint);margin-bottom:2px;">Reply → Scanner</div><div style="font-size:16px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${replyScanRate}</div></div>
-                <div><div style="font-size:9px;color:var(--marble-faint);margin-bottom:2px;">Scanner → Paid</div><div style="font-size:16px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${scanConvRate}</div></div>
-                <div><div style="font-size:9px;color:var(--marble-faint);margin-bottom:2px;">Overall Close</div><div style="font-size:16px;font-family:'Cormorant Garamond',serif;color:var(--gold);font-weight:700;">${overallConvRate}</div></div>
+                <div><div style="font-size:9px;color:var(--marble-faint);margin-bottom:2px;">Email → Reply</div><div style="font-size:16px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${pct(repliedTotal, totalWithEmails)}</div></div>
+                <div><div style="font-size:9px;color:var(--marble-faint);margin-bottom:2px;">Reply → Scanner</div><div style="font-size:16px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${pct(scanComp, repliedTotal)}</div></div>
+                <div><div style="font-size:9px;color:var(--marble-faint);margin-bottom:2px;">Scanner → Paid</div><div style="font-size:16px;font-family:'Cormorant Garamond',serif;color:var(--marble);">${pct(converted, scanComp)}</div></div>
+                <div><div style="font-size:9px;color:var(--marble-faint);margin-bottom:2px;">Overall Close</div><div style="font-size:16px;font-family:'Cormorant Garamond',serif;color:var(--gold);font-weight:700;">${pct(converted, totalWithEmails)}</div></div>
             </div>
         </div>
     </div>`;
@@ -447,27 +484,27 @@ function renderTodayQueue() {
     const active     = window.allProspects.filter(p => !['CONVERTED','DEAD'].includes(p.status));
     const revivalDue = active.filter(p => p.status==='ARCHIVED' && p.revivalQuarter===cq);
     const working    = active.filter(p => p.status!=='ARCHIVED' && p.nextActionDate);
-    const overdue    = working.filter(p=>p.nextActionDate<today).sort((a,b)=>a.nextActionDate.localeCompare(b.nextActionDate));
-    const todayItems = working.filter(p=>p.nextActionDate===today);
-    const upcoming   = working.filter(p=>p.nextActionDate>today).sort((a,b)=>a.nextActionDate.localeCompare(b.nextActionDate));
+    const overdue    = working.filter(p => p.nextActionDate < today).sort((a,b) => a.nextActionDate.localeCompare(b.nextActionDate));
+    const todayItems = working.filter(p => p.nextActionDate === today);
+    const upcoming   = working.filter(p => p.nextActionDate > today).sort((a,b) => a.nextActionDate.localeCompare(b.nextActionDate));
 
-    const renderRow = (p) => {
+    const renderRow = p => {
         const action = getActionText(p);
-        const fire   = p.scannerCompleted?'🔥🔥 ':p.scannerClicked?'🔥 ':'';
+        const fire   = p.scannerCompleted ? '🔥🔥 ' : p.scannerClicked ? '🔥 ' : '';
         return `
         <div class="aq-row" onclick="window.openPP('${window.esc(p.id)}')" style="cursor:pointer;flex-direction:column;align-items:flex-start;gap:4px;">
             <div style="display:flex;justify-content:space-between;width:100%;align-items:center;flex-wrap:wrap;gap:6px;">
                 <span style="font-size:12px;font-weight:600;color:var(--marble);">${window.esc(p.founderName||p.name||'—')} ${fire}· <span style="color:var(--marble-dim)">${window.esc(p.company||'—')}</span></span>
                 <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
                     ${statusBadgeHtml(p.status)}
-                    ${p.sequenceStep?`<span class="badge b-ghost" style="font-size:8px">${p.sequenceStep}</span>`:''}
+                    ${p.sequenceStep ? `<span class="badge b-ghost" style="font-size:8px">${p.sequenceStep}</span>` : ''}
                 </span>
             </div>
             <div style="font-size:10px;color:var(--gold);">→ ${window.esc(action)}</div>
         </div>`;
     };
 
-    const renderRevivalRow = (p) => `
+    const renderRevivalRow = p => `
         <div class="aq-row" style="flex-direction:column;align-items:flex-start;gap:8px;">
             <div style="display:flex;justify-content:space-between;width:100%;align-items:center;flex-wrap:wrap;gap:6px;">
                 <span style="font-size:12px;font-weight:600;">${window.esc(p.founderName||p.name||'—')} · ${window.esc(p.company||'—')}</span>
@@ -481,26 +518,26 @@ function renderTodayQueue() {
         </div>`;
 
     el.innerHTML = renderOutreachStats() + `
-        ${overdue.length?`
+        ${overdue.length ? `
         <div style="margin-bottom:20px;">
             <div style="font-size:9px;color:#d47a7a;text-transform:uppercase;letter-spacing:.15em;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
                 🔴 OVERDUE <span style="background:rgba(212,122,122,.15);border:1px solid rgba(212,122,122,.3);padding:2px 8px;border-radius:8px;">${overdue.length}</span>
             </div>
             <div class="action-queue">${overdue.map(renderRow).join('')}</div>
-        </div>`:''}
+        </div>` : ''}
 
-        ${todayItems.length?`
+        ${todayItems.length ? `
         <div style="margin-bottom:20px;">
             <div style="font-size:9px;color:var(--gold);text-transform:uppercase;letter-spacing:.15em;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
                 🟡 TODAY <span style="background:var(--gold-dim);border:1px solid var(--gold-mid);padding:2px 8px;border-radius:8px;color:var(--gold);">${todayItems.length}</span>
             </div>
             <div class="action-queue">${todayItems.map(renderRow).join('')}</div>
-        </div>`:''}
+        </div>` : ''}
 
-        ${!overdue.length&&!todayItems.length?`
+        ${!overdue.length && !todayItems.length ? `
         <div style="text-align:center;padding:40px;color:var(--marble-faint);font-size:11px;border:1px solid var(--border);">
             ✓ No actions overdue or due today.
-        </div>`:''}
+        </div>` : ''}
 
         <div style="margin-bottom:20px;">
             <div style="font-size:9px;color:var(--marble-dim);text-transform:uppercase;letter-spacing:.15em;font-weight:700;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
@@ -511,55 +548,56 @@ function renderTodayQueue() {
                     this.textContent=u.classList.contains('hidden')?'Expand':'Collapse';
                 ">Expand</button>
             </div>
-            <div class="action-queue hidden">${upcoming.slice(0,30).map(renderRow).join('')||'<div class="loading">No upcoming actions</div>'}</div>
+            <div class="action-queue hidden">${upcoming.slice(0,30).map(renderRow).join('') || '<div class="loading">No upcoming actions</div>'}</div>
         </div>
 
-        ${revivalDue.length?`
+        ${revivalDue.length ? `
         <div style="margin-bottom:20px;">
             <div style="font-size:9px;color:#7ab88a;text-transform:uppercase;letter-spacing:.15em;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
                 📦 REVIVAL DUE — ${cq} <span style="background:rgba(90,138,106,.15);border:1px solid rgba(90,138,106,.3);padding:2px 8px;border-radius:8px;color:#7ab88a;">${revivalDue.length}</span>
             </div>
             <div class="action-queue">${revivalDue.map(renderRevivalRow).join('')}</div>
-        </div>`:''}
+        </div>` : ''}
 
-        ${renderQueueBatchSummary()}`;}
+        ${renderQueueBatchSummary()}`;
+}
 
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ FILTER & PIPELINE TABLE ═══════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 window.filterProspects = function() {
-    const s   = ($h('op-search')?.value||'').toLowerCase();
-    const st  = $h('op-status')?.value||'';
-    const bt  = $h('op-batch')?.value||'';
-    const fs  = $h('op-funding')?.value||'';
-    const sc  = $h('op-scanner')?.value||'';
-    const gap = $h('op-gap')?.value||'';
-    const ai  = $h('op-ai')?.value||'';
-    const srt = $h('op-sort')?.value||'nextDate';
+    const s   = ($h('op-search')?.value  || '').toLowerCase();
+    const st  = $h('op-status')?.value   || '';
+    const bt  = $h('op-batch')?.value    || '';
+    const fs  = $h('op-funding')?.value  || '';
+    const sc  = $h('op-scanner')?.value  || '';
+    const gap = $h('op-gap')?.value      || '';
+    const ai  = $h('op-ai')?.value       || '';
+    const srt = $h('op-sort')?.value     || 'nextDate';
 
     let list = window.allProspects.filter(p => {
-        if (s && ![(p.founderName||''),(p.name||''),(p.company||''),(p.email||''),(p.prospectId||'')].some(v=>v.toLowerCase().includes(s))) return false;
-        if (st && p.status!==st) return false;
-        if (bt && p.batchNumber!==bt) return false;
-        if (fs && p.fundingStage!==fs) return false;
-        if (sc==='clicked'   && !(p.scannerClicked && !p.scannerCompleted)) return false;
-        if (sc==='completed' && !p.scannerCompleted) return false;
-        if (sc==='none'      && (p.scannerClicked||p.scannerCompleted)) return false;
-        if (gap) { const gaps=getAllGaps(p); if (!gaps.some(g=>g.severity===gap)) return false; }
+        if (s && ![(p.founderName||''),(p.name||''),(p.company||''),(p.email||''),(p.prospectId||'')].some(v => v.toLowerCase().includes(s))) return false;
+        if (st && p.status !== st) return false;
+        if (bt && p.batchNumber !== bt) return false;
+        if (fs && p.fundingStage !== fs) return false;
+        if (sc === 'clicked'   && !(p.scannerClicked && !p.scannerCompleted)) return false;
+        if (sc === 'completed' && !p.scannerCompleted) return false;
+        if (sc === 'none'      && (p.scannerClicked || p.scannerCompleted)) return false;
+        if (gap) { const gaps = getAllGaps(p); if (!gaps.some(g => (g.severity||'').toUpperCase() === gap)) return false; }
         if (ai) {
-            const archs = p.intArchetypes||[];
-            const matchArr = archs.some(a=>a.toLowerCase().includes(ai.toLowerCase().replace('the ','')));
-            if (!matchArr && p.internalCategory!==ai) return false;
+            const archs = p.intArchetypes || [];
+            const matchArr = archs.some(a => a.toLowerCase().includes(ai.toLowerCase().replace('the ', '')));
+            if (!matchArr && p.internalCategory !== ai) return false;
         }
         return true;
     });
 
-    if      (srt==='dateAdded')  list.sort((a,b)=>(b.addedAt||'').localeCompare(a.addedAt||''));
-    else if (srt==='score')      list.sort((a,b)=>(b.scannerScore||0)-(a.scannerScore||0));
-    else if (srt==='company')    list.sort((a,b)=>(a.company||'').localeCompare(b.company||''));
-    else if (srt==='emailsSent') list.sort((a,b)=>(b.emailsSent||0)-(a.emailsSent||0));
-    else if (srt==='batch')      list.sort((a,b)=>(a.batchNumber||'ZZZ').localeCompare(b.batchNumber||'ZZZ'));
-    else                         list.sort((a,b)=>(a.nextActionDate||'9999').localeCompare(b.nextActionDate||'9999'));
+    if      (srt === 'dateAdded')  list.sort((a,b) => (b.addedAt||'').localeCompare(a.addedAt||''));
+    else if (srt === 'score')      list.sort((a,b) => (b.scannerScore||0) - (a.scannerScore||0));
+    else if (srt === 'company')    list.sort((a,b) => (a.company||'').localeCompare(b.company||''));
+    else if (srt === 'emailsSent') list.sort((a,b) => (b.emailsSent||0) - (a.emailsSent||0));
+    else if (srt === 'batch')      list.sort((a,b) => (a.batchNumber||'ZZZ').localeCompare(b.batchNumber||'ZZZ'));
+    else                           list.sort((a,b) => (a.nextActionDate||'9999').localeCompare(b.nextActionDate||'9999'));
 
     renderPipeline(list);
 };
@@ -567,30 +605,30 @@ window.filterProspects = function() {
 function renderPipeline(list) {
     const tbodies = document.querySelectorAll('#op-tbody');
     if (!tbodies.length) return;
-    const today = todayStr();
-    const filtered = list.filter(p=>p.status!=='DEAD');
+    const today    = todayStr();
+    const filtered = list.filter(p => p.status !== 'DEAD');
 
     const html = !filtered.length
         ? '<tr><td colspan="9" class="loading">No prospects found</td></tr>'
         : filtered.map((p, i) => {
-            const fire  = p.scannerCompleted?'🔥🔥':p.scannerClicked?'🔥':'';
-            const scan  = p.scannerCompleted?'<span class="badge b-delivered">Completed</span>':p.scannerClicked?'<span class="badge b-warm">Clicked</span>':'<span class="badge b-ghost">—</span>';
-            const archs = (p.intArchetypes||[]).map(a=>a.replace(/\[INT\. \d+\] /,'')).join(', ')||p.internalCategory||'—';
-            const nuclear= getAllGaps(p).some(g=>g.severity==='NUCLEAR');
-            let dateStyle='color:var(--marble-dim)',dateDisplay=p.nextActionDate||'—';
+            const fire    = p.scannerCompleted ? '🔥🔥' : p.scannerClicked ? '🔥' : '';
+            const scan    = p.scannerCompleted ? '<span class="badge b-delivered">Completed</span>' : p.scannerClicked ? '<span class="badge b-warm">Clicked</span>' : '<span class="badge b-ghost">—</span>';
+            const archs   = (p.intArchetypes||[]).map(a => a.replace(/\[INT\.\d+\] /,'')).join(', ') || p.internalCategory || '—';
+            const nuclear = getAllGaps(p).some(g => (g.severity||'').toUpperCase() === 'NUCLEAR');
+            let dateStyle = 'color:var(--marble-dim)', dateDisplay = p.nextActionDate || '—';
             if (p.nextActionDate) {
-                if (p.nextActionDate<today)       { dateStyle='color:#d47a7a;font-weight:600'; dateDisplay='⚠ '+dateDisplay; }
-                else if (p.nextActionDate===today) { dateStyle='color:var(--gold)'; dateDisplay='★ Today'; }
+                if (p.nextActionDate < today)       { dateStyle = 'color:#d47a7a;font-weight:600'; dateDisplay = '⚠ '+dateDisplay; }
+                else if (p.nextActionDate === today) { dateStyle = 'color:var(--gold)'; dateDisplay = '★ Today'; }
             }
             return `<tr onclick="window.openPP('${window.esc(p.id)}')">
                 <td class="dim" style="font-size:10px;text-align:center;">${i+1}</td>
                 <td>
-                    <div style="font-size:11px;font-weight:600;">${window.esc(p.founderName||p.name||'—')}${nuclear?' <span style="color:#ef4444;font-size:9px;">🔴</span>':''}</div>
+                    <div style="font-size:11px;font-weight:600;">${window.esc(p.founderName||p.name||'—')}${nuclear ? ' <span style="color:#ef4444;font-size:9px;">🔴</span>' : ''}</div>
                     <div style="font-size:9px;color:var(--gold);font-family:'Cormorant Garamond',serif;">${window.esc(p.prospectId||'')}</div>
                 </td>
                 <td class="dim">${window.esc(p.company||'—')}</td>
                 <td class="dim">${window.esc(p.batchNumber||'—')}</td>
-                <td>${statusBadgeHtml(p.status)} ${p.sequenceStep?`<span class="badge b-ghost" style="font-size:8px">${p.sequenceStep}</span>`:''}</td>
+                <td>${statusBadgeHtml(p.status)} ${p.sequenceStep ? `<span class="badge b-ghost" style="font-size:8px">${p.sequenceStep}</span>` : ''}</td>
                 <td class="dim" style="font-size:10px;">${window.esc(archs)}</td>
                 <td>${scan} <span class="hot-flag">${fire}</span></td>
                 <td><span style="${dateStyle};font-size:10px;">${window.esc(dateDisplay)}</span></td>
@@ -605,21 +643,21 @@ function renderPipeline(list) {
 // ═════════ DEALS KANBAN BOARD ════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 window.renderDealsBoard = function() {
-    const cols={1:[],2:[],3:[],4:[],5:[]};
+    const cols = { 1:[], 2:[], 3:[], 4:[], 5:[] };
     window.allProspects.forEach(p => {
-        if (p.status==='DEAD'||p.status==='ARCHIVED') return;
-        if (p.status==='CONVERTED')        cols[5].push(p);
-        else if (p.status==='NEGOTIATING') cols[4].push(p);
-        else if (p.status==='ENGAGED')     cols[3].push(p);
-        else if (p.status==='SEQUENCE')    cols[2].push(p);
-        else                               cols[1].push(p);
+        if (p.status==='DEAD' || p.status==='ARCHIVED') return;
+        if      (p.status==='CONVERTED')    cols[5].push(p);
+        else if (p.status==='NEGOTIATING')  cols[4].push(p);
+        else if (p.status==='ENGAGED')      cols[3].push(p);
+        else if (p.status==='SEQUENCE')     cols[2].push(p);
+        else                                cols[1].push(p);
     });
     if (window.allFlagship) {
         window.allFlagship.forEach(f => {
-            if (f.status==='Won') cols[5].push(f);
-            else if (f.status==='Lost') return;
+            if (f.status==='Lost') return;
+            if (f.status==='Won')          cols[5].push(f);
             else if (f.status==='Identified') cols[1].push(f);
-            else cols[4].push(f);
+            else                           cols[4].push(f);
         });
     }
     const today = todayStr();
@@ -627,22 +665,23 @@ window.renderDealsBoard = function() {
         const els  = document.querySelectorAll('#kd-col-'+i);
         const cnts = document.querySelectorAll('#kd-c'+i);
         if (!els.length) continue;
-        cnts.forEach(c=>c.innerText=cols[i].length);
-        cols[i].sort((a,b)=>(a.nextActionDate||'9999').localeCompare(b.nextActionDate||'9999'));
-        const html = !cols[i].length ? '<div class="empty" style="padding:20px;border:none">Empty</div>'
+        cnts.forEach(c => c.innerText = cols[i].length);
+        cols[i].sort((a,b) => (a.nextActionDate||'9999').localeCompare(b.nextActionDate||'9999'));
+        const html = !cols[i].length
+            ? '<div class="empty" style="padding:20px;border:none">Empty</div>'
             : cols[i].map(c => {
-                const isFs = c.priceQuoted!==undefined;
-                const name = window.esc(c.founderName||c.name||'Unknown');
-                const comp = window.esc(c.company||'—');
-                const nd   = c.nextActionDate||'';
-                const over = nd&&nd<today; const tod = nd===today;
-                const dStyle = over?'color:#d47a7a;font-weight:600':tod?'color:var(--gold)':'color:var(--marble-faint)';
-                const dText  = over?'⚠ '+nd:tod?'★ Today':nd||'No date';
-                const fn = isFs?`window.openFSP('${window.esc(c.id)}')`:`window.openPP('${window.esc(c.id)}')`;
-                const fire = !isFs&&c.scannerCompleted?'🔥🔥 ':!isFs&&c.scannerClicked?'🔥 ':isFs?'◆ ':'';
+                const isFs  = c.priceQuoted !== undefined;
+                const name  = window.esc(c.founderName||c.name||'Unknown');
+                const comp  = window.esc(c.company||'—');
+                const nd    = c.nextActionDate || '';
+                const over  = nd && nd < today; const tod = nd === today;
+                const dStyle= over ? 'color:#d47a7a;font-weight:600' : tod ? 'color:var(--gold)' : 'color:var(--marble-faint)';
+                const dText = over ? '⚠ '+nd : tod ? '★ Today' : nd || 'No date';
+                const fn    = isFs ? `window.openFSP('${window.esc(c.id)}')` : `window.openPP('${window.esc(c.id)}')`;
+                const fire  = !isFs && c.scannerCompleted ? '🔥🔥 ' : !isFs && c.scannerClicked ? '🔥 ' : isFs ? '◆ ' : '';
                 return `<div class="k-card" onclick="${fn}"><div class="k-name">${fire}${name}</div><div class="k-comp">${comp}</div><div class="k-meta"><span style="${dStyle};font-size:9px">${window.esc(dText)}</span></div></div>`;
             }).join('');
-        els.forEach(el=>el.innerHTML=html);
+        els.forEach(el => el.innerHTML = html);
     }
 };
 
@@ -651,12 +690,13 @@ window.renderDealsBoard = function() {
 // ════════════════════════════════════════════════════════════════════════
 window.loadLeads = function() {
     const tbodies = document.querySelectorAll('#l-tbody');
-    tbodies.forEach(tb=>tb.innerHTML='<tr><td colspan="11" class="loading">Loading inbound leads…</td></tr>');
+    tbodies.forEach(tb => tb.innerHTML = '<tr><td colspan="11" class="loading">Loading inbound leads…</td></tr>');
     window.db.collection('leads').orderBy('updatedAt','desc').limit(100).get().then(snap => {
-        const leads=[]; snap.forEach(d=>leads.push({id:d.id,...d.data()}));
-        const sClass={new:'b-ghost',scanner_submitted:'b-warm',hot_lead:'b-hot',converted:'b-delivered',cold_lead:'b-cold'};
-        const html = !leads.length ? '<tr><td colspan="11" class="loading">No inbound leads yet</td></tr>'
-            : leads.map((l, i)=>`<tr>
+        const leads = []; snap.forEach(d => leads.push({ id:d.id, ...d.data() }));
+        const sClass = { new:'b-ghost', scanner_submitted:'b-warm', hot_lead:'b-hot', converted:'b-delivered', cold_lead:'b-cold' };
+        const html = !leads.length
+            ? '<tr><td colspan="11" class="loading">No inbound leads yet</td></tr>'
+            : leads.map((l, i) => `<tr>
                 <td class="dim" style="font-size:10px;text-align:center;">${i+1}</td>
                 <td>${window.esc(l.name||'—')}</td>
                 <td class="dim">${window.esc(l.email||'—')}</td>
@@ -668,15 +708,15 @@ window.loadLeads = function() {
                 <td class="dim">${l.scannerInternalScore||'—'}</td>
                 <td class="dim">${fmtDate(l.updatedAt||l.createdAt)}</td>
                 <td onclick="event.stopPropagation()" style="white-space:nowrap">
-                    ${l.status!=='converted'
-                        ?`<button class="btn btn-primary btn-sm" onclick="window.convertLead('${window.esc(l.id)}')">Convert</button>`
-                        :'<span class="dim">Converted</span>'}
+                    ${l.status !== 'converted'
+                        ? `<button class="btn btn-primary btn-sm" onclick="window.convertLead('${window.esc(l.id)}')">Convert</button>`
+                        : '<span class="dim">Converted</span>'}
                 </td>
             </tr>`).join('');
-        tbodies.forEach(tb=>tb.innerHTML=html);
-    }).catch(e=>{
+        tbodies.forEach(tb => tb.innerHTML = html);
+    }).catch(e => {
         console.error(e);
-        tbodies.forEach(tb=>tb.innerHTML='<tr><td colspan="11" class="loading" style="color:#d47a7a">Failed to load</td></tr>');
+        tbodies.forEach(tb => tb.innerHTML = '<tr><td colspan="11" class="loading" style="color:#d47a7a">Failed to load</td></tr>');
     });
 };
 
@@ -684,59 +724,82 @@ window.loadLeads = function() {
 // ═════════ PROSPECT PANEL ════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 window.openPP = function(id) {
-    const p = window.allProspects.find(x=>x.id===id);
+    const p = window.allProspects.find(x => x.id === id);
     if (!p) return;
     window.currentProspect = p;
     const pp = $h('prospectPanel');
-    if (pp) { pp.style.maxWidth='100%'; pp.style.width='100%'; pp.style.left='0'; pp.classList.add('open'); }
-    const setText = window.setText||((id,v)=>{const e=$h(id);if(e)e.textContent=String(v??'');});
+    if (pp) {
+        pp.style.maxWidth = '100%'; pp.style.width = '100%';
+        pp.style.left = '0'; pp.classList.add('open');
+    }
+    const setText = window.setText || ((id,v) => { const e=$h(id); if(e) e.textContent=String(v??''); });
     setText('pp-name', p.founderName||p.name||'—');
     setText('pp-meta', `${p.company||'—'} · ${p.email||'—'} · ${p.prospectId||'—'}`);
     renderPPBody(p);
 };
 
-window.closePP = function() { window.currentProspect=null; $h('prospectPanel')?.classList.remove('open'); };
+window.closePP = function() {
+    window.currentProspect = null;
+    $h('prospectPanel')?.classList.remove('open');
+};
 
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ RENDER PROSPECT PANEL BODY ════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
+// V6.0: Schema normalized — thePain/theFix throughout; g.plain/g.doc/g.damage removed.
+// V6.0: viabilityFlags section added to Intel Brief.
+// V6.0: velDisplay() applied to velocity in gap rows.
 function renderPPBody(p) {
     const body = $h('pp-body');
     if (!body) return;
-    const scanLink = p.scannerLink||`https://lexnovahq.com/scanner.html?pid=${p.prospectId||''}`;
-    const allGaps = getAllGaps(p);
-    const ksColor = g => g.severity==='NUCLEAR'?'#ef4444':'#f97316';
+    const scanLink = p.scannerLink || `https://lexnovahq.com/scanner.html?pid=${p.prospectId||''}`;
+    const allGaps  = getAllGaps(p);
+    const sevColor = g => (g.severity||'').toUpperCase() === 'NUCLEAR' ? '#ef4444' : '#f97316';
 
+    // ── GAP SECTION ────────────────────────────────────────────────────
     let gapsHtml = '';
     if (allGaps.length) {
-        const ks = allGaps[0];
-        const ksc = ksColor(ks);
+        const ks  = allGaps[0];
+        const ksc = sevColor(ks);
+        // Kill Shot card
         gapsHtml += `
         <div style="border:1px solid ${ksc};background:rgba(239,68,68,0.04);padding:14px;border-left:4px solid ${ksc};margin-bottom:12px;border-radius:4px;">
             <div style="color:${ksc};font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">🎯 Kill Shot (${ks.severity})</div>
-            <div style="font-size:13px;font-weight:700;color:var(--marble);margin-bottom:6px;">${window.esc(ks.trap)}</div>
-            <div style="font-size:10px;color:var(--marble-dim);margin-bottom:4px;"><strong>Pain:</strong> ${window.esc(ks.plain)}</div>
-            ${ks.evidence?`<div style="font-size:10px;background:#050505;border:1px solid #1a1a1a;padding:8px;margin-top:8px;font-family:monospace;">
-                ${ks.evidence.source?`<div style="color:var(--gold);font-size:9px;">SOURCE: ${window.esc(ks.evidence.source)}</div>`:''}
-                ${ks.evidence.reason?`<div style="color:#ccc;font-size:9px;margin-top:2px;">WHY: ${window.esc(ks.evidence.reason)}</div>`:''}
-            </div>`:''}
-            <div style="font-size:10px;color:${ksc};margin-top:8px;font-weight:600;">Damage: ${window.esc(ks.damage||'Uncapped')} · ${window.esc(ks.ext||'')}</div>
+            <div style="font-size:13px;font-weight:700;color:var(--marble);margin-bottom:6px;">${window.esc(ks.trap||'—')}</div>
+            <div style="font-size:10px;color:var(--marble-dim);margin-bottom:4px;"><strong>Pain:</strong> ${window.esc(ks.thePain||ks.plain||'—')}</div>
+            <div style="font-size:10px;color:var(--marble-faint);margin-bottom:4px;">${window.esc(ks.legalAmmo||'—')}</div>
+            ${ks.evidence ? `<div style="font-size:10px;background:#050505;border:1px solid #1a1a1a;padding:8px;margin-top:8px;font-family:monospace;">
+                ${ks.evidence.source ? `<div style="color:var(--gold);font-size:9px;">SOURCE: ${window.esc(ks.evidence.source)}</div>` : ''}
+                ${ks.evidence.reason ? `<div style="color:#ccc;font-size:9px;margin-top:2px;">WHY: ${window.esc(ks.evidence.reason)}</div>` : ''}
+            </div>` : ''}
+            <div style="font-size:10px;color:${ksc};margin-top:8px;font-weight:600;">${window.esc(ks.ext||'')} · ${velDisplay(ks.velocity)}</div>
         </div>`;
+
+        // Additional gaps
         if (allGaps.length > 1) {
             gapsHtml += `<div style="font-size:9px;color:var(--marble-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">All Gaps (${allGaps.length-1} additional)</div>`;
             gapsHtml += `<div style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">`;
             allGaps.slice(1).forEach(g => {
-                const col = ksColor(g);
-                const srcBadge = g.source==='dual-verified'?'<span style="font-size:8px;color:#d47a7a;font-weight:700">PUBLIC+INTERNAL</span>':g.source==='scrape'||g.evidence?'<span style="font-size:8px;color:#60a5fa;font-weight:700">SCRAPE</span>':'<span style="font-size:8px;color:var(--gold);font-weight:700">SCANNER</span>';
+                const col = sevColor(g);
+                const srcBadge = g.source === 'dual-verified'
+                    ? '<span style="font-size:8px;color:#d47a7a;font-weight:700">PUBLIC+INTERNAL</span>'
+                    : g.source === 'scrape' || g.evidence
+                        ? '<span style="font-size:8px;color:#60a5fa;font-weight:700">SCRAPE</span>'
+                        : '<span style="font-size:8px;color:var(--gold);font-weight:700">SCANNER</span>';
                 gapsHtml += `
                 <div style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid ${col};padding:10px;border-radius:3px;">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;gap:6px;flex-wrap:wrap;">
-                        <span style="font-size:11px;font-weight:600;color:var(--marble);flex:1;">${window.esc(g.trap)}</span>
+                        <span style="font-size:11px;font-weight:600;color:var(--marble);flex:1;">${window.esc(g.trap||'—')}</span>
                         <span style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
-                            <span style="font-size:9px;color:${col};font-weight:700">${g.severity}</span>
+                            <span style="font-size:9px;color:${col};font-weight:700">${g.severity||'—'}</span>
                             ${srcBadge}
                         </span>
                     </div>
-                    <div style="font-size:10px;color:var(--marble-dim);">${window.esc(g.plain)}</div>
-                    <div style="font-size:9px;color:var(--marble-faint);margin-top:2px;">${window.esc(g.ext||'')} · ${window.esc(g.doc||'')} · Damage: ${window.esc(g.damage||'—')}</div>
-                    ${g.evidence?.reason?`<div style="font-size:9px;color:#777;margin-top:4px;font-style:italic;">${window.esc(g.evidence.reason)}</div>`:''}
+                    <div style="font-size:10px;color:var(--marble-dim);">${window.esc(g.thePain||g.plain||'—')}</div>
+                    <div style="font-size:9px;color:var(--marble-faint);margin-top:2px;">
+                        ${window.esc(g.ext||'')} · ${window.esc(g.theFix||g.doc||'—')} · ${velDisplay(g.velocity)}
+                    </div>
+                    ${g.evidence?.reason ? `<div style="font-size:9px;color:#777;margin-top:4px;font-style:italic;">${window.esc(g.evidence.reason)}</div>` : ''}
                 </div>`;
             });
             gapsHtml += `</div>`;
@@ -745,24 +808,47 @@ function renderPPBody(p) {
         gapsHtml = `<div class="empty" style="border:1px dashed var(--border);padding:16px;text-align:center;font-size:11px;">No gaps detected yet</div>`;
     }
 
-    const step  = p.sequenceStep||'C';
+    // ── VIABILITY FLAGS SECTION ─────────────────────────────────────────
+    // NEW V6.0: Surface Hunter gate results in Intel Brief
+    let viabilityHtml = '';
+    const vf = p.viabilityFlags;
+    if (vf) {
+        const gateIcon = ok => ok === true ? '<span style="color:#7ab88a">✓</span>' : ok === false ? '<span style="color:#d47a7a">✗</span>' : '<span style="color:var(--marble-faint)">?</span>';
+        const recColor = vf.recommendation === 'PUSH' ? '#7ab88a' : '#d4a850';
+        viabilityHtml = `
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+            <div style="font-size:9px;letter-spacing:.15em;color:var(--marble-faint);text-transform:uppercase;margin-bottom:8px;">Viability Gates</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10px;margin-bottom:8px;">
+                <div>${gateIcon(vf.gate1_productFit)} <span style="color:var(--marble-dim);">G1 Product Fit</span></div>
+                <div>${gateIcon(vf.gate2_gapSeverity)} <span style="color:var(--marble-dim);">G2 Gap Severity</span></div>
+                <div>${gateIcon(vf.gate3_contactComplete)} <span style="color:var(--marble-dim);">G3 Contact</span></div>
+                <div style="font-size:9px;color:var(--marble-faint);">G4: ${window.esc(vf.gate4_funding||'—')}</div>
+            </div>
+            <div style="font-size:10px;font-weight:700;color:${recColor};">
+                ${window.esc(vf.recommendation||'—')}${vf.reason ? ' — '+window.esc(vf.reason) : ''}
+            </div>
+        </div>`;
+    }
+
+    // ── SEQUENCE ENGINE ─────────────────────────────────────────────────
+    const step  = p.sequenceStep || 'C';
     const nextS = STEP_NEXT[step];
     const isSeq = ['QUEUED','SEQUENCE'].includes(p.status);
-    const isEng = p.status==='ENGAGED';
-    const isNeg = p.status==='NEGOTIATING';
+    const isEng = p.status === 'ENGAGED';
+    const isNeg = p.status === 'NEGOTIATING';
     const autoD = nextS ? datePlusDays(STEP_INTERVALS[step]) : datePlusDays(2);
 
     let seqHtml = '';
     if (isSeq) {
-        const btnLabel = p.status==='QUEUED'
+        const btnLabel = p.status === 'QUEUED'
             ? 'Mark Cold Email Sent → FU1'
-            : `Mark ${STEP_LABELS[step]} Sent → ${nextS?STEP_LABELS[nextS]:'Archive Decision'}`;
+            : `Mark ${STEP_LABELS[step]} Sent → ${nextS ? STEP_LABELS[nextS] : 'Archive Decision'}`;
         seqHtml = `
         <div style="background:var(--gold-dim);border:1px solid var(--gold-mid);padding:16px;margin-bottom:14px;">
             <div style="font-size:9px;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:12px;">Sequence Engine</div>
             <div style="display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap;">
                 <div><div style="font-size:8px;color:var(--marble-dim);text-transform:uppercase;letter-spacing:.1em;">Step Sent</div><div style="font-size:18px;color:var(--gold);font-family:'Cormorant Garamond',serif;">${p.status==='QUEUED'?'None yet':STEP_LABELS[step]}</div></div>
-                <div><div style="font-size:8px;color:var(--marble-dim);text-transform:uppercase;letter-spacing:.1em;">Next</div><div style="font-size:18px;font-family:'Cormorant Garamond',serif;">${nextS?STEP_LABELS[nextS]:'Archive?'}</div></div>
+                <div><div style="font-size:8px;color:var(--marble-dim);text-transform:uppercase;letter-spacing:.1em;">Next</div><div style="font-size:18px;font-family:'Cormorant Garamond',serif;">${nextS ? STEP_LABELS[nextS] : 'Archive?'}</div></div>
                 <div><div style="font-size:8px;color:var(--marble-dim);text-transform:uppercase;letter-spacing:.1em;">Emails</div><div style="font-size:18px;font-family:'Cormorant Garamond',serif;">${p.emailsSent||0}</div></div>
             </div>
             <div class="fg" style="margin-bottom:12px;">
@@ -770,10 +856,10 @@ function renderPPBody(p) {
                 <input type="date" class="fi" id="pp-next-date" value="${p.nextActionDate||autoD}">
             </div>
             <button class="btn btn-primary btn-full" style="padding:14px;font-size:10px;letter-spacing:.1em;" onclick="window.advanceSequence()">${window.esc(btnLabel)}</button>
-            ${!nextS?`<div style="font-size:10px;color:#d47a7a;margin-top:8px;text-align:center;">⚠ FU4 sent — advance triggers archive prompt.</div>`:''}
+            ${!nextS ? `<div style="font-size:10px;color:#d47a7a;margin-top:8px;text-align:center;">⚠ FU4 sent — advance triggers archive prompt.</div>` : ''}
         </div>`;
-    } else if (isEng||isNeg) {
-        const touchLabel = isEng?'Log Scanner Follow-Up':'Log Negotiation Touch';
+    } else if (isEng || isNeg) {
+        const touchLabel = isEng ? 'Log Scanner Follow-Up' : 'Log Negotiation Touch';
         seqHtml = `
         <div style="background:var(--gold-dim);border:1px solid var(--gold-mid);padding:16px;margin-bottom:14px;">
             <div style="font-size:9px;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:12px;">Engagement Tracker</div>
@@ -783,38 +869,46 @@ function renderPPBody(p) {
         </div>`;
     }
 
+    // ── ASSETS (Engaged/Negotiating only) ──────────────────────────────
     let assetsHtml = '';
-    if (isEng||isNeg) {
+    if (isEng || isNeg) {
         assetsHtml = `
-        <div style="background:var(--surface);border:1px solid var(--border);padding:16px;margin-bottom:14px;">
+        <div class="card" style="padding:16px;margin-bottom:14px;">
             <div style="font-size:9px;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:12px;">Engagement Assets</div>
             <div class="fg"><label class="fl">Clipchamp Video URL (personalized)</label><input type="text" class="fi" id="pp-clipchamp" value="${window.esc(p.clipchampUrl||'')}" placeholder="https://..."></div>
             <div class="fg"><label class="fl">Website Analysis Notes</label><textarea class="fi" id="pp-wa" rows="3" placeholder="Legal exposure findings from their site...">${window.esc(p.websiteAnalysis||'')}</textarea></div>
-            ${caseStudyUrl?`<div class="fg"><label class="fl">Case Study Video (Standard)</label><div style="display:flex;gap:8px;align-items:center;"><input type="text" class="fi" readonly value="${window.esc(caseStudyUrl)}" style="font-size:10px;color:var(--marble-dim);"><button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText('${window.esc(caseStudyUrl)}');window.toast&&window.toast('Copied')">Copy</button></div></div>`:''}
+            ${caseStudyUrl ? `<div class="fg"><label class="fl">Case Study Video (Standard)</label><div style="display:flex;gap:8px;align-items:center;"><input type="text" class="fi" readonly value="${window.esc(caseStudyUrl)}" style="font-size:10px;color:var(--marble-dim);"><button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText('${window.esc(caseStudyUrl)}');window.toast&&window.toast('Copied')">Copy</button></div></div>` : ''}
         </div>`;
     }
 
-    const logRows = (p.emailLog||[]).slice().reverse().map(e=>
+    // ── COMM LOG ───────────────────────────────────────────────────────
+    const logRows = (p.emailLog||[]).slice().reverse().map(e =>
         `<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid rgba(197,160,89,.06);font-size:10px;flex-wrap:wrap;">
             <span style="color:var(--marble-faint);flex-shrink:0;width:80px">${window.esc(e.date||'—')}</span>
             <span style="color:var(--gold);flex-shrink:0;width:90px;font-weight:600">${window.esc(e.type||'—')}</span>
             <span style="color:var(--marble-dim);flex:1;word-break:break-word">${window.esc(e.notes||'')}</span>
-        </div>`).join('')||'<div style="font-size:10px;color:var(--marble-faint)">No emails logged</div>';
+        </div>`
+    ).join('') || '<div style="font-size:10px;color:var(--marble-faint)">No emails logged</div>';
 
-    const planSel   = Object.entries(PLANS).map(([k,v])=>`<option value="${k}" ${p.intendedPlan===k?'selected':''}>${v}</option>`).join('');
-    const statusSel = STATUSES.map(s=>`<option value="${s}" ${p.status===s?'selected':''}>${s}</option>`).join('');
+    const planSel   = Object.entries(PLANS).map(([k,v]) => `<option value="${k}" ${p.intendedPlan===k?'selected':''}>${v}</option>`).join('');
+    const statusSel = STATUSES.map(s => `<option value="${s}" ${p.status===s?'selected':''}>${s}</option>`).join('');
 
+    // ── FULL BODY ──────────────────────────────────────────────────────
     body.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap;">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             <input type="text" class="fi" id="pp-scanner-url" readonly value="${window.esc(scanLink)}" style="font-size:10px;color:var(--gold);width:300px;background:var(--void);border-color:var(--gold-mid);">
             <button class="btn btn-outline btn-sm" onclick="window.copyToClipboard('pp-scanner-url')">Copy Link</button>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="window.copyDossier('${window.esc(p.id)}')">📋 Full Dossier</button>
-        <button class="btn btn-outline btn-sm" onclick="window.copySpearReport('${window.esc(p.id)}')">🎯 Spear Report</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm"  onclick="window.copyDossier('${window.esc(p.id)}')">📋 Full Dossier</button>
+            <button class="btn btn-outline btn-sm"  onclick="window.copySpearReport('${window.esc(p.id)}')">🎯 Spear Report</button>
+        </div>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;height:calc(100vh - 180px);overflow:hidden;">
+
+        <!-- LEFT: Intelligence + Spear -->
         <div style="overflow-y:auto;padding-right:8px;display:flex;flex-direction:column;gap:14px;">
             <div class="card" style="padding:16px;">
                 <div style="font-size:9px;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:12px;">Intelligence Brief</div>
@@ -823,11 +917,17 @@ function renderPPBody(p) {
                     <div><label class="fl">EXT Exposures</label><div style="font-size:11px;color:#ef4444;font-weight:600">${window.esc((p.extExposures||[]).join(', ')||'—')}</div></div>
                 </div>
                 <div style="margin-bottom:10px;"><label class="fl">Lanes</label><div style="font-size:11px;color:var(--gold);font-weight:600">${window.esc((p.lanes||[]).join(', ').toUpperCase()||'—')}</div></div>
+                <div style="margin-bottom:10px;"><label class="fl">Verdict</label>
+                    <div style="font-size:11px;color:${p.verdict==='GREEN LIGHT'?'#7ab88a':p.verdict==='RED LIGHT'?'#d47a7a':'var(--gold)'};">
+                        ${window.esc(p.verdict||'—')}${p.verdictReason?` — ${window.esc(p.verdictReason)}`:''}
+                    </div>
+                </div>
                 <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);">
                     <label class="fl">Product Signal</label>
-                    <div style="font-size:11px;color:var(--marble-dim);line-height:1.5;">${window.esc(p.productSignal||'—')}</div>
+                    <div style="font-size:11px;color:var(--marble-dim);line-height:1.5;">${window.esc(Array.isArray(p.productSignal) ? p.productSignal.map(f=>f.feature||'').join(' · ') : (p.productSignal||'—'))}</div>
                 </div>
-                <div style="font-size:9px;color:var(--marble-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;">${allGaps.length} Gap${allGaps.length!==1?'s':''} Detected</div>
+                ${viabilityHtml}
+                <div style="font-size:9px;color:var(--marble-dim);text-transform:uppercase;letter-spacing:.1em;margin:12px 0 10px;">${allGaps.length} Gap${allGaps.length!==1?'s':''} Detected</div>
                 ${gapsHtml}
             </div>
             <div class="card" style="padding:16px;">
@@ -838,6 +938,7 @@ function renderPPBody(p) {
             </div>
         </div>
 
+        <!-- RIGHT: Sequence + Controls -->
         <div style="overflow-y:auto;padding-right:8px;display:flex;flex-direction:column;gap:14px;">
             ${seqHtml}
             ${assetsHtml}
@@ -883,7 +984,7 @@ function renderPPBody(p) {
                 <button class="btn btn-primary btn-full" style="padding:14px;margin-bottom:8px;" onclick="window.saveProspect()">💾 Save Dossier</button>
                 <div style="display:flex;gap:8px;margin-bottom:14px;">
                     <button class="btn btn-outline" style="flex:1;padding:10px;border-color:#d4a850;color:#d4a850;" onclick="window.pivotToFlagship()">💎 Flagship</button>
-                    <button class="btn btn-outline" style="flex:1;padding:10px;border-color:#7ab88a;color:#7ab88a;" onclick="window.archiveProspect()">📦 Archive</button>
+                    <button class="btn btn-outline" style="flex:1;padding:10px;border-color:#7ab88a;color:#7ab88a;"   onclick="window.archiveProspect()">📦 Archive</button>
                 </div>
                 <div style="text-align:center;border-top:1px dashed rgba(138,58,58,.3);padding-top:12px;">
                     <button class="btn btn-danger btn-sm" onclick="window.deleteProspect('${window.esc(p.id)}')">Permanently Delete</button>
@@ -899,13 +1000,13 @@ function renderPPBody(p) {
 window.advanceSequence = async function() {
     const p = window.currentProspect;
     if (!p) return;
-    const currentStep = p.sequenceStep||'C';
-    const sentLabel   = p.status==='QUEUED'?'Cold Email':(STEP_LABELS[currentStep]||currentStep);
+    const currentStep = p.sequenceStep || 'C';
+    const sentLabel   = p.status === 'QUEUED' ? 'Cold Email' : (STEP_LABELS[currentStep] || currentStep);
     const nextStep    = STEP_NEXT[currentStep];
-    const newDate     = $h('pp-next-date')?.value || (nextStep?datePlusDays(STEP_INTERVALS[currentStep]):datePlusDays(2));
-    const logEntry = { date:todayStr(), type:sentLabel, notes:`${sentLabel} sent — sequence advancement` };
-    const updates  = {
-        sequenceStep:   nextStep||currentStep,
+    const newDate     = $h('pp-next-date')?.value || (nextStep ? datePlusDays(STEP_INTERVALS[currentStep]) : datePlusDays(2));
+    const logEntry    = { date:todayStr(), type:sentLabel, notes:`${sentLabel} sent — sequence advancement` };
+    const updates     = {
+        sequenceStep:   nextStep || currentStep,
         status:         'SEQUENCE',
         emailsSent:     (p.emailsSent||0)+1,
         emailLog:       [...(p.emailLog||[]), logEntry],
@@ -917,60 +1018,60 @@ window.advanceSequence = async function() {
         if (archive) { await archiveProspectById(p.id); return; }
     }
     try {
-        const docKey = p.prospectId||p.id;
+        const docKey = p.prospectId || p.id;
         await window.db.collection('prospects').doc(docKey).update(updates);
         Object.assign(window.currentProspect, updates);
-        const idx = window.allProspects.findIndex(x=>x.id===p.id);
-        if (idx!==-1) window.allProspects[idx]=window.currentProspect;
-        if(window.toast) window.toast(`${sentLabel} logged. ${nextStep?'Sequence advanced.':'Awaiting archive decision.'}`);
+        const idx = window.allProspects.findIndex(x => x.id === p.id);
+        if (idx !== -1) window.allProspects[idx] = window.currentProspect;
+        if (window.toast) window.toast(`${sentLabel} logged. ${nextStep ? 'Sequence advanced.' : 'Awaiting archive decision.'}`);
         renderPPBody(window.currentProspect);
-    } catch(e) { console.error(e); if(window.toast) window.toast('Advance failed','error'); }
+    } catch(e) { console.error(e); if (window.toast) window.toast('Advance failed', 'error'); }
 };
 
 window.logEngagementTouch = async function() {
     const p = window.currentProspect;
     if (!p) return;
-    const note  = $h('pp-eng-note')?.value?.trim()||'Touch logged';
-    const date  = $h('pp-next-date')?.value||datePlusDays(2);
-    const type  = p.status==='ENGAGED'?'Scanner Follow-Up':'Negotiation Touch';
+    const note  = $h('pp-eng-note')?.value?.trim() || 'Touch logged';
+    const date  = $h('pp-next-date')?.value || datePlusDays(2);
+    const type  = p.status === 'ENGAGED' ? 'Scanner Follow-Up' : 'Negotiation Touch';
     const entry = { date:todayStr(), type, notes:note };
     try {
-        const docKey=p.prospectId||p.id;
+        const docKey = p.prospectId || p.id;
         await window.db.collection('prospects').doc(docKey).update({
             emailLog:       firebase.firestore.FieldValue.arrayUnion(entry),
             emailsSent:     (p.emailsSent||0)+1,
             nextActionDate: date,
             updatedAt:      nowTs()
         });
-        window.currentProspect.emailLog=[...(p.emailLog||[]),entry];
-        window.currentProspect.emailsSent=(p.emailsSent||0)+1;
-        window.currentProspect.nextActionDate=date;
-        if(window.toast) window.toast('Touch logged');
-        if($h('pp-eng-note')) $h('pp-eng-note').value='';
+        window.currentProspect.emailLog       = [...(p.emailLog||[]), entry];
+        window.currentProspect.emailsSent     = (p.emailsSent||0)+1;
+        window.currentProspect.nextActionDate = date;
+        if (window.toast) window.toast('Touch logged');
+        if ($h('pp-eng-note')) $h('pp-eng-note').value = '';
         renderPPBody(window.currentProspect);
-    } catch(e) { if(window.toast) window.toast('Log failed','error'); }
+    } catch(e) { if (window.toast) window.toast('Log failed', 'error'); }
 };
 
 window.logEmail = async function() {
     const p = window.currentProspect;
     if (!p) return;
-    const note  = $h('pp-manual-log')?.value?.trim()||'Logged';
-    const type  = $h('pp-log-type')?.value||'Cold Email';
-    const date  = $h('pp-log-date')?.value||todayStr();
+    const note  = $h('pp-manual-log')?.value?.trim() || 'Logged';
+    const type  = $h('pp-log-type')?.value  || 'Cold Email';
+    const date  = $h('pp-log-date')?.value  || todayStr();
     const entry = { date, type, notes:note };
-    const docKey= p.prospectId||p.id;
+    const docKey = p.prospectId || p.id;
     try {
         await window.db.collection('prospects').doc(docKey).update({
             emailLog:   firebase.firestore.FieldValue.arrayUnion(entry),
             emailsSent: (p.emailsSent||0)+1,
             updatedAt:  nowTs()
         });
-        window.currentProspect.emailLog=[...(p.emailLog||[]),entry];
-        window.currentProspect.emailsSent=(p.emailsSent||0)+1;
-        if(window.toast) window.toast('Action logged');
-        if($h('pp-manual-log')) $h('pp-manual-log').value='';
+        window.currentProspect.emailLog   = [...(p.emailLog||[]), entry];
+        window.currentProspect.emailsSent = (p.emailsSent||0)+1;
+        if (window.toast) window.toast('Action logged');
+        if ($h('pp-manual-log')) $h('pp-manual-log').value = '';
         renderPPBody(window.currentProspect);
-    } catch(e) { if(window.toast) window.toast('Log failed','error'); }
+    } catch(e) { if (window.toast) window.toast('Log failed', 'error'); }
 };
 
 // ════════════════════════════════════════════════════════════════════════
@@ -984,113 +1085,126 @@ window.archiveProspect = async function() {
 };
 
 async function archiveProspectById(id) {
-    const p = window.allProspects.find(x=>x.id===id);
+    const p = window.allProspects.find(x => x.id === id);
     if (!p) return;
-    const cq=currentQuarter(), nq=nextQuarter();
-    const updates={status:'ARCHIVED',archivedAt:nowTs(),archivedQuarter:cq,revivalQuarter:nq,updatedAt:nowTs()};
+    const cq = currentQuarter(), nq = nextQuarter();
+    const updates = { status:'ARCHIVED', archivedAt:nowTs(), archivedQuarter:cq, revivalQuarter:nq, updatedAt:nowTs() };
     try {
         await window.db.collection('prospects').doc(p.prospectId||p.id).update(updates);
-        const idx=window.allProspects.findIndex(x=>x.id===id);
-        if(idx!==-1) Object.assign(window.allProspects[idx],updates);
-        if(window.toast) window.toast(`Archived — revival set for ${nq}`);
+        const idx = window.allProspects.findIndex(x => x.id === id);
+        if (idx !== -1) Object.assign(window.allProspects[idx], updates);
+        if (window.toast) window.toast(`Archived — revival set for ${nq}`);
         renderTodayQueue(); filterProspects();
-        if(window.currentProspect?.id===id) window.closePP();
-    } catch(e) { console.error(e); if(window.toast) window.toast('Archive failed','error'); }
+        if (window.currentProspect?.id === id) window.closePP();
+    } catch(e) { console.error(e); if (window.toast) window.toast('Archive failed', 'error'); }
 }
 
 window.reviveProspect = async function(id) {
-    const p = window.allProspects.find(x=>x.id===id);
+    const p = window.allProspects.find(x => x.id === id);
     if (!p) return;
-    const actEntry={note:`Revived from ${p.archivedQuarter||'archive'}`,ts:nowTs(),by:'admin'};
-    const updates={
+    const actEntry = { note:`Revived from ${p.archivedQuarter||'archive'}`, ts:nowTs(), by:'admin' };
+    const updates  = {
         status:'QUEUED', sequenceStep:'C', revivalQuarter:null,
         archivedQuarter:null, nextActionDate:'',
-        activityLog:firebase.firestore.FieldValue.arrayUnion(actEntry),
-        updatedAt:nowTs()
+        activityLog: firebase.firestore.FieldValue.arrayUnion(actEntry),
+        updatedAt:   nowTs()
     };
     try {
         await window.db.collection('prospects').doc(p.prospectId||p.id).update(updates);
-        const idx=window.allProspects.findIndex(x=>x.id===id);
-        if(idx!==-1) Object.assign(window.allProspects[idx],{...updates,activityLog:[...(p.activityLog||[]),actEntry],revivalQuarter:null,archivedQuarter:null});
-        if(window.toast) window.toast('Revived → QUEUED. Email log preserved.');
+        const idx = window.allProspects.findIndex(x => x.id === id);
+        if (idx !== -1) Object.assign(window.allProspects[idx], { ...updates, revivalQuarter:null, archivedQuarter:null });
+        if (window.toast) window.toast('Revived → QUEUED. Email log preserved.');
         renderTodayQueue();
-    } catch(e) { if(window.toast) window.toast('Revival failed','error'); }
+    } catch(e) { if (window.toast) window.toast('Revival failed', 'error'); }
 };
 
 window.keepArchived = async function(id) {
-    const p = window.allProspects.find(x=>x.id===id);
+    const p = window.allProspects.find(x => x.id === id);
     if (!p) return;
-    const q=['Q1','Q2','Q3','Q4'];
-    const cur=p.revivalQuarter||nextQuarter();
-    const nxt=q[(q.indexOf(cur)+1)%4];
+    const q   = ['Q1','Q2','Q3','Q4'];
+    const cur = p.revivalQuarter || nextQuarter();
+    const nxt = q[(q.indexOf(cur)+1) % 4];
     try {
-        await window.db.collection('prospects').doc(p.prospectId||p.id).update({revivalQuarter:nxt,updatedAt:nowTs()});
-        const idx=window.allProspects.findIndex(x=>x.id===id);
-        if(idx!==-1) window.allProspects[idx].revivalQuarter=nxt;
-        if(window.toast) window.toast(`Kept archived. Next review: ${nxt}`);
+        await window.db.collection('prospects').doc(p.prospectId||p.id).update({ revivalQuarter:nxt, updatedAt:nowTs() });
+        const idx = window.allProspects.findIndex(x => x.id === id);
+        if (idx !== -1) window.allProspects[idx].revivalQuarter = nxt;
+        if (window.toast) window.toast(`Kept archived. Next review: ${nxt}`);
         renderTodayQueue();
-    } catch(e) { if(window.toast) window.toast('Update failed','error'); }
+    } catch(e) { if (window.toast) window.toast('Update failed', 'error'); }
 };
 
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ SAVE PROSPECT ═════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
+// FIXED V6.0: removed dead alreadyInBatch variable — it was always false
+// inside the batchChanged block (batchChanged only true when they differ).
 window.saveProspect = async function() {
     const p = window.currentProspect;
     if (!p) return;
     const updates = {
-        founderName:      $h('pp-name-edit')?.value?.trim()||'',
-        company:          $h('pp-company-edit')?.value?.trim()||'',
-        email:            $h('pp-email-edit')?.value?.trim().toLowerCase()||p.email,
-        linkedinUrl:      $h('pp-linkedin-edit')?.value?.trim()||'',
-        fundingStage:     $h('pp-funding-text')?.value||'',
-        headcount:        $h('pp-headcount')?.value||'',
-        batchNumber:      $h('pp-batch-edit')?.value?.trim()||p.batchNumber||'',
-        registrationJurisdiction: $h('pp-geo-edit')?.value?.trim()||p.registrationJurisdiction||p.geography||'',
-        status:           $h('pp-status')?.value||p.status,
-        intendedPlan:     $h('pp-plan')?.value||'',
-        notes:            $h('pp-notes')?.value?.trim()||'',
-        personalizedHook: $h('pp-hook')?.value?.trim()||'',
-        emailSubject:     $h('pp-subject')?.value?.trim()||'',
-        websiteAnalysis:  ($h('pp-wa-spear')||$h('pp-wa'))?.value?.trim()||p.websiteAnalysis||'',
-        clipchampUrl:     $h('pp-clipchamp')?.value?.trim()||p.clipchampUrl||'',
+        founderName:  $h('pp-name-edit')?.value?.trim()    || '',
+        company:      $h('pp-company-edit')?.value?.trim() || '',
+        email:        $h('pp-email-edit')?.value?.trim().toLowerCase() || p.email,
+        linkedinUrl:  $h('pp-linkedin-edit')?.value?.trim() || '',
+        fundingStage: $h('pp-funding-text')?.value || '',
+        headcount:    $h('pp-headcount')?.value    || '',
+        batchNumber:  $h('pp-batch-edit')?.value?.trim() || p.batchNumber || '',
+        registrationJurisdiction: $h('pp-geo-edit')?.value?.trim() || p.registrationJurisdiction || p.geography || '',
+        status:       $h('pp-status')?.value || p.status,
+        intendedPlan: $h('pp-plan')?.value   || '',
+        notes:        $h('pp-notes')?.value?.trim() || '',
+        personalizedHook: $h('pp-hook')?.value?.trim() || '',
+        emailSubject:     $h('pp-subject')?.value?.trim() || '',
+        websiteAnalysis:  ($h('pp-wa-spear') || $h('pp-wa'))?.value?.trim() || p.websiteAnalysis || '',
+        clipchampUrl:     $h('pp-clipchamp')?.value?.trim() || p.clipchampUrl || '',
         updatedAt:        nowTs()
     };
-    const isConverting = updates.status==='CONVERTED' && p.status!=='CONVERTED';
-    const batchChanged = updates.batchNumber && updates.batchNumber !== (p.batchNumber||'');
+
+    const isConverting = updates.status === 'CONVERTED' && p.status !== 'CONVERTED';
+    const batchChanged = updates.batchNumber && updates.batchNumber !== (p.batchNumber || '');
+
+    // FIXED: alreadyInBatch removed — guard fires for any full batch change
     if (batchChanged && isBatchFull(updates.batchNumber)) {
-        // Don't count this prospect if they're already in the target batch
-        const alreadyInBatch = p.batchNumber === updates.batchNumber;
-        if (!alreadyInBatch) {
-            if(window.toast) window.toast(`Batch ${updates.batchNumber} is full (${BATCH_LIMIT}/${BATCH_LIMIT}). Choose a different batch.`,'error');
-            return;
-        }
+        if (window.toast) window.toast(`Batch ${updates.batchNumber} is full (${BATCH_LIMIT}/${BATCH_LIMIT}). Choose a different batch.`, 'error');
+        return;
     }
+
     if (updates.status === 'ENGAGED' && p.status !== 'ENGAGED' && !p.repliedAt) {
         updates.repliedAt = nowTs();
     }
+
     if (isConverting) {
         if (!confirm('Migrate to Factory?')) return;
-        const clientId = (p.prospectId||'').replace('LN-P-','LN-C-')||`LN-C-${Date.now()}`;
-        const clientData = {...p,...updates,id:updates.email,engagementRef:clientId,originalProspectId:p.prospectId,status:'payment_received',createdAt:nowTs(),plan:updates.intendedPlan||'agentic_shield'};
+        const clientId = (p.prospectId||'').replace('LN-P-','LN-C-') || `LN-C-${Date.now()}`;
+        const clientData = {
+            ...p, ...updates,
+            id: updates.email, engagementRef: clientId,
+            originalProspectId: p.prospectId,
+            status: 'payment_received', createdAt: nowTs(),
+            plan: updates.intendedPlan || 'agentic_shield'
+        };
         await window.db.collection('clients').doc(updates.email).set(clientData);
-        if(window.toast) window.toast(`Migrated → ${clientId}`,'success');
+        if (window.toast) window.toast(`Migrated → ${clientId}`, 'success');
     }
+
     try {
-        await window.db.collection('prospects').doc(p.prospectId||p.id).set(updates,{merge:true});
-        Object.assign(window.currentProspect,updates);
-        const idx=window.allProspects.findIndex(x=>x.id===p.id);
-        if(idx!==-1) window.allProspects[idx]=window.currentProspect;
-        if(!isConverting&&window.toast) window.toast('Dossier saved');
-        if(isConverting) window.closePP();
+        await window.db.collection('prospects').doc(p.prospectId||p.id).set(updates, { merge:true });
+        Object.assign(window.currentProspect, updates);
+        const idx = window.allProspects.findIndex(x => x.id === p.id);
+        if (idx !== -1) window.allProspects[idx] = window.currentProspect;
+        if (!isConverting && window.toast) window.toast('Dossier saved');
+        if (isConverting) window.closePP();
         else renderPPBody(window.currentProspect);
-    } catch(e) { console.error(e); if(window.toast) window.toast('Save failed','error'); }
+    } catch(e) { console.error(e); if (window.toast) window.toast('Save failed', 'error'); }
 };
 
 window.deleteProspect = async function(id) {
     if (!confirm('Permanently delete?')) return;
-    try { await window.db.collection('prospects').doc(id).delete(); window.closePP(); if(window.toast) window.toast('Deleted'); }
-    catch(e) { if(window.toast) window.toast('Delete failed','error'); }
+    try {
+        await window.db.collection('prospects').doc(id).delete();
+        window.closePP();
+        if (window.toast) window.toast('Deleted');
+    } catch(e) { if (window.toast) window.toast('Delete failed', 'error'); }
 };
 
 // ════════════════════════════════════════════════════════════════════════
@@ -1100,99 +1214,86 @@ window.copyDossier = async function(id) {
     const p = window.allProspects.find(x => x.id === id);
     if (!p) return;
 
-    // V5.6: Use shared tier-based filter (All T1 + All T2 + max 3 T3)
     const backedGaps = getEvidenceBackedGaps(p);
 
-    // Also include scanner-confessed gaps that aren't in forensicGaps
-    const scannerOnly = (p.activeGaps || []).filter(g => {
-        if (!['NUCLEAR','CRITICAL'].includes(g.severity)) return false;
-        const isScannerConfessed = ['scanner','dual-verified'].includes(g.source);
-        if (!isScannerConfessed) return false;
-        // Don't double-count if already in backed gaps
-        const key = g.threatId || g.trap || '';
-        return !backedGaps.find(bg => (bg.threatId || bg.trap || '') === key);
-    });
-
-    const allBacked = [...backedGaps, ...scannerOnly];
-
-    const gapsText = allBacked.length
-        ? allBacked.map(g =>
-            `[${g.severity}] [Tier ${g.evidenceTier||'—'}] [${g.ext || 'N/A'}] ${g.trap}\n` +
-            `  Pain:    ${g.thePain || g.plain}\n` +
-            `  Damage:  ${g.damage || 'Uncapped'}\n` +
+    const gapsText = backedGaps.length
+        ? backedGaps.map(g =>
+            `[${(g.severity||'').toUpperCase()}] [Tier ${g.evidenceTier||'—'}] [${g.ext||'N/A'}] ${g.trap||'—'}\n` +
+            `  Pain:    ${g.thePain||g.plain||'—'}\n` +
             `  Source:  ${g.evidence?.source || g.source || 'scanner'}\n` +
             `  Why:     ${g.evidence?.reason || 'Scanner confession'}\n` +
-            `  Doc:     ${g.theFix || g.doc || '—'}`
+            `  Doc:     ${g.theFix||g.doc||'—'}`
           ).join('\n\n')
         : 'No evidence-backed gaps detected';
 
     let scannerSection = '';
     if (p.scannerCompleted) {
-        const activeGaps = (p.activeGaps || []);
+        const activeGaps = p.activeGaps || [];
         const scanBacked = activeGaps
-            .filter(g => ['NUCLEAR','CRITICAL'].includes(g.severity))
+            .filter(g => ['NUCLEAR','CRITICAL'].includes((g.severity||'').toUpperCase()))
             .slice(0, 5)
             .map((g, i) =>
-                `[${i+1}] ${g.severity} [${g.ext || 'N/A'}] — ${g.trap}\n` +
-                `    Pain:   ${g.plain}\n` +
-                `    Source: ${g.source || 'scanner'}\n` +
-                `    Doc:    ${g.doc}`
+                `[${i+1}] ${g.severity} [${g.ext||'N/A'}] — ${g.trap||'—'}\n` +
+                `    Pain:   ${g.thePain||g.plain||'—'}\n` +
+                `    Source: ${g.source||'scanner'}\n` +
+                `    Doc:    ${g.theFix||g.doc||'—'}`
             ).join('\n\n');
-        const surfaces = (p.trippedSurfaces || []).join(', ') || 'None';
-        const vaultQ   = (p.vaultInputs || []).map(v =>
+        const surfaces = (p.trippedSurfaces||[]).join(', ') || 'None';
+        const vaultQ   = (p.vaultInputs||[]).map(v =>
             `  Q: ${v.question}\n  A: ${v.answer} (Penalty: ${v.penalty})`
         ).join('\n');
         scannerSection = `
 
 [SCANNER INTELLIGENCE — LIVE CONFESSIONS]
-Score:            ${p.scannerScore || 0}
+Score:            ${p.scannerScore||0}
 Unsure Flag:      ${p.unsureFlag ? 'YES — unknown vectors present' : 'No'}
 Tripped Surfaces: ${surfaces}
 Total Gaps:       ${activeGaps.length}
-Recommended Plan: ${p.recommendedPlan || p.intendedPlan || '—'}
+Recommended Plan: ${p.recommendedPlan||p.intendedPlan||'—'}
 
 TOP NUCLEAR/CRITICAL (scanner-confessed):
-${scanBacked || 'None'}
+${scanBacked||'None'}
 
 VAULT CONFESSIONS (raw answers):
-${vaultQ || 'None recorded'}`;
+${vaultQ||'None recorded'}`;
     }
 
     const text =
 `[LEX NOVA FORENSIC DOSSIER — ${new Date().toLocaleDateString('en-GB')}]
-ID: ${p.prospectId || '—'}
-Target: ${p.founderName || p.name || '—'} ${p.jobTitle ? '| ' + p.jobTitle : ''}
-Company: ${p.company || '—'} ${p.website ? '(' + p.website + ')' : ''}
-Email: ${p.email || '—'} | LinkedIn: ${p.linkedinUrl || '—'}
+ID: ${p.prospectId||'—'}
+Target: ${p.founderName||p.name||'—'} ${p.jobTitle ? '| '+p.jobTitle : ''}
+Company: ${p.company||'—'} ${p.website ? '('+p.website+')' : ''}
+Email: ${p.email||'—'} | LinkedIn: ${p.linkedinUrl||'—'}
 Replied: ${p.repliedAt ? new Date(p.repliedAt).toLocaleDateString('en-GB') : 'Not yet'}
 
 [CLASSIFICATION]
-Lanes:                ${(p.lanes || []).join(', ').toUpperCase() || '—'}
-Meta-Verbs:           ${(p.metaVerbs || []).join(', ').toUpperCase() || '—'}
-INT Archetypes:       ${(p.intArchetypes || []).join(', ') || p.internalCategory || '—'}
-EXT Exposures:        ${(p.extExposures || []).join(', ') || '—'}
-Reg. Jurisdiction:    ${p.registrationJurisdiction || p.geography || '—'}
-Service Jurisdictions:${p.serviceJurisdictions || '—'}
-Funding:              ${p.fundingStage || '—'} | Headcount: ${p.headcount || '—'}
+Lanes:                ${(p.lanes||[]).join(', ').toUpperCase()||'—'}
+Meta-Verbs:           ${(p.metaVerbs||[]).join(', ').toUpperCase()||'—'}
+INT Archetypes:       ${(p.intArchetypes||[]).join(', ')||p.internalCategory||'—'}
+EXT Exposures:        ${(p.extExposures||[]).join(', ')||'—'}
+Reg. Jurisdiction:    ${p.registrationJurisdiction||p.geography||'—'}
+Service Jurisdictions:${p.serviceJurisdictions||'—'}
+Funding:              ${p.fundingStage||'—'} | Headcount: ${p.headcount||'—'}
+Verdict:              ${p.verdict||'—'} ${p.verdictReason?'— '+p.verdictReason:''}
 
 [PRODUCT SIGNAL]
-${p.productSignal || '—'}
+${Array.isArray(p.productSignal) ? p.productSignal.map(f=>`• "${f.feature||'—'}" [${f.triggersInt||'—'}] ${(f.exposesExt||[]).join(', ')}`).join('\n') : (p.productSignal||'—')}
 
-[EVIDENCE-BACKED GAPS — NUCLEAR/CRITICAL ONLY (${allBacked.length} total, organized: Tier 1 → Tier 2 → Tier 3)]
+[EVIDENCE-BACKED GAPS — NUCLEAR/CRITICAL ONLY (${backedGaps.length} total, Tier 1 → Tier 2 → Tier 3 → Scanner)]
 ${gapsText}${scannerSection}
 
 [THE SPEAR]
-SUB:  ${p.emailSubject || '—'}
-BODY: "${p.personalizedHook || '—'}"
+SUB:  ${p.emailSubject||'—'}
+BODY: "${p.personalizedHook||'—'}"
 
 [LOGISTICS]
-Status:    ${p.status || '—'} | Step: ${p.sequenceStep || 'C'} | Emails: ${p.emailsSent || 0}
-Plan:      ${PLANS[p.intendedPlan] || p.intendedPlan || '—'}
+Status:    ${p.status||'—'} | Step: ${p.sequenceStep||'C'} | Emails: ${p.emailsSent||0}
+Plan:      ${PLANS[p.intendedPlan]||p.intendedPlan||'—'}
 Scanner:   ${p.scannerCompleted ? 'COMPLETED 🔥🔥' : p.scannerClicked ? 'CLICKED 🔥' : 'Not started'}`;
 
     try {
         await navigator.clipboard.writeText(text);
-        if (window.toast) window.toast('Dossier copied — ' + allBacked.length + ' evidence-backed gaps');
+        if (window.toast) window.toast('Dossier copied — '+backedGaps.length+' evidence-backed gaps');
     } catch {
         const ta = document.createElement('textarea');
         ta.value = text; document.body.appendChild(ta);
@@ -1206,49 +1307,38 @@ Scanner:   ${p.scannerCompleted ? 'COMPLETED 🔥🔥' : p.scannerClicked ? 'CLI
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ SPEAR REPORT COPY ═════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
-
 window.copySpearReport = async function(id) {
     const p = window.allProspects.find(x => x.id === id);
     if (!p) return;
 
-    // ── MODE DETECTION ──
     const isNEG = !!p.scannerCompleted;
 
-    // ── CONSEQUENCE TIER DERIVATION ──
     function getConsequenceTier(fundingStage) {
         if (!fundingStage) return { tier:'MOMENTUM', rule:'Use deal velocity and growth blocker language. Mid-stage urgency.' };
         const f = fundingStage.toLowerCase();
-        if (f.includes('pre-seed') || f.includes('preseed') || f.includes('seed') || f.includes('bootstrap'))
+        if (f.includes('pre-seed')||f.includes('preseed')||f.includes('seed')||f.includes('bootstrap'))
             return { tier:'SURVIVAL', rule:'Use existential risk and runway language. Early-stage urgency. $750 founding slot permitted in FU4.' };
-        if (f.includes('series a') || f.includes('series b'))
+        if (f.includes('series a')||f.includes('series b'))
             return { tier:'MOMENTUM', rule:'Use deal velocity and growth blocker language. Mid-stage urgency. $750 founding slot permitted in FU4.' };
-        if (f.includes('series c') || f.includes('series d') || f.includes('series e') ||
-            f.includes('series f') || f.includes('late') || f.includes('public'))
+        if (f.includes('series c')||f.includes('series d')||f.includes('series e')||f.includes('late')||f.includes('public'))
             return { tier:'CREDIBILITY', rule:'Use enterprise buyer rejection, procurement blocker, and indemnity trigger language. $750 SUPPRESSED — pure meet offer only in FU4. No survival language. No runway language.' };
-        return { tier:'MOMENTUM', rule:'Use deal velocity and growth blocker language. Mid-stage urgency. $750 founding slot permitted in FU4.' };
+        return { tier:'MOMENTUM', rule:'Use deal velocity and growth blocker language. Mid-stage urgency.' };
     }
 
-    // ── GAP POOL ──
-    // V5.6: No ranking. No cap. All Tier 1 + All Tier 2 + max 3 Tier 3.
-    // Gemini Pro handles commercial prioritization downstream.
     const gapPool = getEvidenceBackedGaps(p);
-
     if (!gapPool.length) {
         if (window.toast) window.toast('No NUCLEAR/CRITICAL evidence-backed gaps — run Hunter audit first', 'error');
         return;
     }
 
-    // ── PRODUCT SIGNAL FILTERING ──
+    // Product signal: filter to gap-relevant features only
     const productSignalRaw = p.productSignal || [];
-    let featuresForReport = '';
-
+    let featuresForReport  = '';
     if (Array.isArray(productSignalRaw) && productSignalRaw.length > 0) {
-        const poolExt = new Set(gapPool.flatMap(g => (g.ext||'').split(',').map(e=>e.trim())));
-        const relevantFeatures = productSignalRaw.filter(f =>
-            (f.exposesExt||[]).some(ext => poolExt.has(ext))
-        );
-        featuresForReport = relevantFeatures.length
-            ? relevantFeatures.map(f =>
+        const poolExt = new Set(gapPool.flatMap(g => (g.ext||'').split(',').map(e => e.trim())));
+        const relevant = productSignalRaw.filter(f => (f.exposesExt||[]).some(ext => poolExt.has(ext)));
+        featuresForReport = relevant.length
+            ? relevant.map(f =>
                 `• [FEATURE] "${f.feature}"\n` +
                 `  [SOURCE]  ${f.source}\n` +
                 `  [INT]     ${f.triggersInt}\n` +
@@ -1261,66 +1351,50 @@ window.copySpearReport = async function(id) {
         featuresForReport = '• [No product signal — run Hunter audit]';
     }
 
-    // ── GAP MATRIX FORMATTING ──
     const gapMatrix = gapPool.map((g, i) => {
-        const dualFlag = g.source === 'dual-verified' ? ' [DUAL-VERIFIED — scanner confirmed]' : '';
-        const tierLabel = { 1:'Legal Document', 2:'Product Page', 3:'Observable Absence' }[g.evidenceTier] || '—';
+        const dualFlag  = g.source === 'dual-verified' ? ' [DUAL-VERIFIED — scanner confirmed]' : '';
+        const tierLabel = { 1:'Legal Document', 2:'Product Page', 3:'Observable Absence' }[g.evidenceTier] || 'Scanner Confession';
         return (
-            `GAP ${i+1} — ${g.severity} — Tier ${g.evidenceTier||'—'}${dualFlag}\n` +
-            `Threat ID:   ${g.threatId || '—'}\n` +
-            `Name:        ${g.trap}\n` +
-            `Legal Ammo:  ${g.legalAmmo || '—'}\n` +
-            `Pain:        ${g.thePain || g.plain || '—'}\n` +
-            `Velocity:    ${g.velocity || '—'}\n` +
-            `Fix:         ${g.theFix || g.doc || '—'}\n` +
-            `Evidence:    Tier ${g.evidenceTier||'—'} — ${tierLabel}\n` +
-            `Source:      ${g.evidence?.source || '—'}\n` +
-            `Reason:      ${g.evidence?.reason || '—'}`
+            `GAP ${i+1} — ${(g.severity||'').toUpperCase()} — Tier ${g.evidenceTier||'S'}${dualFlag}\n` +
+            `Threat ID:   ${g.threatId||'—'}\n` +
+            `Name:        ${g.trap||'—'}\n` +
+            `Legal Ammo:  ${g.legalAmmo||'—'}\n` +
+            `Pain:        ${g.thePain||g.plain||'—'}\n` +
+            `Velocity:    ${velDisplay(g.velocity||'')}\n` +
+            `Fix:         ${g.theFix||g.doc||'—'}\n` +
+            `Evidence:    ${tierLabel}\n` +
+            `Source:      ${g.evidence?.source||'—'}\n` +
+            `Reason:      ${g.evidence?.reason||'—'}`
         );
     }).join('\n\n');
 
-    // ── SCANNER SECTION (NEG only) ──
     let scannerSection = '';
     if (isNEG) {
-        const vaultRaw = p.vaultInputs || [];
-        const penaltyWeight = { 'Uncapped':4, 'High':3, 'Medium':2, 'Low':1 };
-        const top3Vault = [...vaultRaw]
+        const vaultRaw     = p.vaultInputs || [];
+        const penaltyWeight= { 'Uncapped':4, 'High':3, 'Medium':2, 'Low':1 };
+        const top3Vault    = [...vaultRaw]
             .sort((a,b) => (penaltyWeight[b.penalty]||0) - (penaltyWeight[a.penalty]||0))
-            .slice(0,3)
-            .map((v,i) =>
+            .slice(0, 3)
+            .map((v, i) =>
                 `[${i+1}] Penalty: ${v.penalty||'—'}\n` +
                 `    Q: ${v.question||'—'}\n` +
                 `    A: ${v.answer||'—'}`
             ).join('\n\n');
-
         const surfaces = (p.trippedSurfaces||[]).join(', ') || 'None';
-
         scannerSection = `
 ═══════════════════════════════════════
 [SCANNER INTELLIGENCE]
 ═══════════════════════════════════════
-Score:            ${p.scannerScore || 0}
+Score:            ${p.scannerScore||0}
 Unsure Flag:      ${p.unsureFlag ? 'YES — unknown vectors present' : 'No'}
 Tripped Surfaces: ${surfaces}
 
 TOP CONFESSIONS (ranked by penalty):
-${top3Vault || 'None recorded'}`;
+${top3Vault||'None recorded'}`;
     }
 
-    // ── CONSEQUENCE TIER ──
     const { tier, rule } = getConsequenceTier(p.fundingStage);
 
-    // ── LOGISTICS ──
-    const logisticsSection =
-        `Funding:       ${p.fundingStage || '—'}\n` +
-        `Headcount:     ${p.headcount || '—'}\n` +
-        `Geography:     ${p.registrationJurisdiction || p.geography || '—'}\n` +
-        `Jurisdictions: ${p.serviceJurisdictions || '—'}\n` +
-        `Intended Plan: ${p.intendedPlan || 'agentic_shield'}\n` +
-        `Emails Sent:   ${p.emailsSent || 0}\n` +
-        `Sequence Step: ${p.sequenceStep || 'C'}`;
-
-    // ── ASSEMBLE REPORT ──
     const report =
 `═══════════════════════════════════════
 [MODE]
@@ -1331,49 +1405,52 @@ SEQUENCE: ${isNEG ? 'NEG-1 → NEG-2 → NEG-3 → NEG-4' : 'Cold → FU1 → FU
 ═══════════════════════════════════════
 [TARGET]
 ═══════════════════════════════════════
-FOUNDER:      ${p.founderName || p.name || '—'} 
-JOB TITLE:    ${p.jobTitle || '—'}
-COMPANY:      ${p.company || '—'}
-EMAIL:        ${p.email || '—'}
-PID:          ${p.prospectId || '—'}
-SCANNER LINK: ${p.scannerLink || `https://lexnovahq.com/scanner.html?pid=${p.prospectId||''}`}
+FOUNDER:      ${p.founderName||p.name||'—'}
+JOB TITLE:    ${p.jobTitle||'—'}
+COMPANY:      ${p.company||'—'}
+EMAIL:        ${p.email||'—'}
+PID:          ${p.prospectId||'—'}
+SCANNER LINK: ${p.scannerLink||`https://lexnovahq.com/scanner.html?pid=${p.prospectId||''}`}
 
 ═══════════════════════════════════════
 [CONSEQUENCE TIER]
 ═══════════════════════════════════════
-FUNDING:           ${p.fundingStage || 'Unknown'}
+FUNDING:           ${p.fundingStage||'Unknown'}
 CONSEQUENCE_TIER:  ${tier}
 RULE:              ${rule}
 
 ═══════════════════════════════════════
 [PRODUCT INTELLIGENCE]
 ═══════════════════════════════════════
-Lanes:      ${(p.lanes||[]).join(', ').toUpperCase() || '—'}
-Archetypes: ${(p.intArchetypes||[]).join(', ') || '—'}
-EXT:        ${(p.extExposures||[]).join(', ') || '—'}
+Lanes:      ${(p.lanes||[]).join(', ').toUpperCase()||'—'}
+Archetypes: ${(p.intArchetypes||[]).join(', ')||'—'}
+EXT:        ${(p.extExposures||[]).join(', ')||'—'}
 
 FEATURE MAP (gap-relevant only):
 ${featuresForReport}
 
 ═══════════════════════════════════════
-[GAP MATRIX — ${gapPool.length} gaps — organized by evidence tier (Tier 1 → Tier 2 → Tier 3) — Gemini Pro selects per email]
+[GAP MATRIX — ${gapPool.length} gaps — Tier 1 → Tier 2 → Tier 3 → Scanner — Gemini selects per email]
 ═══════════════════════════════════════
 ${gapMatrix}${scannerSection}
 
 ═══════════════════════════════════════
 [LOGISTICS]
 ═══════════════════════════════════════
-${logisticsSection}`;
+Funding:       ${p.fundingStage||'—'}
+Headcount:     ${p.headcount||'—'}
+Geography:     ${p.registrationJurisdiction||p.geography||'—'}
+Jurisdictions: ${p.serviceJurisdictions||'—'}
+Intended Plan: ${p.intendedPlan||'agentic_shield'}
+Emails Sent:   ${p.emailsSent||0}
+Sequence Step: ${p.sequenceStep||'C'}`;
 
-    // ── COPY TO CLIPBOARD ──
     try {
         await navigator.clipboard.writeText(report);
-        const label = isNEG ? 'NEG Spear Report' : 'Spear Report';
-        if (window.toast) window.toast(`${label} copied — ${gapPool.length} gaps · ${tier} tier · ${isNEG ? 'NEG' : 'COLD'}`);
+        if (window.toast) window.toast(`${isNEG?'NEG ':''}Spear Report copied — ${gapPool.length} gaps · ${tier} · ${isNEG?'NEG':'COLD'}`);
     } catch {
         const ta = document.createElement('textarea');
-        ta.value = report;
-        document.body.appendChild(ta);
+        ta.value = report; document.body.appendChild(ta);
         ta.focus(); ta.select();
         try { document.execCommand('copy'); if (window.toast) window.toast('Report copied'); }
         catch { if (window.toast) window.toast('Failed to copy', 'error'); }
@@ -1381,85 +1458,81 @@ ${logisticsSection}`;
     }
 };
 
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ ICP TABLE COPY ════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 window.copyICPTable = function() {
-    const tbodies = document.querySelectorAll('#op-tbody');
-    if (!tbodies.length) { if(window.toast) window.toast('No pipeline visible', 'error'); return; }
-
-    const s   = (document.getElementById('op-search')?.value||'').toLowerCase();
-    const st  = document.getElementById('op-status')?.value||'';
-    const bt  = document.getElementById('op-batch')?.value||'';
-    const fs  = document.getElementById('op-funding')?.value||'';
-    const sc  = document.getElementById('op-scanner')?.value||'';
-    const gap = document.getElementById('op-gap')?.value||'';
-    const ai  = document.getElementById('op-ai')?.value||'';
-    const srt = document.getElementById('op-sort')?.value||'nextDate';
+    const s   = (document.getElementById('op-search')?.value  || '').toLowerCase();
+    const st  = document.getElementById('op-status')?.value   || '';
+    const bt  = document.getElementById('op-batch')?.value    || '';
+    const fs  = document.getElementById('op-funding')?.value  || '';
+    const sc  = document.getElementById('op-scanner')?.value  || '';
+    const gap = document.getElementById('op-gap')?.value      || '';
+    const ai  = document.getElementById('op-ai')?.value       || '';
+    const srt = document.getElementById('op-sort')?.value     || 'nextDate';
 
     let list = window.allProspects.filter(p => {
         if (p.status === 'DEAD') return false;
-        if (s && ![(p.founderName||''),(p.name||''),(p.company||''),(p.email||''),(p.prospectId||'')].some(v=>v.toLowerCase().includes(s))) return false;
-        if (st && p.status!==st) return false;
-        if (bt && p.batchNumber!==bt) return false;
-        if (fs && p.fundingStage!==fs) return false;
-        if (sc==='clicked'   && !(p.scannerClicked && !p.scannerCompleted)) return false;
-        if (sc==='completed' && !p.scannerCompleted) return false;
-        if (sc==='none'      && (p.scannerClicked||p.scannerCompleted)) return false;
-        if (gap) { const gaps=getAllGaps(p); if (!gaps.some(g=>g.severity===gap)) return false; }
+        if (s && ![(p.founderName||''),(p.name||''),(p.company||''),(p.email||''),(p.prospectId||'')].some(v => v.toLowerCase().includes(s))) return false;
+        if (st && p.status !== st) return false;
+        if (bt && p.batchNumber !== bt) return false;
+        if (fs && p.fundingStage !== fs) return false;
+        if (sc === 'clicked'   && !(p.scannerClicked && !p.scannerCompleted)) return false;
+        if (sc === 'completed' && !p.scannerCompleted) return false;
+        if (sc === 'none'      && (p.scannerClicked || p.scannerCompleted)) return false;
+        if (gap) { const gaps = getAllGaps(p); if (!gaps.some(g => (g.severity||'').toUpperCase() === gap)) return false; }
         if (ai) {
-            const archs = p.intArchetypes||[];
-            const matchArr = archs.some(a=>a.toLowerCase().includes(ai.toLowerCase().replace('the ','')));
-            if (!matchArr && p.internalCategory!==ai) return false;
+            const archs = p.intArchetypes || [];
+            const matchArr = archs.some(a => a.toLowerCase().includes(ai.toLowerCase().replace('the ', '')));
+            if (!matchArr && p.internalCategory !== ai) return false;
         }
         return true;
     });
 
-    if      (srt==='dateAdded')  list.sort((a,b)=>(b.addedAt||'').localeCompare(a.addedAt||''));
-    else if (srt==='score')      list.sort((a,b)=>(b.scannerScore||0)-(a.scannerScore||0));
-    else if (srt==='company')    list.sort((a,b)=>(a.company||'').localeCompare(b.company||''));
-    else if (srt==='emailsSent') list.sort((a,b)=>(b.emailsSent||0)-(a.emailsSent||0));
-    else if (srt==='batch')      list.sort((a,b)=>(a.batchNumber||'ZZZ').localeCompare(b.batchNumber||'ZZZ'));
-    else                         list.sort((a,b)=>(a.nextActionDate||'9999').localeCompare(b.nextActionDate||'9999'));
+    if      (srt === 'dateAdded')  list.sort((a,b) => (b.addedAt||'').localeCompare(a.addedAt||''));
+    else if (srt === 'score')      list.sort((a,b) => (b.scannerScore||0) - (a.scannerScore||0));
+    else if (srt === 'company')    list.sort((a,b) => (a.company||'').localeCompare(b.company||''));
+    else if (srt === 'emailsSent') list.sort((a,b) => (b.emailsSent||0) - (a.emailsSent||0));
+    else if (srt === 'batch')      list.sort((a,b) => (a.batchNumber||'ZZZ').localeCompare(b.batchNumber||'ZZZ'));
+    else                           list.sort((a,b) => (a.nextActionDate||'9999').localeCompare(b.nextActionDate||'9999'));
 
-  if (!list.length) { if(window.toast) window.toast('No prospects in current view', 'error'); return; }
+    if (!list.length) { if (window.toast) window.toast('No prospects in current view', 'error'); return; }
 
-    // THE RANGE INTERCEPTOR
+    // Range interceptor
     let slicedList = list;
     let offset = 0;
-    const range = prompt("Enter S.No. range to copy (e.g., 1-25) or leave blank for ALL:", "");
-    
+    const range = prompt('Enter S.No. range to copy (e.g., 1-25) or leave blank for ALL:', '');
     if (range) {
         const parts = range.split('-');
         if (parts.length === 2) {
             const startIdx = parseInt(parts[0].trim(), 10);
-            const endIdx = parseInt(parts[1].trim(), 10);
+            const endIdx   = parseInt(parts[1].trim(), 10);
             if (!isNaN(startIdx) && !isNaN(endIdx)) {
-                offset = startIdx - 1;
+                offset     = startIdx - 1;
                 slicedList = list.slice(offset, endIdx);
             } else {
-                if(window.toast) window.toast('Invalid format. Copying all.');
+                if (window.toast) window.toast('Invalid format. Copying all.');
             }
         }
     }
+    if (!slicedList.length) { if (window.toast) window.toast('No rows in that range', 'error'); return; }
 
-    if (!slicedList.length) { if(window.toast) window.toast('No rows in that range', 'error'); return; }
-
-    // THE SPREADSHEET ENGINE (TSV Format)
     const header = `S. No.\tBatch\tFounder\tCompany\tRole\tScanner Link\tEmail`;
-    const rows = slicedList.map((p, i) => {
+    const rows   = slicedList.map((p, i) => {
         const sno = offset + i + 1;
-        const scannerLink = p.scannerLink || `https://lexnovahq.com/scanner.html?pid=${p.prospectId||''}`;
-        return `${sno}\t${p.batchNumber||'—'}\t${p.founderName||p.name||'—'}\t${p.company||'—'}\t${p.jobTitle||'—'}\t${scannerLink}\t${p.email||'—'}`;
+        const scanLink = p.scannerLink || `https://lexnovahq.com/scanner.html?pid=${p.prospectId||''}`;
+        return `${sno}\t${p.batchNumber||'—'}\t${p.founderName||p.name||'—'}\t${p.company||'—'}\t${p.jobTitle||'—'}\t${scanLink}\t${p.email||'—'}`;
     }).join('\n');
 
     const text = `${header}\n${rows}`;
-
     navigator.clipboard.writeText(text)
-        .then(() => { if(window.toast) window.toast(`Copied rows ${offset + 1} to ${offset + slicedList.length}`); })
+        .then(() => { if (window.toast) window.toast(`Copied rows ${offset+1} to ${offset+slicedList.length}`); })
         .catch(() => {
             const ta = document.createElement('textarea');
             ta.value = text; document.body.appendChild(ta);
             ta.focus(); ta.select();
-            try { document.execCommand('copy'); if(window.toast) window.toast(`Copied rows ${offset + 1} to ${offset + slicedList.length}`); }
-            catch { if(window.toast) window.toast('Failed to copy','error'); }
+            try { document.execCommand('copy'); if (window.toast) window.toast(`Copied rows ${offset+1} to ${offset+slicedList.length}`); }
+            catch { if (window.toast) window.toast('Failed to copy', 'error'); }
             document.body.removeChild(ta);
         });
 };
@@ -1470,15 +1543,22 @@ window.copyICPTable = function() {
 window.pivotToFlagship = async function() {
     if (!window.currentProspect) return;
     if (!confirm('Pivot to Flagship pipeline?')) return;
-    const p = window.currentProspect;
-    const data={founderName:p.founderName||p.name||'',email:p.email||'',company:p.company||'',preCallNotes:`Pivoted from pipeline.\nGap: ${p.productSignal||'N/A'}`,status:'Identified',addedAt:nowTs(),updatedAt:nowTs()};
+    const p    = window.currentProspect;
+    const data = {
+        founderName:   p.founderName||p.name||'',
+        email:         p.email||'',
+        company:       p.company||'',
+        preCallNotes:  `Pivoted from pipeline.\nGap: ${p.productSignal||'N/A'}`,
+        status:        'Identified',
+        addedAt:       nowTs(), updatedAt: nowTs()
+    };
     try {
         await window.db.collection('flagship').add(data);
-        await window.db.collection('prospects').doc(p.prospectId||p.id).update({status:'DEAD',archivedAt:nowTs(),updatedAt:nowTs()});
-        if(window.toast) window.toast('Pivoted to Flagship');
+        await window.db.collection('prospects').doc(p.prospectId||p.id).update({ status:'DEAD', archivedAt:nowTs(), updatedAt:nowTs() });
+        if (window.toast) window.toast('Pivoted to Flagship');
         window.closePP();
-        if(typeof window.loadFlagship==='function') window.loadFlagship();
-    } catch(e) { console.error(e); if(window.toast) window.toast('Pivot failed','error'); }
+        if (typeof window.loadFlagship === 'function') window.loadFlagship();
+    } catch(e) { console.error(e); if (window.toast) window.toast('Pivot failed', 'error'); }
 };
 
 // ════════════════════════════════════════════════════════════════════════
@@ -1487,47 +1567,52 @@ window.pivotToFlagship = async function() {
 window.convertLead = async function(leadId) {
     if (!confirm('Convert to Pipeline Prospect?')) return;
     try {
-        const snap=await window.db.collection('leads').doc(leadId).get();
-        if(!snap.exists){if(window.toast)window.toast('Lead not found','error');return;}
-        const l=snap.data();
-        const month=String(new Date().getMonth()+1).padStart(2,'0');
-        let batch=`${month}I`;
-        if(isBatchFull(batch)){
-            // Auto-increment batch letter if current inbound batch is full
-            const letters='IJKLMNOP';
-            for(let i=1;i<letters.length;i++){
-                const tryBatch=`${month}${letters[i]}`;
-                if(!isBatchFull(tryBatch)){batch=tryBatch;break;}
+        const snap = await window.db.collection('leads').doc(leadId).get();
+        if (!snap.exists) { if (window.toast) window.toast('Lead not found', 'error'); return; }
+        const l     = snap.data();
+        const month = String(new Date().getMonth()+1).padStart(2,'0');
+        let batch   = `${month}I`;
+        if (isBatchFull(batch)) {
+            const letters = 'IJKLMNOP';
+            for (let i=1; i<letters.length; i++) {
+                const tryBatch = `${month}${letters[i]}`;
+                if (!isBatchFull(tryBatch)) { batch = tryBatch; break; }
             }
-            if(isBatchFull(batch)){if(window.toast)window.toast(`All inbound batches for month ${month} are full (${BATCH_LIMIT} each). Create a new batch manually.`,'error');return;}
+            if (isBatchFull(batch)) {
+                if (window.toast) window.toast(`All inbound batches for month ${month} full. Create a new batch manually.`, 'error');
+                return;
+            }
         }
-        const pid=await window.genProspectId(batch);
-        const data={
-            founderName:l.name||'',email:l.email||leadId,company:l.company||'',
-            linkedinUrl:l.linkedin||'',source:l.source||'scanner',batchNumber:batch,
-            intendedPlan:l.plan||'agentic_shield',status:'QUEUED',sequenceStep:'C',
-            prospectId:pid,scannerLink:`https://lexnovahq.com/scanner.html?pid=${pid}`,
-            emailsSent:0,emailLog:[],
-            scannerClicked:!!l.scannerClicked,scannerCompleted:!!l.scannerCompleted,
-            activeGaps:l.activeGaps||[],forensicGaps:l.forensicGaps||[],
-            intArchetypes:l.intArchetypes||[],extExposures:l.extExposures||[],
-            lanes:l.lanes||[],metaVerbs:l.metaVerbs||[],
-            addedAt:nowTs(),updatedAt:nowTs()
+        const pid  = await window.genProspectId(batch);
+        const data = {
+            founderName:      l.name||'', email: l.email||leadId,
+            company:          l.company||'', linkedinUrl: l.linkedin||'',
+            source:           l.source||'scanner', batchNumber: batch,
+            intendedPlan:     l.plan||'agentic_shield',
+            status:           'QUEUED', sequenceStep: 'C',
+            prospectId:       pid,
+            scannerLink:      `https://lexnovahq.com/scanner.html?pid=${pid}`,
+            emailsSent:       0, emailLog: [],
+            scannerClicked:   !!l.scannerClicked, scannerCompleted: !!l.scannerCompleted,
+            activeGaps:       l.activeGaps||[], forensicGaps: l.forensicGaps||[],
+            intArchetypes:    l.intArchetypes||[], extExposures: l.extExposures||[],
+            lanes:            l.lanes||[], metaVerbs: l.metaVerbs||[],
+            addedAt:          nowTs(), updatedAt: nowTs()
         };
-        await window.db.collection('prospects').doc(pid).set(data,{merge:true});
-        await window.db.collection('leads').doc(leadId).update({status:'converted',convertedAt:nowTs()});
-        if(window.toast) window.toast(`Converted → ${pid}`);
-        if(typeof window.loadLeads==='function') window.loadLeads();
-    } catch(e) { console.error(e); if(window.toast) window.toast('Conversion failed','error'); }
+        await window.db.collection('prospects').doc(pid).set(data, { merge:true });
+        await window.db.collection('leads').doc(leadId).update({ status:'converted', convertedAt:nowTs() });
+        if (window.toast) window.toast(`Converted → ${pid}`);
+        if (typeof window.loadLeads === 'function') window.loadLeads();
+    } catch(e) { console.error(e); if (window.toast) window.toast('Conversion failed', 'error'); }
 };
 
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ ADD PROSPECT ══════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 window.openAddProspect = function() {
-    const month=String(new Date().getMonth()+1).padStart(2,'0');
-    const cats=['The Doers','The Orchestrators','The Creators','The Companions','The Readers','The Translators','The Judges','The Shields','The Movers','The Optimizers'];
-    if(typeof window.openModal!=='function') return;
+    const month = String(new Date().getMonth()+1).padStart(2,'0');
+    const cats  = ['The Doers','The Orchestrators','The Creators','The Companions','The Readers','The Translators','The Judges','The Shields','The Movers','The Optimizers'];
+    if (typeof window.openModal !== 'function') return;
     window.openModal('Initialize Target Acquisition',`
     <div class="modal-grid">
         <div>
@@ -1536,17 +1621,24 @@ window.openAddProspect = function() {
             <div class="fg"><label class="fl">Email *</label><input type="email" class="fi" id="ap-email"></div>
             <div class="fi-row">
                 <div class="fg"><label class="fl">INT Archetype</label><select class="fi" id="ap-int-cat">${cats.map(c=>`<option>${c}</option>`).join('')}</select></div>
-                <div class="fg"><label class="fl">EXT Category</label><input type="text" class="fi" id="ap-ext-cat"></div>
+                <div class="fg"><label class="fl">Job Title</label><input type="text" class="fi" id="ap-title" placeholder="CEO / Founder"></div>
             </div>
         </div>
         <div>
             <div class="section-sub">Logistics</div>
-            <div class="fi-row"><div class="fg"><label class="fl">Geography</label><input type="text" class="fi" id="ap-geo" value="US"></div><div class="fg"><label class="fl">Batch</label><input type="text" class="fi" id="ap-batch" value="${month}A" oninput="
-                const b=this.value.trim();
-                const ct=window.allProspects.filter(p=>p.batchNumber===b&&p.status!=='DEAD').length;
-                const el=document.getElementById('ap-batch-cap');
-                if(el){el.textContent=ct+'/${BATCH_LIMIT}';el.style.color=ct>=${BATCH_LIMIT}?'#ef4444':ct>=${BATCH_LIMIT-5}?'#f97316':'var(--marble-dim)';}
-            "><span id="ap-batch-cap" style="font-size:9px;color:var(--marble-dim);">${getBatchCount(month+'A')}/${BATCH_LIMIT}</span></div></div>
+            <div class="fi-row">
+                <div class="fg"><label class="fl">Geography</label><input type="text" class="fi" id="ap-geo" value="US"></div>
+                <div class="fg">
+                    <label class="fl">Batch</label>
+                    <input type="text" class="fi" id="ap-batch" value="${month}A" oninput="
+                        const b=this.value.trim();
+                        const ct=window.allProspects.filter(p=>p.batchNumber===b&&p.status!=='DEAD').length;
+                        const el=document.getElementById('ap-batch-cap');
+                        if(el){el.textContent=ct+'/${BATCH_LIMIT}';el.style.color=ct>=${BATCH_LIMIT}?'#ef4444':ct>=${BATCH_LIMIT-5}?'#f97316':'var(--marble-dim)';}
+                    ">
+                    <span id="ap-batch-cap" style="font-size:9px;color:var(--marble-dim);">${getBatchCount(month+'A')}/${BATCH_LIMIT}</span>
+                </div>
+            </div>
             <div class="fg"><label class="fl">Initial Hook</label><textarea class="fi" id="ap-hook" rows="4"></textarea></div>
         </div>
     </div>`,
@@ -1554,37 +1646,41 @@ window.openAddProspect = function() {
 };
 
 window.saveNewProspect = async function() {
-    const email=$h('ap-email')?.value?.trim().toLowerCase();
-    const batch=$h('ap-batch')?.value?.trim()||'01A';
-    if(!email){if(window.toast)window.toast('Email required','error');return;}
-    if(isBatchFull(batch)){if(window.toast)window.toast(`Batch ${batch} is full (${BATCH_LIMIT}/${BATCH_LIMIT}). Use a different batch code.`,'error');return;}
+    const email = $h('ap-email')?.value?.trim().toLowerCase();
+    const batch = $h('ap-batch')?.value?.trim() || '01A';
+    if (!email) { if (window.toast) window.toast('Email required', 'error'); return; }
+    if (isBatchFull(batch)) { if (window.toast) window.toast(`Batch ${batch} is full (${BATCH_LIMIT}/${BATCH_LIMIT}). Use a different batch code.`, 'error'); return; }
     try {
-        const pid=await window.genProspectId(batch);
+        const pid = await window.genProspectId(batch);
         await window.db.collection('prospects').doc(pid).set({
-            founderName:$h('ap-name')?.value?.trim()||'',email,
-            company:$h('ap-company')?.value?.trim()||'',
-            intArchetypes:[$h('ap-int-cat')?.value||''],
-            externalCategory:$h('ap-ext-cat')?.value?.trim()||'',
-            geography:$h('ap-geo')?.value?.trim()||'US',
-            personalizedHook:$h('ap-hook')?.value?.trim()||'',
-            prospectId:pid,batchNumber:batch,
-            status:'QUEUED',sequenceStep:'C',
-            emailsSent:0,emailLog:[],
-            addedAt:nowTs(),updatedAt:nowTs()
+            founderName:   $h('ap-name')?.value?.trim()    || '',
+            jobTitle:      $h('ap-title')?.value?.trim()   || '',
+            email,
+            company:       $h('ap-company')?.value?.trim() || '',
+            intArchetypes: [$h('ap-int-cat')?.value        || ''],
+            geography:     $h('ap-geo')?.value?.trim()     || 'US',
+            personalizedHook: $h('ap-hook')?.value?.trim() || '',
+            prospectId:    pid, batchNumber: batch,
+            scannerLink:   `https://lexnovahq.com/scanner.html?pid=${pid}`,
+            status:        'QUEUED', sequenceStep: 'C',
+            emailsSent:    0, emailLog: [],
+            addedAt:       nowTs(), updatedAt: nowTs()
         });
-        if(window.closeModal) window.closeModal();
-        if(window.toast) window.toast(`${pid} added`);
-    } catch(e){console.error(e);if(window.toast)window.toast('Save failed','error');}
+        if (window.closeModal) window.closeModal();
+        if (window.toast) window.toast(`${pid} added`);
+    } catch(e) { console.error(e); if (window.toast) window.toast('Save failed', 'error'); }
 };
 
 window.genProspectId = async function(batchCode) {
     try {
-        const month=String(new Date().getMonth()+1).padStart(2,'0');
-        const batch=batchCode||`${month}A`;
-        const prefix=`LN-P-AI-26-${batch}-`;
-        const snap=await window.db.collection('prospects').where('prospectId','>=',prefix).where('prospectId','<=',prefix+'\uf8ff').get();
-        let max=0;
-        snap.forEach(d=>{const n=parseInt((d.data().prospectId||'').split('-').pop(),10);if(n>max)max=n;});
+        const month  = String(new Date().getMonth()+1).padStart(2,'0');
+        const batch  = batchCode || `${month}A`;
+        const prefix = `LN-P-AI-26-${batch}-`;
+        const snap   = await window.db.collection('prospects')
+            .where('prospectId','>=',prefix)
+            .where('prospectId','<=',prefix+'\uf8ff').get();
+        let max = 0;
+        snap.forEach(d => { const n=parseInt((d.data().prospectId||'').split('-').pop(),10); if(n>max) max=n; });
         return `${prefix}${String(max+1).padStart(3,'0')}`;
     } catch { return `LN-P-AI-26-01A-001`; }
 };
@@ -1593,26 +1689,38 @@ window.genProspectId = async function(batchCode) {
 // ═════════ FLAGSHIP CRM ══════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 window.loadFlagship = async function() {
-    const pa=$h('pageActions');
-    if(pa) pa.innerHTML=`<button class="btn btn-primary" onclick="window.openAddFlagship()">+ Add Flagship</button>`;
-    const tbodies=document.querySelectorAll('#fs-tbody');
-    tbodies.forEach(tb=>tb.innerHTML='<tr><td colspan="8" class="loading">Loading…</td></tr>');
+    const pa = $h('pageActions');
+    if (pa) pa.innerHTML = `<button class="btn btn-primary" onclick="window.openAddFlagship()">+ Add Flagship</button>`;
+    const tbodies = document.querySelectorAll('#fs-tbody');
+    tbodies.forEach(tb => tb.innerHTML = '<tr><td colspan="8" class="loading">Loading…</td></tr>');
     try {
-        const snap=await window.db.collection('flagship').orderBy('addedAt','desc').get();
-        window.allFlagship=[];
-        snap.forEach(d=>window.allFlagship.push({id:d.id,...d.data()}));
+        const snap = await window.db.collection('flagship').orderBy('addedAt','desc').get();
+        window.allFlagship = [];
+        snap.forEach(d => window.allFlagship.push({ id:d.id, ...d.data() }));
         renderFlagshipTable(window.allFlagship);
         window.renderDealsBoard();
-    } catch(e){tbodies.forEach(tb=>tb.innerHTML='<tr><td colspan="8" class="loading" style="color:#d47a7a">Failed</td></tr>');}
+    } catch(e) {
+        tbodies.forEach(tb => tb.innerHTML = '<tr><td colspan="8" class="loading" style="color:#d47a7a">Failed</td></tr>');
+    }
 };
 
 function renderFlagshipTable(list) {
-    const tbodies=document.querySelectorAll('#fs-tbody'); if(!tbodies.length)return;
-    const sClass={Identified:'b-cold','Discovery Scheduled':'b-intake','Discovery Done':'b-warm','Proposal Sent':'b-production',Negotiating:'b-hot',Won:'b-delivered',Lost:'b-dead'};
-    const html=!list.length?'<tr><td colspan="8" class="loading">No flagship prospects</td></tr>'
-        :list.map((fs, i)=>{
-            let fu='';
-            if(fs.proposalSentAt&&fs.status==='Proposal Sent'){const hrs=Math.floor((Date.now()-new Date(fs.proposalSentAt).getTime())/3600000);fu=hrs>24?` <span style="color:#d47a7a;font-size:9px">⚠ ${hrs}h</span>`:` <span style="color:var(--gold);font-size:9px">${hrs}h</span>`;}
+    const tbodies = document.querySelectorAll('#fs-tbody');
+    if (!tbodies.length) return;
+    const sClass = {
+        'Identified':'b-cold','Discovery Scheduled':'b-intake','Discovery Done':'b-warm',
+        'Proposal Sent':'b-production','Negotiating':'b-hot','Won':'b-delivered','Lost':'b-dead'
+    };
+    const html = !list.length
+        ? '<tr><td colspan="8" class="loading">No flagship prospects</td></tr>'
+        : list.map((fs, i) => {
+            let fu = '';
+            if (fs.proposalSentAt && fs.status === 'Proposal Sent') {
+                const hrs = Math.floor((Date.now()-new Date(fs.proposalSentAt).getTime())/3600000);
+                fu = hrs > 24
+                    ? ` <span style="color:#d47a7a;font-size:9px">⚠ ${hrs}h</span>`
+                    : ` <span style="color:var(--gold);font-size:9px">${hrs}h</span>`;
+            }
             return `<tr onclick="window.openFSP('${window.esc(fs.id)}')">
                 <td class="dim" style="font-size:10px;text-align:center;">${i+1}</td>
                 <td>${window.esc(fs.founderName||fs.name||'—')}</td>
@@ -1624,41 +1732,69 @@ function renderFlagshipTable(list) {
                 <td class="dim">${fmtDate(fs.addedAt)}</td>
             </tr>`;
         }).join('');
-    tbodies.forEach(tb=>tb.innerHTML=html);
+    tbodies.forEach(tb => tb.innerHTML = html);
 }
 
-window.openAddFlagship=function(){
-    if(typeof window.openModal!=='function')return;
-    window.openModal('Add Flagship Prospect',`<div class="fi-row"><div class="fg"><label class="fl">Founder</label><input type="text" class="fi" id="fsa-name"></div><div class="fg"><label class="fl">Company</label><input type="text" class="fi" id="fsa-company"></div></div><div class="fg"><label class="fl">Email *</label><input type="email" class="fi" id="fsa-email"></div><div class="fg"><label class="fl">Notes</label><textarea class="fi" id="fsa-notes" rows="2"></textarea></div>`,
+window.openAddFlagship = function() {
+    if (typeof window.openModal !== 'function') return;
+    window.openModal('Add Flagship Prospect',`
+    <div class="fi-row"><div class="fg"><label class="fl">Founder</label><input type="text" class="fi" id="fsa-name"></div><div class="fg"><label class="fl">Company</label><input type="text" class="fi" id="fsa-company"></div></div>
+    <div class="fg"><label class="fl">Email *</label><input type="email" class="fi" id="fsa-email"></div>
+    <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="fsa-notes" rows="2"></textarea></div>`,
     `<button class="btn btn-outline btn-sm" onclick="window.closeModal()">Cancel</button><button class="btn btn-primary btn-sm" onclick="window.saveNewFlagship()">Add</button>`);
 };
 
-window.saveNewFlagship=async function(){
-    const email=$h('fsa-email')?.value?.trim().toLowerCase();
-    if(!email){if(window.toast)window.toast('Email required','error');return;}
-    const data={founderName:$h('fsa-name')?.value?.trim()||'',email,company:$h('fsa-company')?.value?.trim()||'',preCallNotes:$h('fsa-notes')?.value?.trim()||'',status:'Identified',addedAt:nowTs(),updatedAt:nowTs()};
-    try{const ref=await window.db.collection('flagship').add(data);window.allFlagship.unshift({id:ref.id,...data});renderFlagshipTable(window.allFlagship);window.renderDealsBoard();if(window.closeModal)window.closeModal();if(window.toast)window.toast('Added');}
-    catch(e){console.error(e);if(window.toast)window.toast('Save failed','error');}
+window.saveNewFlagship = async function() {
+    const email = $h('fsa-email')?.value?.trim().toLowerCase();
+    if (!email) { if (window.toast) window.toast('Email required', 'error'); return; }
+    const data = {
+        founderName:  $h('fsa-name')?.value?.trim()    || '',
+        email,
+        company:      $h('fsa-company')?.value?.trim() || '',
+        preCallNotes: $h('fsa-notes')?.value?.trim()   || '',
+        status:       'Identified',
+        addedAt:      nowTs(), updatedAt: nowTs()
+    };
+    try {
+        const ref = await window.db.collection('flagship').add(data);
+        window.allFlagship.unshift({ id:ref.id, ...data });
+        renderFlagshipTable(window.allFlagship);
+        window.renderDealsBoard();
+        if (window.closeModal) window.closeModal();
+        if (window.toast) window.toast('Added');
+    } catch(e) { console.error(e); if (window.toast) window.toast('Save failed', 'error'); }
 };
 
-window.openFSP=function(id){
-    const fs=window.allFlagship.find(x=>x.id===id);if(!fs)return;
-    window.currentFlagship=fs;
+window.openFSP = function(id) {
+    const fs = window.allFlagship.find(x => x.id === id);
+    if (!fs) return;
+    window.currentFlagship = fs;
     $h('flagshipPanel')?.classList.add('open');
-    const setText=window.setText||((id,v)=>{const e=$h(id);if(e)e.textContent=String(v??'');});
-    setText('fsp-name',fs.founderName||fs.name||'—');setText('fsp-meta',fs.company||'—');
+    const setText = window.setText || ((id,v) => { const e=$h(id); if(e) e.textContent=String(v??''); });
+    setText('fsp-name', fs.founderName||fs.name||'—');
+    setText('fsp-meta', fs.company||'—');
     renderFSPBody(fs);
 };
 
-window.closeFSP=function(){window.currentFlagship=null;$h('flagshipPanel')?.classList.remove('open');};
+window.closeFSP = function() {
+    window.currentFlagship = null;
+    $h('flagshipPanel')?.classList.remove('open');
+};
 
-function renderFSPBody(fs){
-    const body=$h('fsp-body');if(!body)return;
-    const sOpts=['Identified','Discovery Scheduled','Discovery Done','Proposal Sent','Negotiating','Won','Lost'].map(s=>`<option ${fs.status===s?'selected':''}>${s}</option>`).join('');
-    const pOpts=Object.entries(PLANS).map(([k,v])=>`<option value="${k}" ${fs.prescribedPlan===k?'selected':''}>${v}</option>`).join('');
-    let fu='';
-    if(fs.proposalSentAt){const hrs=Math.floor((Date.now()-new Date(fs.proposalSentAt).getTime())/3600000);const col=hrs>24?'#d47a7a':'#C5A059';fu=`<div style="font-size:10px;color:${col};margin-top:4px">⏱ ${hrs}h since proposal${hrs>24?' — OVERDUE':''}</div>`;}
-    body.innerHTML=`<div style="padding:18px 20px">
+function renderFSPBody(fs) {
+    const body = $h('fsp-body');
+    if (!body) return;
+    const sOpts = ['Identified','Discovery Scheduled','Discovery Done','Proposal Sent','Negotiating','Won','Lost']
+        .map(s => `<option ${fs.status===s?'selected':''}>${s}</option>`).join('');
+    const pOpts = Object.entries(PLANS)
+        .map(([k,v]) => `<option value="${k}" ${fs.prescribedPlan===k?'selected':''}>${v}</option>`).join('');
+    let fu = '';
+    if (fs.proposalSentAt) {
+        const hrs = Math.floor((Date.now()-new Date(fs.proposalSentAt).getTime())/3600000);
+        const col = hrs > 24 ? '#d47a7a' : '#C5A059';
+        fu = `<div style="font-size:10px;color:${col};margin-top:4px">⏱ ${hrs}h since proposal${hrs>24?' — OVERDUE':''}</div>`;
+    }
+    body.innerHTML = `<div style="padding:18px 20px">
     <div class="fg"><label class="fl">Status</label><select class="fi" id="fsp-status">${sOpts}</select></div>
     <div class="fg"><label class="fl">Pre-Call Notes</label><textarea class="fi" id="fsp-precall" rows="3">${window.esc(fs.preCallNotes||'')}</textarea></div>
     <div class="fg"><label class="fl">Post-Call Gap</label><textarea class="fi" id="fsp-postcall" rows="3">${window.esc(fs.postCallGap||'')}</textarea></div>
@@ -1672,17 +1808,27 @@ function renderFSPBody(fs){
     </div>`;
 }
 
-window.saveFSP=async function(){
-    if(!window.currentFlagship)return;
-    const propDate=$h('fsp-prop-date')?.value||'';
-    const updates={status:$h('fsp-status')?.value||window.currentFlagship.status,preCallNotes:$h('fsp-precall')?.value?.trim()||'',postCallGap:$h('fsp-postcall')?.value?.trim()||'',prescribedPlan:$h('fsp-plan')?.value||'',priceQuoted:parseFloat($h('fsp-price')?.value)||null,proposalSentDate:propDate,nextStep:$h('fsp-next')?.value?.trim()||'',updatedAt:nowTs()};
-    if(propDate&&!window.currentFlagship.proposalSentAt)updates.proposalSentAt=nowTs();
-    try{
-        await window.db.collection('flagship').doc(window.currentFlagship.id).set(updates,{merge:true});
-        window.currentFlagship={...window.currentFlagship,...updates};
-        const idx=window.allFlagship.findIndex(f=>f.id===window.currentFlagship.id);
-        if(idx!==-1)window.allFlagship[idx]=window.currentFlagship;
-        renderFlagshipTable(window.allFlagship);window.renderDealsBoard();
-        if(window.toast)window.toast('Flagship saved');
-    }catch(e){console.error(e);if(window.toast)window.toast('Save failed','error');}
+window.saveFSP = async function() {
+    if (!window.currentFlagship) return;
+    const propDate = $h('fsp-prop-date')?.value || '';
+    const updates  = {
+        status:          $h('fsp-status')?.value  || window.currentFlagship.status,
+        preCallNotes:    $h('fsp-precall')?.value?.trim()  || '',
+        postCallGap:     $h('fsp-postcall')?.value?.trim() || '',
+        prescribedPlan:  $h('fsp-plan')?.value    || '',
+        priceQuoted:     parseFloat($h('fsp-price')?.value) || null,
+        proposalSentDate: propDate,
+        nextStep:        $h('fsp-next')?.value?.trim() || '',
+        updatedAt:       nowTs()
+    };
+    if (propDate && !window.currentFlagship.proposalSentAt) updates.proposalSentAt = nowTs();
+    try {
+        await window.db.collection('flagship').doc(window.currentFlagship.id).set(updates, { merge:true });
+        window.currentFlagship = { ...window.currentFlagship, ...updates };
+        const idx = window.allFlagship.findIndex(f => f.id === window.currentFlagship.id);
+        if (idx !== -1) window.allFlagship[idx] = window.currentFlagship;
+        renderFlagshipTable(window.allFlagship);
+        window.renderDealsBoard();
+        if (window.toast) window.toast('Flagship saved');
+    } catch(e) { console.error(e); if (window.toast) window.toast('Save failed', 'error'); }
 };
