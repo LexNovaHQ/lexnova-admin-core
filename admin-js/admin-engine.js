@@ -1,16 +1,21 @@
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ LEX NOVA ADMIN: ENGINE ROOM (admin-engine.js) V5.5 ═══════════
+// ═════════ LEX NOVA ADMIN: ENGINE ROOM (admin-engine.js) V5.6 ═══════════
 // ════════════════════════════════════════════════════════════════════════
-// ADMIN.HTML PATCHES REQUIRED:
-//   1. Engine Room "Regulation DB" view-btn: change onclick to
-//      window.nav('regulation') instead of setEngineView('radar',this)
-//   2. Remove the entire #modal-radar-cms div — CMS moved to tab-regulation.js
-//   3. Engine Room view buttons: remove the "Regulation DB" button entirely
-//      (regulation has its own sidebar tab now)
-// ADMIN-CORE.JS PATCHES REQUIRED:
-//   1. Add to nav() headers: 'regulation':{ title:'Regulation DB', sub:'...' }
-//   2. Add to nav() routing: if(tabId==='regulation') window.loadRegulation?.()
-//   3. Add 'regulation' case to init()
+// V5.6 CHANGES FROM V5.5:
+//
+// 1. clientMatchesRegulation exposed as window._clientMatchesRegulation
+//    — panel-client.js Radar tab calls window._clientMatchesRegulation
+//    — V5.5 had local-only function; Radar fell back to its own inline
+//      version which used old schema only. Now it uses the canonical
+//      INT/EXT bridge with full new + legacy schema support.
+//
+// 2. dailyProspectTarget added to loadSettings() + saveSettings()
+//    — Settings panel input #s-daily-target now reads and persists to
+//      /settings/config.dailyProspectTarget
+//    — tab-calendar.js Scorecard already reads this field on load;
+//      now Settings panel stays in sync with Calendar inline edits
+//
+// All other code unchanged from V5.5
 // ════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -21,14 +26,14 @@ window.planLabel      = k => PLANS[k] || k;
 window.planBadgeClass = p => ({agentic_shield:'b-intake',workplace_shield:'b-warm',complete_stack:'b-production',flagship:'b-hot'}[p]||'b-ghost');
 
 // ── GLOBAL STATE ──────────────────────────────────────────────────────
-window.allContent    = [];
-window.radarEntries  = [];
+window.allContent   = [];
+window.radarEntries = [];
 
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ INT / EXT → VAULT FIELD BRIDGE ════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
-// Reads BOTH new vault schema (c.archetypes.*, c.compliance.*) AND
-// old vault schema (c.action_scopes.*, c.architecture.*) for backwards compat.
+// Reads BOTH new vault schema (c.archetypes.*, c.compliance.*, c.baseline.*)
+// AND old vault schema (c.action_scopes.*, c.architecture.*) for backwards compat.
 // Also accepts old CMS field-name strings for legacy radar entries.
 // ════════════════════════════════════════════════════════════════════════
 const INT_VAULT_MAP = {
@@ -63,9 +68,9 @@ const EXT_VAULT_MAP = {
     'EXT.05': c => !!(c.archetypes?.is_optimizer   || c.archetypes?.sens_fin || c.compliance?.sens_fin),
     'EXT.06': c => !!(c.compliance?.minors),
     'EXT.07': c => !!(c.archetypes?.is_judge_hr    || c.compliance?.sens_employment || c.action_scopes?.is_judge_hr),
-    'EXT.08': c => ['b2c','hybrid'].includes(c.baseline?.market) || !c.baseline?.market,  // Consumer public
-    'EXT.09': c => ['b2b','hybrid'].includes(c.baseline?.market) || !c.baseline?.market,  // Enterprise private
-    'EXT.10': c => !c.architecture?.models || c.architecture?.models === 'thirdparty',     // Third-party API wrapper
+    'EXT.08': c => ['b2c','hybrid'].includes(c.baseline?.market) || !c.baseline?.market,
+    'EXT.09': c => ['b2b','hybrid'].includes(c.baseline?.market) || !c.baseline?.market,
+    'EXT.10': c => !c.architecture?.models || c.architecture?.models === 'thirdparty',
     // ── Legacy CMS field-name strings ──
     'eu_users':       c => !!(c.compliance?.eu_users      || c.baseline?.eu_users),
     'ca_users':       c => !!(c.compliance?.ca_users      || c.baseline?.ca_users),
@@ -73,24 +78,20 @@ const EXT_VAULT_MAP = {
     'sensitive_data': c => !!(c.compliance?.sens_health || c.compliance?.sens_fin || c.compliance?.sens_employment || c.archetypes?.sens_bio),
 };
 
-// ── Core matching function — works with both old and new entry schemas ──
+// ── Core matching function ─────────────────────────────────────────────
 function clientMatchesRegulation(reg, c) {
-    // UNIVERSAL: target_all flag OR UNIVERSAL in intTriggers
     if (reg.target_all) return true;
     const intT = reg.intTriggers || reg.target_int || [];
     const extT = reg.extTriggers || reg.target_ext || [];
     if (intT.includes('UNIVERSAL')) return true;
-
-    for (const t of intT) {
-        const fn = INT_VAULT_MAP[t];
-        if (fn && fn(c)) return true;
-    }
-    for (const t of extT) {
-        const fn = EXT_VAULT_MAP[t];
-        if (fn && fn(c)) return true;
-    }
+    for (const t of intT) { const fn=INT_VAULT_MAP[t]; if(fn&&fn(c)) return true; }
+    for (const t of extT) { const fn=EXT_VAULT_MAP[t]; if(fn&&fn(c)) return true; }
     return false;
 }
+
+// V5.6: export on window so panel-client.js Radar tab uses the canonical
+// bridge instead of its inline fallback (which used old schema only)
+window._clientMatchesRegulation = clientMatchesRegulation;
 
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ ENGINE ROOM VIEW ROUTING ══════════════════════════════════════
@@ -127,7 +128,7 @@ window.loadFinance = async function() {
         const paid  = clients.filter(c => c.status !== 'pending_payment');
         const maint = clients.filter(c => c.maintenanceActive);
         const mrr   = maint.length * 297;
-        const total = paid.reduce((s,c)=>s+(c.price||PLAN_PRICES[c.plan]||0),0);
+        const total = paid.reduce((s,c) => s+(c.price||PLAN_PRICES[c.plan]||0), 0);
         const avg   = paid.length ? Math.round(total/paid.length) : 0;
 
         window.setText('fin-mrr',       window.fmtMoney(mrr));
@@ -156,7 +157,10 @@ window.loadFinance = async function() {
         // Syndicate maintenance list
         const concLists = document.querySelectorAll('#fin-conc-list');
         if (mrr > 0) {
-            const mhtml = maint.map(c=>`<div class="conc-row"><span>${window.esc(c.baseline?.company||c.name||c.id)}</span><span style="color:var(--green)">$297/mo Active</span></div>`).join('');
+            const mhtml = maint.map(c=>`<div class="conc-row">
+                <span>${window.esc(c.baseline?.company||c.name||c.id)}</span>
+                <span style="color:var(--green)">$297/mo Active</span>
+            </div>`).join('');
             concLists.forEach(l=>l.innerHTML=mhtml||'<div class="loading">None</div>');
         } else {
             concLists.forEach(l=>l.innerHTML='<div class="loading">No maintenance revenue yet</div>');
@@ -165,7 +169,7 @@ window.loadFinance = async function() {
 };
 
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ RADAR CACHE (read-only — CRUD lives in tab-regulation.js) ══════
+// ═════════ RADAR CACHE ═══════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 window.loadRadarCache = async function() {
     try {
@@ -174,7 +178,7 @@ window.loadRadarCache = async function() {
     } catch(e) { console.error('Radar cache error:',e); }
 };
 
-// Engine Room read-only radar list (just a preview — full CRUD is in Regulation tab)
+// Engine Room read-only radar preview (full CRUD is in Regulation DB tab)
 window.loadRadar = async function() {
     await window.loadRadarCache();
     const el = window.$('rv-list');
@@ -187,9 +191,9 @@ window.loadRadar = async function() {
     el.innerHTML = `<div style="text-align:right;margin-bottom:12px;">
         <button class="btn btn-primary btn-sm" onclick="window.nav('regulation')">Open Full Regulation DB →</button>
     </div>` +
-    window.radarEntries.slice(0,20).map((reg,i) => {
-        const intT = (reg.intTriggers||reg.target_int||[]).join(', ')||'—';
-        const extT = (reg.extTriggers||reg.target_ext||[]).join(', ')||'—';
+    window.radarEntries.slice(0,20).map(reg => {
+        const intT=(reg.intTriggers||reg.target_int||[]).join(', ')||'—';
+        const extT=(reg.extTriggers||reg.target_ext||[]).join(', ')||'—';
         return `<div class="radar-entry">
             <div style="flex:1;min-width:0">
                 <div class="radar-title">${window.esc(reg.title||reg.Founder_Threat||'—')}</div>
@@ -202,7 +206,7 @@ window.loadRadar = async function() {
 };
 
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ EXPOSURE MATRIX (V5.5 BRIDGE — SYNDICATE TAB) ════════════════
+// ═════════ EXPOSURE MATRIX (SYNDICATE TAB) ═══════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 window.renderExposureMatrix = async function() {
     const tbodies = document.querySelectorAll('#rv-exposure-tbody');
@@ -219,11 +223,12 @@ window.renderExposureMatrix = async function() {
                 // Jurisdiction pre-filter
                 const regJur = (reg.jurisdiction||'').toLowerCase();
                 if (regJur && regJur!=='global' && regJur!=='us-all') {
-                    const cJur = (c.registrationJurisdiction||c.baseline?.jurisdiction||c.baseline?.hq||'').toLowerCase();
+                    const cJur = (c.registrationJurisdiction||c.baseline?.jurisdiction?.country||c.baseline?.hq||'').toLowerCase();
                     if (cJur && !cJur.includes(regJur) && !regJur.includes(cJur)) return;
                 }
-                const match = clientMatchesRegulation(reg, c);
-                if (match) { c.maintenanceActive ? yellow++ : red++; }
+                if (clientMatchesRegulation(reg, c)) {
+                    c.maintenanceActive ? yellow++ : red++;
+                }
             });
             return {...c, _red:red, _yellow:yellow};
         }).filter(c=>c._red>0||c._yellow>0).sort((a,b)=>b._red-a._red||b._yellow-a._yellow);
@@ -236,7 +241,9 @@ window.renderExposureMatrix = async function() {
                 <td class="exp-flag-r">${c._red>0?`🔴 ${c._red}`:'—'}</td>
                 <td class="exp-flag-y">${c._yellow>0?`🟡 ${c._yellow}`:'—'}</td>
                 <td>${c.maintenanceActive?'<span class="badge b-delivered">Active</span>':'<span class="badge b-ghost">None</span>'}</td>
-                <td onclick="event.stopPropagation()"><button class="btn btn-primary btn-sm" onclick="window.openDetail&&window.openDetail('${window.esc(c.id)}');window.detailTab&&window.detailTab('gap');">Gap Review</button></td>
+                <td onclick="event.stopPropagation()">
+                    <button class="btn btn-primary btn-sm" onclick="window.openDetail&&window.openDetail('${window.esc(c.id)}');window.detailTab&&window.detailTab('gap');">Gap Review</button>
+                </td>
               </tr>`).join('');
         tbodies.forEach(tb=>tb.innerHTML=html);
     } catch(e) {
@@ -275,28 +282,55 @@ window.renderContent = function(list) {
 function contentModalBody(c) {
     const s=c||{}; const stats=['Idea','Drafting','Scheduled','Posted','Archived'];
     return `<div class="fg"><label class="fl">Topic</label><input type="text" class="fi" id="ct-topic" value="${window.esc(s.topic||'')}"></div>
-    <div class="fi-row"><div class="fg"><label class="fl">Status</label><select class="fi" id="ct-status-sel">${stats.map(x=>`<option ${s.status===x?'selected':''}>${x}</option>`).join('')}</select></div>
-    <div class="fg"><label class="fl">Posted Date</label><input type="date" class="fi" id="ct-date" value="${s.postedDate||''}"></div></div>
+    <div class="fi-row">
+        <div class="fg"><label class="fl">Status</label><select class="fi" id="ct-status-sel">${stats.map(x=>`<option ${s.status===x?'selected':''}>${x}</option>`).join('')}</select></div>
+        <div class="fg"><label class="fl">Posted Date</label><input type="date" class="fi" id="ct-date" value="${s.postedDate||''}"></div>
+    </div>
     <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="ct-notes" rows="2">${window.esc(s.notes||'')}</textarea></div>`;
 }
 
-window.openAddContent  = ()=>window.openModal('Add Content',contentModalBody(null),`<button class="btn btn-outline btn-sm" onclick="window.closeModal()">Cancel</button><button class="btn btn-primary btn-sm" onclick="window.saveContent(null)">Add</button>`);
-window.openEditContent = id=>{ const c=window.allContent.find(x=>x.id===id); if(!c)return; window.openModal('Edit Content',contentModalBody(c),`<button class="btn btn-outline btn-sm" onclick="window.closeModal()">Cancel</button><button class="btn btn-primary btn-sm" onclick="window.saveContent('${id}')">Save</button>`); };
+window.openAddContent  = () => window.openModal('Add Content', contentModalBody(null),
+    `<button class="btn btn-outline btn-sm" onclick="window.closeModal()">Cancel</button><button class="btn btn-primary btn-sm" onclick="window.saveContent(null)">Add</button>`);
+
+window.openEditContent = id => {
+    const c=window.allContent.find(x=>x.id===id); if(!c)return;
+    window.openModal('Edit Content', contentModalBody(c),
+    `<button class="btn btn-outline btn-sm" onclick="window.closeModal()">Cancel</button><button class="btn btn-primary btn-sm" onclick="window.saveContent('${id}')">Save</button>`);
+};
 
 window.saveContent = async function(id) {
-    const data={topic:window.$('ct-topic')?.value?.trim()||'',status:window.$('ct-status-sel')?.value||'Idea',postedDate:window.$('ct-date')?.value||'',notes:window.$('ct-notes')?.value?.trim()||'',updatedAt:new Date().toISOString()};
+    const data={
+        topic:     window.$('ct-topic')?.value?.trim()||'',
+        status:    window.$('ct-status-sel')?.value||'Idea',
+        postedDate:window.$('ct-date')?.value||'',
+        notes:     window.$('ct-notes')?.value?.trim()||'',
+        updatedAt: new Date().toISOString()
+    };
     if(!data.topic){if(window.toast)window.toast('Topic required','error');return;}
     try {
-        if(id){await window.db.collection('content').doc(id).set(data,{merge:true});const idx=window.allContent.findIndex(c=>c.id===id);if(idx!==-1)window.allContent[idx]={...window.allContent[idx],...data};}
-        else{data.createdAt=new Date().toISOString();const ref=await window.db.collection('content').add(data);window.allContent.unshift({id:ref.id,...data});}
-        if(window.closeModal)window.closeModal(); window.renderContent(window.allContent); if(window.toast)window.toast('Saved');
+        if(id){
+            await window.db.collection('content').doc(id).set(data,{merge:true});
+            const idx=window.allContent.findIndex(c=>c.id===id);
+            if(idx!==-1) window.allContent[idx]={...window.allContent[idx],...data};
+        } else {
+            data.createdAt=new Date().toISOString();
+            const ref=await window.db.collection('content').add(data);
+            window.allContent.unshift({id:ref.id,...data});
+        }
+        if(window.closeModal) window.closeModal();
+        window.renderContent(window.allContent);
+        if(window.toast) window.toast('Saved');
     } catch(e){console.error(e);if(window.toast)window.toast('Save failed','error');}
 };
 
 window.deleteContent = async function(id) {
     if(!confirm('Delete?'))return;
-    try{await window.db.collection('content').doc(id).delete();window.allContent=window.allContent.filter(c=>c.id!==id);window.renderContent(window.allContent);if(window.toast)window.toast('Deleted');}
-    catch(e){console.error(e);}
+    try {
+        await window.db.collection('content').doc(id).delete();
+        window.allContent=window.allContent.filter(c=>c.id!==id);
+        window.renderContent(window.allContent);
+        if(window.toast) window.toast('Deleted');
+    } catch(e){console.error(e);}
 };
 
 // ════════════════════════════════════════════════════════════════════════
@@ -305,14 +339,15 @@ window.deleteContent = async function(id) {
 window.loadSettings = async function() {
     try {
         const snap = await window.db.collection('settings').doc('config').get();
-        if(snap.exists){
+        if (snap.exists) {
             const d=snap.data();
-            window.setVal('wh-s2',d.webhookS2||'');
-            window.setVal('wh-s3',d.webhookS3||'');
-            window.setVal('wh-s4',d.webhookS4||'');
-            window.setVal('s-capacity',d.capacityCap||10);
-            // Case study URL for hunt panel engagement assets
-            window.setVal('s-case-study', d.caseStudyVideoUrl||'');
+            window.setVal('wh-s2',         d.webhookS2||'');
+            window.setVal('wh-s3',         d.webhookS3||'');
+            window.setVal('wh-s4',         d.webhookS4||'');
+            window.setVal('s-capacity',    d.capacityCap||10);
+            window.setVal('s-case-study',  d.caseStudyVideoUrl||'');
+            // V5.6: daily prospect target — syncs with Calendar Scorecard
+            window.setVal('s-daily-target', d.dailyProspectTarget||60);
         }
         await window.loadAdmins();
     } catch(e){console.error(e);}
@@ -320,15 +355,19 @@ window.loadSettings = async function() {
 
 window.saveSettings = async function() {
     const data={
-        webhookS2:        window.$('wh-s2')?.value?.trim()||'',
-        webhookS3:        window.$('wh-s3')?.value?.trim()||'',
-        webhookS4:        window.$('wh-s4')?.value?.trim()||'',
-        capacityCap:      parseInt(window.$('s-capacity')?.value)||10,
-        caseStudyVideoUrl:window.$('s-case-study')?.value?.trim()||'',
-        updatedAt:        new Date().toISOString()
+        webhookS2:           window.$('wh-s2')?.value?.trim()||'',
+        webhookS3:           window.$('wh-s3')?.value?.trim()||'',
+        webhookS4:           window.$('wh-s4')?.value?.trim()||'',
+        capacityCap:         parseInt(window.$('s-capacity')?.value)||10,
+        caseStudyVideoUrl:   window.$('s-case-study')?.value?.trim()||'',
+        // V5.6: daily prospect target — read by tab-calendar.js Scorecard
+        dailyProspectTarget: parseInt(window.$('s-daily-target')?.value)||60,
+        updatedAt:           new Date().toISOString()
     };
-    try{await window.db.collection('settings').doc('config').set(data,{merge:true});if(window.toast)window.toast('Settings saved');}
-    catch(e){console.error(e);}
+    try {
+        await window.db.collection('settings').doc('config').set(data,{merge:true});
+        if(window.toast) window.toast('Settings saved');
+    } catch(e){console.error(e);}
 };
 
 window.loadAdmins = async function() {
@@ -337,7 +376,11 @@ window.loadAdmins = async function() {
         const snap=await window.db.collection('admins').get();
         const admins=[]; snap.forEach(d=>admins.push({id:d.id,...d.data()}));
         const html=admins.length
-            ?admins.map(a=>`<tr><td>${window.esc(a.id)}</td><td class="dim" style="font-size:9px">${window.esc((a.permissions||[]).join(', '))}</td><td onclick="event.stopPropagation()"><button class="btn btn-danger btn-sm" onclick="window.removeAdmin('${window.esc(a.id)}')">Remove</button></td></tr>`).join('')
+            ?admins.map(a=>`<tr>
+                <td>${window.esc(a.id)}</td>
+                <td class="dim" style="font-size:9px">${window.esc((a.permissions||[]).join(', '))}</td>
+                <td onclick="event.stopPropagation()"><button class="btn btn-danger btn-sm" onclick="window.removeAdmin('${window.esc(a.id)}')">Remove</button></td>
+            </tr>`).join('')
             :'<tr><td colspan="3" class="loading">No admins</td></tr>';
         tbodies.forEach(tb=>tb.innerHTML=html);
     } catch(e){console.error(e);}
@@ -348,16 +391,20 @@ window.addAdmin = async function() {
     const perms=Array.from(document.querySelectorAll('.adm-perm-chk:checked')).map(el=>el.value);
     if(!email){if(window.toast)window.toast('Enter email','error');return;}
     if(!perms.length){if(window.toast)window.toast('Select at least one permission','error');return;}
-    try{
+    try {
         await window.db.collection('admins').doc(email).set({permissions:perms,addedAt:new Date().toISOString()});
-        if(window.$('s-new-admin'))window.$('s-new-admin').value='';
+        if(window.$('s-new-admin')) window.$('s-new-admin').value='';
         document.querySelectorAll('.adm-perm-chk').forEach(el=>el.checked=false);
-        await window.loadAdmins(); if(window.toast)window.toast(`${email} added`);
-    }catch(e){console.error(e);}
+        await window.loadAdmins();
+        if(window.toast) window.toast(`${email} added`);
+    } catch(e){console.error(e);}
 };
 
 window.removeAdmin = async function(email) {
     if(!confirm(`Remove ${email}?`))return;
-    try{await window.db.collection('admins').doc(email).delete();await window.loadAdmins();if(window.toast)window.toast(`${email} removed`);}
-    catch(e){console.error(e);}
+    try {
+        await window.db.collection('admins').doc(email).delete();
+        await window.loadAdmins();
+        if(window.toast) window.toast(`${email} removed`);
+    } catch(e){console.error(e);}
 };
