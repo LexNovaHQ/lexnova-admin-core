@@ -174,6 +174,14 @@ agents is NOT INT.01. Developer tools, SDKs, databases, and
 infrastructure for agent-building are NOT The Doer.
 The product itself must be the agent — not the platform
 agents are built on.
+LANGUAGE TRAP: Feature descriptions containing "build
+agents," "create agents," "add to your agent," or "for AI
+agents" describe capabilities sold TO agent builders —
+not autonomous agent behavior by the product itself.
+If the feature description tells customers what THEY can
+build — it is infrastructure. If the feature description
+tells customers what the product DOES autonomously — it
+is The Doer. Apply this distinction rigorously.
 
 [INT.02] THE JUDGE
 Trigger: Product ITSELF outputs scores, rankings, or
@@ -490,6 +498,16 @@ UNI_SEC_003 | trap: Reasonable Security Failure | severity: Critical | velocity:
 [INFRINGEMENT]
 UNI_INF_001 | trap: Upstream Training Piracy Liability | severity: Nuclear | velocity: Immediate | legalAmmo: Bartz v. Anthropic (Settlement approved Sep 2025) | thePain: Largest copyright settlement in US history ($1.5B) for training on pirated books; court upheld fair use for legally acquired training data but ruled piracy-sourced training is per se infringement; signals that source provenance is now a legal prerequisite; downstream wrappers using legitimate API access are not directly exposed but precedent pressures the entire supply chain | theFix: DOC_TOS §8.7 | ext: ["EXT.10"]
 UNI_INF_002 | trap: UGC Safe Harbor Collapse | severity: Nuclear | velocity: Immediate | legalAmmo: DMCA § 512 & Section 230 | thePain: Loss of safe harbor protection if a registered takedown policy is missing | theFix: DOC_TOS §6.6 | ext: ["EXT.08"]
+TRIGGER CONDITION FOR UNI_INF_002: Only applies to
+platforms where END USERS publicly upload or post content
+that is accessible to other users — social platforms,
+forums, video hosting, file sharing, community platforms.
+A database, API, or developer tool where paying customers
+store their own data is NOT a UGC platform. The term
+"User Content" appearing in a Privacy Policy as a data
+category does NOT trigger this gap — it must describe
+publicly accessible content uploaded by end users, not
+customer data stored in a private database.
 UNI_INF_003 | trap: 3-Hour Takedown & SGI Labeling Mandate | severity: Nuclear | velocity: Immediate | legalAmmo: India IT Amendment Rules (Feb 20, 2026) | thePain: Slashes takedown window for unlawful AI content (Deepfakes) to 3 hours; mandates permanent SGI metadata labeling on all synthetic content; platforms lose safe harbor (IT Act §79) if they miss the window; criminal liability for creators who fail to label — applies to intermediaries operating in India or serving Indian users | theFix: DOC_TOS §6.6 & DOC_AUP §2.2(c) | ext: ["EXT.08"]
 
 [AI WASHING]
