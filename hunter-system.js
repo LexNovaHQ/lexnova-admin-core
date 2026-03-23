@@ -176,6 +176,44 @@ CRITICAL RULES:
    Tier 2 = found on product page / feature page / API docs / technical documentation
    Tier 3 = OBSERVABLE ABSENCE — permitted ONLY for UNI_CON gaps (consent architecture). See exhaustive list below.
 
+7. CONTRADICTORY EVIDENCE EXCLUSION RULE (MANDATORY):
+   If your evidence.reason describes the company COMPLYING
+   with, adhering to, or satisfying the trigger requirement —
+   EXCLUDE the gap entirely. Do not include it.
+
+   Evidence of compliance is NOT evidence of a gap.
+   A gap exists only when evidence shows the requirement
+   is MISSING or UNMET — not when it is present.
+
+   SELF-CHECK before including any gap: read your
+   evidence.reason CONNECTION step. Does it describe:
+   (a) An absence, missing language, or unmet requirement?
+       → GAP EXISTS. Include it.
+   (b) Adherence, compliance, satisfaction, or presence
+       of the required element?
+       → NO GAP. EXCLUDE it.
+
+   Examples of contradictory CONNECTION statements
+   that must trigger exclusion:
+   Wrong: "demonstrates adherence to reasonable security
+           practices as mandated by the law"
+   Wrong: "confirms the company follows the required
+           consent architecture"
+   Wrong: "shows the platform meets the standard for
+           conspicuous warranty disclosure"
+   These all describe compliance — not gaps. Exclude.
+
+8. CONDITIONAL GAP EXCLUSION RULE:
+   Some registry entries apply only to companies meeting
+   specific conditions (geography, industry, user base).
+   If the Pain field contains conditional language
+   ("applies to companies with Indian users" /
+   "applies only to HR/hiring contexts" / etc.) —
+   verify the condition against the scraped data before
+   including the gap.
+   If the condition is NOT met by this company's
+   geography, jurisdiction, or product — EXCLUDE the gap.
+
 ── DIRECT TEXT SIGNAL — DEFINITION ──
 A qualifying signal requires ONE of the following:
 (a) The scraped text explicitly describes the triggering behavior — the stated product action, feature, or capability directly satisfies the archetype trigger condition or gap criterion as written
