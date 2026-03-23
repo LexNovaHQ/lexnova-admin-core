@@ -64,10 +64,10 @@ function _fmtShort(dateStr) {
 
 // Compute all 5 dates from a CE date
 function _calcAllDates(ceDate) {
-    const fu1 = _addDays(ceDate, 3);
-    const fu2 = _addDays(fu1,   3);
-    const fu3 = _addDays(fu2,   4);
-    const fu4 = _addDays(fu3,   4);
+    const fu1 = _addDays(ceDate, 4);
+    const fu2 = _addDays(fu1,   4);
+    const fu3 = _addDays(fu2,   5);
+    const fu4 = _addDays(fu3,   5);
     return { ceDate, fu1Date:fu1, fu2Date:fu2, fu3Date:fu3, fu4Date:fu4 };
 }
 
