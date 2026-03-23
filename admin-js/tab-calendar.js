@@ -42,6 +42,9 @@ var _$c = id => document.getElementById(id);
 
 function _today() { return new Date().toISOString().split('T')[0]; }
 function _nowTs() { return new Date().toISOString(); }
+// _pct defined locally — tab-analytics.js defines its own copy but does
+// not export it to window, so this file needs its own instance
+function _pct(n, d) { return d > 0 ? Math.round((n / d) * 100) : 0; }
 
 function _addDays(dateStr, n) {
     const d = new Date(dateStr + 'T00:00:00');
@@ -64,10 +67,10 @@ function _fmtShort(dateStr) {
 
 // Compute all 5 dates from a CE date
 function _calcAllDates(ceDate) {
-    const fu1 = _addDays(ceDate, 4);
-    const fu2 = _addDays(fu1,   4);
-    const fu3 = _addDays(fu2,   5);
-    const fu4 = _addDays(fu3,   5);
+    const fu1 = _addDays(ceDate, 3);
+    const fu2 = _addDays(fu1,   3);
+    const fu3 = _addDays(fu2,   4);
+    const fu4 = _addDays(fu3,   4);
     return { ceDate, fu1Date:fu1, fu2Date:fu2, fu3Date:fu3, fu4Date:fu4 };
 }
 
