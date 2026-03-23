@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lex Nova — Admin Console v5.5</title>
+<title>Lex Nova — Admin Console v6.0</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ═════════════════════════════════════════════════════════ */
@@ -37,7 +37,7 @@ input,select,textarea{font-family:inherit}
 .faint{color:var(--marble-faint)}
 .mono{font-size:10px;letter-spacing:.15em;text-transform:uppercase}
 
-.info-icon{display:inline-block;margin-left:6px;color:var(--gold);font-size:10px;cursor:pointer;opacity:0.6;font-style:normal;font-family:sans-serif;vertical-align:middle;transition:opacity 0.2s}
+.info-icon{display:inline-block;margin-left:6px;color:var(--gold);font-size:10px;cursor:pointer;opacity:0.6;font-style:normal;font-family:sans-serif;vertical-align:middle;transition:opacity .2s}
 .info-icon:hover{opacity:1}
 
 .badge{display:inline-block;padding:2px 8px;font-size:9px;letter-spacing:.12em;text-transform:uppercase;border-radius:0;white-space:nowrap}
@@ -55,6 +55,11 @@ input,select,textarea{font-family:inherit}
 .b-red{background:rgba(138,58,58,.12);border:1px solid rgba(138,58,58,.35);color:#d47a7a}
 .b-yellow{background:rgba(154,128,48,.1);border:1px solid rgba(154,128,48,.3);color:#c4a840}
 .b-green{background:rgba(90,138,106,.1);border:1px solid rgba(90,138,106,.3);color:#7ab88a}
+/* Readiness badges */
+.b-unverified{background:rgba(80,80,80,.08);border:1px solid rgba(130,130,130,.18);color:rgba(232,227,217,.3)}
+.b-intel-ready{background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.25);color:#f97316}
+.b-scheduled{background:rgba(197,160,89,.08);border:1px solid var(--border2);color:var(--gold)}
+.b-seq-active{background:rgba(58,90,138,.1);border:1px solid rgba(58,90,138,.3);color:#6a9adc}
 
 /* ═════════════════════════════════════════════════════════ */
 /* ═════════ 3. LOGIN SCREEN ═══════════════════════════════ */
@@ -149,21 +154,24 @@ tbody td{padding:11px 14px;font-size:11px;color:var(--marble);word-break:break-w
 tbody td.dim{color:var(--marble-dim)}
 .tbl-empty{padding:40px;text-align:center;font-size:11px;color:var(--marble-faint);border:1px solid var(--border)}
 .hot-flag{font-size:12px;margin-left:4px;white-space:nowrap}
+/* Boxed pipeline table — fixed height, internal scroll */
+.tbl-box{overflow-y:auto;overflow-x:auto;border:1px solid var(--border);height:calc(100vh - 340px)}
+.tbl-box table{min-width:860px}
 
 /* ═════════════════════════════════════════════════════════ */
 /* ═════════ 7. KANBAN BOARDS ══════════════════════════════ */
 /* ═════════════════════════════════════════════════════════ */
-.k-wrap{display:flex;gap:16px;flex-wrap:wrap;padding-bottom:20px;height:auto;align-items:flex-start}
+.k-wrap{display:flex;gap:16px;flex-wrap:wrap;padding-bottom:20px;align-items:flex-start}
 .k-col{background:var(--surface2);border:1px solid var(--border);border-radius:4px;min-width:260px;flex:1 1 260px;display:flex;flex-direction:column;max-height:75vh;flex-shrink:0}
 .k-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--surface);border-radius:4px 4px 0 0;flex-shrink:0}
 .k-title{font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--gold)}
 .k-count{font-size:10px;background:var(--gold-dim);padding:2px 6px;border-radius:12px;color:var(--gold)}
 .k-body{padding:12px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px;min-height:100px}
-.k-card{background:var(--surface);border:1px solid var(--border2);padding:12px;border-radius:4px;cursor:pointer;transition:all 0.2s;word-break:break-word}
-.k-card:hover{border-color:var(--gold);box-shadow:0 4px 12px rgba(0,0,0,0.5);transform:translateY(-2px)}
+.k-card{background:var(--surface);border:1px solid var(--border2);padding:12px;border-radius:4px;cursor:pointer;transition:all .2s;word-break:break-word}
+.k-card:hover{border-color:var(--gold);box-shadow:0 4px 12px rgba(0,0,0,.5);transform:translateY(-2px)}
 .k-name{font-size:12px;color:var(--marble);font-weight:600;margin-bottom:4px;line-height:1.3}
 .k-comp{font-size:10px;color:var(--marble-dim);margin-bottom:8px;line-height:1.3}
-.k-meta{display:flex;justify-content:space-between;align-items:center;font-size:9px;padding-top:8px;border-top:1px solid rgba(197,160,89,0.1);flex-wrap:wrap;gap:4px}
+.k-meta{display:flex;justify-content:space-between;align-items:center;font-size:9px;padding-top:8px;border-top:1px solid rgba(197,160,89,.1);flex-wrap:wrap;gap:4px}
 
 /* ═════════════════════════════════════════════════════════ */
 /* ═════════ 8. FILTER BARS & UI COMPONENTS ════════════════ */
@@ -175,6 +183,11 @@ tbody td.dim{color:var(--marble-dim)}
 .view-btn{padding:6px 12px;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--marble-dim);border:1px solid var(--border);background:transparent;cursor:pointer;transition:all .15s;margin-left:-1px;margin-bottom:-1px}
 .view-btn:hover{color:var(--gold);border-color:var(--gold-mid)}
 .view-btn.active{color:var(--void);background:var(--gold);border-color:var(--gold)}
+/* Advanced filters toggle */
+.adv-toggle{display:inline-flex;align-items:center;gap:6px;font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--marble-dim);cursor:pointer;padding:6px 10px;border:1px solid var(--border);background:transparent;transition:all .15s;white-space:nowrap}
+.adv-toggle:hover{color:var(--gold);border-color:var(--gold-mid)}
+.adv-toggle.open{color:var(--gold);border-color:var(--gold-mid)}
+.adv-filters-inner{padding:10px 0 4px;display:flex;gap:10px;flex-wrap:wrap}
 
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}
 .dot-green{background:var(--green)}.dot-yellow{background:var(--yellow)}.dot-red{background:var(--red)}.dot-grey{background:rgba(232,227,217,.15);border:1px solid rgba(232,227,217,.2)}
@@ -236,7 +249,7 @@ tbody td.dim{color:var(--marble-dim)}
 /* ═════════════════════════════════════════════════════════ */
 #overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:250}
 #overlay.open{display:block}
-#modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border2);width:900px;max-width:95vw;max-height:90vh;display:none;z-index:260;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,0.8)}
+#modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border2);width:900px;max-width:95vw;max-height:90vh;display:none;z-index:260;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.8)}
 #modal.open{display:flex}
 .modal-header{padding:20px 20px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;flex-wrap:wrap;gap:10px}
 .modal-title{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--marble)}
@@ -249,7 +262,7 @@ tbody td.dim{color:var(--marble-dim)}
 #toast.error{background:rgba(138,58,58,.1);border-color:var(--red);color:#d47a7a}
 
 /* ═════════════════════════════════════════════════════════ */
-/* ═════════ 11. TAB-SPECIFIC STYLES ═══════════════════════ */
+/* ═════════ 11. DASHBOARD / COMMAND CENTER ════════════════ */
 /* ═════════════════════════════════════════════════════════ */
 .pipeline-funnel{display:flex;gap:0;flex-wrap:wrap}
 .pf-stage{flex:1 1 80px;padding:12px 8px;background:var(--surface);border:1px solid var(--border);text-align:center;border-left:none;margin-bottom:-1px}
@@ -260,7 +273,113 @@ tbody td.dim{color:var(--marble-dim)}
 .aq-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid rgba(197,160,89,.05);font-size:11px;flex-wrap:wrap;gap:10px}
 .aq-row:last-child{border-bottom:none}
 .aq-count{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--gold)}
+.ritual-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:10px}
+.ritual-item{background:var(--surface2);border:1px solid var(--border);padding:12px 14px}
+.ritual-label{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--marble-dim);margin-bottom:6px}
+.ritual-input{width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--marble);font-size:18px;font-family:'Cormorant Garamond',serif;padding:2px 0;outline:none}
+.ritual-input:focus{border-bottom-color:var(--gold)}
+.batch-tbl{width:100%;border-collapse:collapse;font-size:11px;min-width:600px}
+.batch-tbl th{padding:7px 10px;font-size:8px;letter-spacing:.15em;text-transform:uppercase;color:var(--marble-dim);text-align:left;border-bottom:1px solid var(--border)}
+.batch-tbl td{padding:8px 10px;border-bottom:1px solid rgba(197,160,89,.04);color:var(--marble);word-break:break-word;white-space:normal}
 
+/* ═════════════════════════════════════════════════════════ */
+/* ═════════ 12. HUNT TAB — HOT QUEUE & INTEL DOT ══════════ */
+/* ═════════════════════════════════════════════════════════ */
+.hot-queue{background:rgba(239,68,68,.03);border:1px solid rgba(239,68,68,.2);margin-bottom:16px}
+.hot-queue-header{padding:9px 14px;border-bottom:1px solid rgba(239,68,68,.12);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.hot-queue-row{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid rgba(239,68,68,.07);font-size:11px;flex-wrap:wrap;gap:8px;cursor:pointer;transition:background .15s}
+.hot-queue-row:last-child{border-bottom:none}
+.hot-queue-row:hover{background:rgba(239,68,68,.06)}
+/* Intel dot — shows gap verification state in pipeline table */
+.intel-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.intel-dot-red{background:#ef4444}
+.intel-dot-orange{background:#f97316}
+.intel-dot-green{background:#7ab88a}
+.intel-dot-wrap{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--marble-faint)}
+
+/* ═════════════════════════════════════════════════════════ */
+/* ═════════ 13. CALENDAR TAB ══════════════════════════════ */
+/* ═════════════════════════════════════════════════════════ */
+/* --- Digest view --- */
+.digest-section{margin-bottom:20px}
+.digest-section-header{display:flex;align-items:center;gap:10px;font-size:9px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;margin-bottom:10px}
+.digest-count-badge{padding:2px 10px;border-radius:8px;font-size:9px;font-weight:700}
+.digest-queue{background:var(--surface);border:1px solid var(--border)}
+.digest-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid rgba(197,160,89,.05);font-size:11px;flex-wrap:wrap;gap:8px;cursor:pointer;transition:background .15s}
+.digest-row:last-child{border-bottom:none}
+.digest-row:hover{background:var(--gold-dim)}
+.digest-action{font-size:10px;color:var(--gold)}
+.digest-date{font-size:10px;color:var(--marble-faint);flex-shrink:0;width:90px;text-align:right}
+.digest-date.overdue{color:#d47a7a;font-weight:600}
+.digest-date.today{color:var(--gold)}
+/* --- Matrix view --- */
+.cal-matrix-wrap{overflow-x:auto}
+.cal-matrix-table{width:100%;border-collapse:collapse;min-width:960px;font-size:11px}
+.cal-matrix-table th{padding:9px 10px;font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:var(--marble-dim);background:var(--surface);border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+.cal-matrix-table td{padding:8px 10px;border-bottom:1px solid rgba(197,160,89,.05);vertical-align:middle}
+.cal-matrix-table tbody tr:hover td{background:var(--gold-dim)}
+.cal-step-cell{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:78px}
+.cal-date{font-size:10px;color:var(--marble-dim);cursor:pointer;transition:color .15s}
+.cal-date:hover{color:var(--gold)}
+.cal-date.overdue{color:#d47a7a;font-weight:600}
+.cal-date.today-date{color:var(--gold)}
+.cal-date.sent{color:#7ab88a}
+.cal-set-btn{font-size:9px;color:var(--marble-faint);cursor:pointer;border:1px dashed rgba(197,160,89,.25);padding:2px 7px;background:transparent;transition:all .15s;letter-spacing:.08em}
+.cal-set-btn:hover{border-color:var(--gold);color:var(--gold)}
+.cal-chk{width:14px;height:14px;border:1px solid var(--border2);background:var(--surface2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.cal-chk:hover{border-color:var(--gold)}
+.cal-chk.checked{background:var(--gold-dim);border-color:var(--gold);pointer-events:none}
+.cal-chk.checked::after{content:'✓';font-size:9px;color:var(--gold)}
+.cal-replied td.cal-fu-cell{opacity:.3;pointer-events:none;text-decoration:line-through}
+.cal-unscheduled-divider{display:flex;align-items:center;gap:12px;margin:20px 0 12px;font-size:9px;color:var(--marble-faint);letter-spacing:.2em;text-transform:uppercase}
+.cal-unscheduled-divider::before,.cal-unscheduled-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+/* --- Scorecard view --- */
+.scorecard-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:14px;margin-bottom:24px}
+.scorecard-card{background:var(--surface);border:1px solid var(--border);padding:16px}
+.scorecard-label{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--marble-dim);margin-bottom:10px;font-weight:700}
+.scorecard-nums{font-family:'Cormorant Garamond',serif;font-size:30px;color:var(--marble);line-height:1;margin-bottom:6px}
+.scorecard-nums span{font-size:16px;color:var(--marble-faint)}
+.scorecard-progress-wrap{height:3px;background:var(--surface2);border:1px solid var(--border);margin-bottom:8px}
+.scorecard-bar{height:100%;background:var(--gold);transition:width .5s}
+.scorecard-meta{font-size:9px;color:var(--marble-dim);line-height:1.5}
+.scorecard-edit-btn{background:none;border:none;color:var(--gold);font-size:10px;cursor:pointer;padding:0 3px;vertical-align:middle}
+.scorecard-edit-btn:hover{color:#d4b470}
+.task-list{background:var(--surface);border:1px solid var(--border)}
+.task-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid rgba(197,160,89,.05);font-size:11px}
+.task-row:last-child{border-bottom:none}
+.task-row.done{opacity:.4}
+.task-row.done .task-label{text-decoration:line-through}
+.task-label{flex:1;color:var(--marble)}
+.task-type-tag{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--marble-faint);flex-shrink:0;width:65px}
+.task-date-tag{font-size:9px;flex-shrink:0;width:65px;text-align:right}
+.task-date-tag.overdue{color:#d47a7a;font-weight:600}
+.task-date-tag.today{color:var(--gold)}
+
+/* ═════════════════════════════════════════════════════════ */
+/* ═════════ 14. ANALYTICS PANELS ══════════════════════════ */
+/* ═════════════════════════════════════════════════════════ */
+.analytics-kpi-strip{display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:12px;margin-bottom:24px}
+.analytics-kpi-card{background:var(--surface);border:1px solid var(--border);padding:14px}
+.analytics-kpi-label{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:var(--marble-dim);margin-bottom:6px;font-weight:700}
+.analytics-kpi-value{font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--marble);line-height:1}
+.analytics-kpi-sub{font-size:9px;color:var(--marble-faint);margin-top:4px}
+.analytics-grid-2{display:grid;grid-template-columns:repeat(auto-fit, minmax(340px, 1fr));gap:16px;margin-bottom:20px}
+.analytics-panel{background:var(--surface);border:1px solid var(--border);padding:16px}
+.analytics-panel-title{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;font-weight:700}
+.analytics-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:7px;font-size:10px}
+.analytics-bar-label{color:var(--marble-dim);min-width:90px;flex-shrink:0}
+.analytics-bar-wrap{flex:1;height:5px;background:var(--surface2);border:1px solid var(--border)}
+.analytics-bar-fill{height:100%;background:var(--gold);transition:width .5s}
+.analytics-bar-pct{color:var(--marble);width:38px;text-align:right;flex-shrink:0;font-weight:600}
+.analytics-bar-n{color:var(--marble-faint);width:80px;font-size:9px;flex-shrink:0}
+.analytics-insight{font-size:10px;color:var(--gold);background:var(--gold-dim);border:1px solid var(--border2);padding:8px 12px;margin-top:12px;line-height:1.5}
+.analytics-pending{background:var(--surface2);border:1px dashed var(--border2);padding:28px;text-align:center}
+.analytics-pending-icon{font-size:20px;margin-bottom:8px;opacity:.4}
+.analytics-pending-label{font-size:10px;color:var(--marble-faint);letter-spacing:.1em;line-height:1.6}
+
+/* ═════════════════════════════════════════════════════════ */
+/* ═════════ 15. MISC TAB STYLES ═══════════════════════════ */
+/* ═════════════════════════════════════════════════════════ */
 .radar-entry{background:var(--surface);border:1px solid var(--border);padding:14px 16px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
 .radar-title{font-size:12px;color:var(--marble);margin-bottom:3px}
 .radar-meta{font-size:9px;color:var(--marble-faint)}
@@ -269,22 +388,10 @@ tbody td.dim{color:var(--marble-dim)}
 .exposure-row:last-child{border-bottom:none}
 .exp-flag-r{font-size:10px;color:#d47a7a;white-space:nowrap}
 .exp-flag-y{font-size:10px;color:#c4a840;white-space:nowrap}
-
-.ritual-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:10px}
-.ritual-item{background:var(--surface2);border:1px solid var(--border);padding:12px 14px}
-.ritual-label{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--marble-dim);margin-bottom:6px}
-.ritual-input{width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--marble);font-size:18px;font-family:'Cormorant Garamond',serif;padding:2px 0;outline:none}
-.ritual-input:focus{border-bottom-color:var(--gold)}
-
 .conc-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(197,160,89,.06);font-size:11px;flex-wrap:wrap;gap:10px}
 .conc-row:last-child{border-bottom:none}
-
 .loading{color:var(--marble-faint);font-size:11px;padding:40px;text-align:center;letter-spacing:.1em}
 .empty{color:var(--marble-faint);font-size:11px;padding:40px;text-align:center;border:1px solid var(--border)}
-
-.batch-tbl{width:100%;border-collapse:collapse;font-size:11px;min-width:600px}
-.batch-tbl th{padding:7px 10px;font-size:8px;letter-spacing:.15em;text-transform:uppercase;color:var(--marble-dim);text-align:left;border-bottom:1px solid var(--border)}
-.batch-tbl td{padding:8px 10px;border-bottom:1px solid rgba(197,160,89,.04);color:var(--marble);word-break:break-word;white-space:normal}
 </style>
 </head>
 <body>
@@ -295,7 +402,7 @@ tbody td.dim{color:var(--marble-dim)}
 <div id="loginScreen">
   <div class="login-box">
     <div class="login-logo">Lex Nova</div>
-    <div class="login-sub">Admin Console v5.5</div>
+    <div class="login-sub">Admin Console v6.0</div>
     <div class="fg">
       <label>Email</label>
       <input type="email" id="loginEmail" placeholder="your@email.com" onkeydown="if(event.key==='Enter')window.login()">
@@ -318,15 +425,20 @@ tbody td.dim{color:var(--marble-dim)}
   <div id="sidebar">
     <div class="sb-logo">
       <div class="sb-logo-name">Lex Nova</div>
-      <div class="sb-logo-sub">Command Center v5.5</div>
+      <div class="sb-logo-sub">Command Center v6.0</div>
     </div>
 
-    <div class="sb-section">Phase 1: Hunting</div>
+    <div class="sb-section">Overview</div>
     <div class="nav-item active" data-tab="dashboard" onclick="if(typeof window.nav==='function')window.nav('dashboard')">
       <span class="nav-icon">▣</span> Command Center
     </div>
+
+    <div class="sb-section">Phase 1: Hunting</div>
     <div class="nav-item" data-tab="hunt" onclick="if(typeof window.nav==='function')window.nav('hunt')">
       <span class="nav-icon">🎯</span> The Hunt
+    </div>
+    <div class="nav-item" data-tab="calendar" onclick="if(typeof window.nav==='function')window.nav('calendar')">
+      <span class="nav-icon">📅</span> The Calendar
     </div>
 
     <div class="sb-section">Phase 2: Closing</div>
@@ -344,7 +456,6 @@ tbody td.dim{color:var(--marble-dim)}
       <span class="nav-icon">🛡️</span> The Syndicate
     </div>
 
-    <!-- ── NEW: Intelligence section ── -->
     <div class="sb-section">Intelligence</div>
     <div class="nav-item" data-tab="regulation" onclick="if(typeof window.nav==='function')window.nav('regulation')">
       <span class="nav-icon">📋</span> Regulation DB
@@ -369,136 +480,177 @@ tbody td.dim{color:var(--marble-dim)}
       <div class="page-header-row">
         <div>
           <div class="page-title" id="pageTitle">Command Center</div>
-          <div class="page-sub"  id="pageSub">Global metrics and Sunday Ritual inputs.</div>
+          <div class="page-sub" id="pageSub">Global metrics and operating intelligence.</div>
         </div>
         <div id="pageActions" style="padding-bottom:16px"></div>
       </div>
     </div>
 
-    <!-- ═══════════ DASHBOARD ═══════════ -->
+    <!-- ═══════════ COMMAND CENTER ═══════════ -->
     <div id="tab-dashboard" class="tab-content active">
-      <div class="card-grid card-grid-4" style="margin-bottom:20px">
-        <div class="card card-gold">
-          <div class="card-label">Monthly Recurring Rev <span class="info-icon" onclick="window.showInfo('mrr')">ⓘ</span></div>
-          <div class="card-value" id="d-mrr">$0</div>
-          <div class="card-sub" id="d-mrr-sub">0 active maintenance</div>
-        </div>
-        <div class="card">
-          <div class="card-label">Capacity / Bandwidth <span class="info-icon" onclick="window.showInfo('capacity')">ⓘ</span></div>
-          <div class="card-value" id="d-cap-current">0</div>
-          <div style="height:6px;background:var(--surface2);border:1px solid var(--border);margin:6px 0">
-            <div class="capacity-fill" id="d-cap-bar" style="height:100%;background:var(--gold);transition:width .5s;width:0%"></div>
-          </div>
-          <div style="font-size:9px;color:var(--marble-dim)" id="d-cap-label">0 / 0 slots</div>
-        </div>
-        <div class="card card-gold" style="border-color:rgba(212,122,122,0.4);background:rgba(212,122,122,0.05)">
-          <div class="card-label" style="color:#d47a7a">Actionable Gaps <span class="info-icon" onclick="window.showInfo('gaps')">ⓘ</span></div>
-          <div class="card-value" id="d-gaps" style="color:#d47a7a">0</div>
-          <div class="card-sub" style="color:rgba(212,122,122,0.7)" id="d-gaps-sub">$0 Upsell Pipeline</div>
-        </div>
-        <div class="card" style="border-color:rgba(212,122,122,0.4)">
-          <div class="card-label" style="color:#d47a7a">SLA Critical <span class="info-icon" onclick="window.showInfo('sla')">ⓘ</span></div>
-          <div class="card-value" id="d-sla-crit" style="color:#d47a7a">0</div>
-          <div class="card-sub" style="color:rgba(212,122,122,0.7)">Builds &lt; 12h remaining</div>
-        </div>
+
+      <!-- View toggle -->
+      <div class="view-btns" style="margin-bottom:24px">
+        <button class="view-btn active" id="btn-cc-ops"      onclick="window.setDashView('operations',this)">Operations</button>
+        <button class="view-btn"        id="btn-cc-analytics" onclick="window.setDashView('analytics',this)">Analytics</button>
       </div>
 
-      <div id="d-conc-warn" class="hidden" style="background:rgba(138,58,58,.06);border:1px solid rgba(138,58,58,.2);padding:10px 16px;font-size:10px;color:#d47a7a;margin-bottom:16px;letter-spacing:.05em">
-        ⚠ Client concentration breach — a single client exceeds 30% of MRR.
-      </div>
+      <!-- ── OPERATIONS VIEW ── -->
+      <div id="cc-operations">
 
-      <div class="card-grid card-grid-2" style="margin-bottom:20px">
-        <div>
-          <div class="section-title" style="margin-top:0">Scanner Funnel (Inbound)</div>
-          <div class="pipeline-funnel">
-            <div class="pf-stage"><span class="pf-num" id="sf-clicks">0</span><span class="pf-label">Clicked</span></div>
-            <div class="pf-stage"><span class="pf-num" id="sf-comps">0</span><span class="pf-label">Completed</span></div>
-            <div class="pf-stage" style="background:var(--gold-dim);border-color:var(--gold)"><span class="pf-num" style="color:var(--gold)" id="sf-paid">0</span><span class="pf-label" style="color:var(--gold)">Paid</span></div>
+        <!-- KPI cards -->
+        <div class="card-grid card-grid-4" style="margin-bottom:20px">
+          <div class="card card-gold">
+            <div class="card-label">Monthly Recurring Rev <span class="info-icon" onclick="window.showInfo('mrr')">ⓘ</span></div>
+            <div class="card-value" id="d-mrr">$0</div>
+            <div class="card-sub" id="d-mrr-sub">0 active maintenance</div>
           </div>
-          <div style="text-align:right;font-size:10px;color:var(--marble-dim);margin-top:4px" id="sf-rate">— Conversion</div>
-        </div>
-        <div>
-          <div class="section-title" style="margin-top:0">Outreach Pipeline (Outbound)</div>
-          <div class="pipeline-funnel">
-            <div class="pf-stage"><span class="pf-num" id="of-cold">0</span><span class="pf-label">Queued/Seq</span></div>
-            <div class="pf-stage"><span class="pf-num" id="of-warm">0</span><span class="pf-label">Engaged</span></div>
-            <div class="pf-stage"><span class="pf-num" id="of-hot">0</span><span class="pf-label">Negotiating</span></div>
-            <div class="pf-stage"><span class="pf-num" id="of-replied">0</span><span class="pf-label">Replied</span></div>
-            <div class="pf-stage"><span class="pf-num" id="of-neg">0</span><span class="pf-label">Won</span></div>
+          <div class="card">
+            <div class="card-label">Capacity / Bandwidth <span class="info-icon" onclick="window.showInfo('capacity')">ⓘ</span></div>
+            <div class="card-value" id="d-cap-current">0</div>
+            <div style="height:6px;background:var(--surface2);border:1px solid var(--border);margin:6px 0">
+              <div id="d-cap-bar" style="height:100%;background:var(--gold);transition:width .5s;width:0%"></div>
+            </div>
+            <div style="font-size:9px;color:var(--marble-dim)" id="d-cap-label">0 / 0 slots</div>
+          </div>
+          <div class="card" style="border-color:rgba(212,122,122,.4);background:rgba(212,122,122,.05)">
+            <div class="card-label" style="color:#d47a7a">Actionable Gaps <span class="info-icon" onclick="window.showInfo('gaps')">ⓘ</span></div>
+            <div class="card-value" id="d-gaps" style="color:#d47a7a">0</div>
+            <div class="card-sub" style="color:rgba(212,122,122,.7)" id="d-gaps-sub">$0 Upsell Pipeline</div>
+          </div>
+          <div class="card" style="border-color:rgba(212,122,122,.4)">
+            <div class="card-label" style="color:#d47a7a">SLA Critical <span class="info-icon" onclick="window.showInfo('sla')">ⓘ</span></div>
+            <div class="card-value" id="d-sla-crit" style="color:#d47a7a">0</div>
+            <div class="card-sub" style="color:rgba(212,122,122,.7)">Builds &lt; 12h remaining</div>
           </div>
         </div>
-      </div>
 
-      <div class="card-grid card-grid-2" style="margin-bottom:20px">
-        <div>
-          <div class="section-title" style="margin-top:0;color:#d47a7a">SLA Danger Zone</div>
-          <div class="section-sub">Active builds nearing 48h deadline</div>
-          <div class="tbl-wrap" style="border-color:rgba(212,122,122,0.3)">
-            <table>
-              <thead><tr><th>Client</th><th>Status</th><th>Time Left</th></tr></thead>
-              <tbody id="d-sla-table"><tr><td colspan="3" class="loading">Calculating...</td></tr></tbody>
-            </table>
-          </div>
+        <div id="d-conc-warn" class="hidden" style="background:rgba(138,58,58,.06);border:1px solid rgba(138,58,58,.2);padding:10px 16px;font-size:10px;color:#d47a7a;margin-bottom:16px;letter-spacing:.05em">
+          ⚠ Client concentration breach — a single client exceeds 30% of MRR.
         </div>
-        <div>
-          <div class="section-title" style="margin-top:0">Today's Actions</div>
-          <div class="action-queue">
-            <div class="aq-row"><span>Follow-Ups Due Today</span><span class="aq-count" id="aq-today">0</span></div>
-            <div class="aq-row"><span>Follow-Ups Overdue</span><span class="aq-count cd-over" id="aq-over">0</span></div>
-            <div class="aq-row"><span>LinkedIn Pending</span><span class="aq-count" id="aq-li">0</span></div>
-            <div class="aq-row"><span>Unmatched Inbound</span><span class="aq-count" id="aq-inbound">0</span></div>
-          </div>
-        </div>
-      </div>
 
-      <div style="margin-top:24px">
-        <div class="section-title">Sunday Ritual</div>
-        <div class="section-sub">Weekly operating metrics — manual inputs.</div>
-        <div class="card-grid card-grid-2">
-          <div class="ritual-grid">
-            <div class="ritual-item">
-              <div class="ritual-label" style="color:var(--gold)">Outreach Volume Sent</div>
-              <input class="ritual-input" id="r-outreach" type="number" placeholder="0" onchange="if(typeof window.saveRitual==='function')window.saveRitual()">
-              <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Manual: Check Outlook</div>
+        <!-- Scanner funnel + outreach pipeline -->
+        <div class="card-grid card-grid-2" style="margin-bottom:20px">
+          <div>
+            <div class="section-title" style="margin-top:0">Scanner Funnel (Inbound)</div>
+            <div class="pipeline-funnel">
+              <div class="pf-stage"><span class="pf-num" id="sf-clicks">0</span><span class="pf-label">Clicked</span></div>
+              <div class="pf-stage"><span class="pf-num" id="sf-comps">0</span><span class="pf-label">Completed</span></div>
+              <div class="pf-stage" style="background:var(--gold-dim);border-color:var(--gold)"><span class="pf-num" style="color:var(--gold)" id="sf-paid">0</span><span class="pf-label" style="color:var(--gold)">Paid</span></div>
             </div>
-            <div class="ritual-item">
-              <div class="ritual-label" style="color:var(--gold)">Replies Received</div>
-              <input class="ritual-input" id="r-replies" type="number" placeholder="0" onchange="if(typeof window.saveRitual==='function')window.saveRitual()">
-              <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Manual: Total valid responses</div>
-            </div>
+            <div style="text-align:right;font-size:10px;color:var(--marble-dim);margin-top:4px" id="sf-rate">— Conversion</div>
           </div>
-          <div class="ritual-grid">
-            <div class="ritual-item" style="background:transparent;border-style:dashed">
-              <div class="ritual-label">Scanner Forms (Week)</div>
-              <div class="card-value" id="r-auto-forms" style="font-size:24px">0</div>
-              <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Auto-calculated</div>
-            </div>
-            <div class="ritual-item" style="background:transparent;border-style:dashed">
-              <div class="ritual-label">Deals Closed (Week)</div>
-              <div class="card-value" id="r-auto-deals" style="font-size:24px">0</div>
-              <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Auto-calculated</div>
-            </div>
-            <div class="ritual-item" style="background:transparent;border-style:dashed;grid-column:span 1 / -1">
-              <div class="ritual-label">Pipeline Value</div>
-              <div class="card-value" id="r-auto-pipe" style="font-size:24px;color:var(--gold)">$0</div>
-              <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Active outreach + flagship value</div>
+          <div>
+            <div class="section-title" style="margin-top:0">Outreach Pipeline (Outbound)</div>
+            <div class="pipeline-funnel">
+              <div class="pf-stage"><span class="pf-num" id="of-cold">0</span><span class="pf-label">Queued/Seq</span></div>
+              <div class="pf-stage"><span class="pf-num" id="of-warm">0</span><span class="pf-label">Engaged</span></div>
+              <div class="pf-stage"><span class="pf-num" id="of-hot">0</span><span class="pf-label">Negotiating</span></div>
+              <div class="pf-stage"><span class="pf-num" id="of-replied">0</span><span class="pf-label">Replied</span></div>
+              <div class="pf-stage"><span class="pf-num" id="of-neg">0</span><span class="pf-label">Won</span></div>
             </div>
           </div>
         </div>
-      </div>
-    </div><!-- /dashboard -->
 
-    <!-- ═══════════ THE HUNT — content injected by buildHuntTabHTML() ═══════════ -->
+        <!-- SLA danger + today's actions -->
+        <div class="card-grid card-grid-2" style="margin-bottom:20px">
+          <div>
+            <div class="section-title" style="margin-top:0;color:#d47a7a">SLA Danger Zone</div>
+            <div class="section-sub">Active builds nearing 48h deadline</div>
+            <div class="tbl-wrap" style="border-color:rgba(212,122,122,.3)">
+              <table>
+                <thead><tr><th>Client</th><th>Status</th><th>Time Left</th></tr></thead>
+                <tbody id="d-sla-table"><tr><td colspan="3" class="loading">Calculating...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <div class="section-title" style="margin-top:0">Today's Actions</div>
+            <div class="action-queue">
+              <div class="aq-row"><span>Follow-Ups Due Today</span><span class="aq-count" id="aq-today">0</span></div>
+              <div class="aq-row"><span>Follow-Ups Overdue</span><span class="aq-count cd-over" id="aq-over">0</span></div>
+              <div class="aq-row"><span>LinkedIn Pending</span><span class="aq-count" id="aq-li">0</span></div>
+              <div class="aq-row"><span>Unmatched Inbound</span><span class="aq-count" id="aq-inbound">0</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sunday Ritual -->
+        <div style="margin-top:24px">
+          <div class="section-title">Sunday Ritual</div>
+          <div class="section-sub">Weekly operating metrics — manual inputs.</div>
+          <div class="card-grid card-grid-2">
+            <div class="ritual-grid">
+              <div class="ritual-item">
+                <div class="ritual-label" style="color:var(--gold)">Outreach Volume Sent</div>
+                <input class="ritual-input" id="r-outreach" type="number" placeholder="0" onchange="if(typeof window.saveRitual==='function')window.saveRitual()">
+                <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Manual: Check Outlook</div>
+              </div>
+              <div class="ritual-item">
+                <div class="ritual-label" style="color:var(--gold)">Replies Received</div>
+                <input class="ritual-input" id="r-replies" type="number" placeholder="0" onchange="if(typeof window.saveRitual==='function')window.saveRitual()">
+                <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Manual: Total valid responses</div>
+              </div>
+            </div>
+            <div class="ritual-grid">
+              <div class="ritual-item" style="background:transparent;border-style:dashed">
+                <div class="ritual-label">Scanner Forms (Week)</div>
+                <div class="card-value" id="r-auto-forms" style="font-size:24px">0</div>
+                <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Auto-calculated</div>
+              </div>
+              <div class="ritual-item" style="background:transparent;border-style:dashed">
+                <div class="ritual-label">Deals Closed (Week)</div>
+                <div class="card-value" id="r-auto-deals" style="font-size:24px">0</div>
+                <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Auto-calculated</div>
+              </div>
+              <div class="ritual-item" style="background:transparent;border-style:dashed;grid-column:span 1 / -1">
+                <div class="ritual-label">Pipeline Value</div>
+                <div class="card-value" id="r-auto-pipe" style="font-size:24px;color:var(--gold)">$0</div>
+                <div style="font-size:9px;color:var(--marble-faint);margin-top:4px">Active outreach + flagship value</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Batch Performance (moved from Hunt tab) -->
+        <div class="section-title" style="margin-top:32px">Batch Performance</div>
+        <div class="section-sub">25-prospect capacity per batch · Close % = scanner complete → paid</div>
+        <div class="tbl-wrap">
+          <table class="batch-tbl">
+            <thead>
+              <tr>
+                <th>#</th><th>Batch</th><th>Capacity</th><th>Prospects</th>
+                <th>Emails Sent</th><th>Reply %</th><th>Clicks</th>
+                <th>Completions</th><th>Conversions</th><th>Close %</th>
+              </tr>
+            </thead>
+            <tbody id="cc-batches"><tr><td colspan="10" class="loading">No batches yet</td></tr></tbody>
+          </table>
+        </div>
+
+      </div><!-- /cc-operations -->
+
+      <!-- ── ANALYTICS VIEW — populated by tab-analytics.js ── -->
+      <div id="cc-analytics" class="hidden">
+        <div class="loading">Loading analytics...</div>
+      </div>
+
+    </div><!-- /tab-dashboard -->
+
+    <!-- ═══════════ THE HUNT — injected by buildHuntTabHTML() ═══════════ -->
     <div id="tab-hunt" class="tab-content"></div>
+
+    <!-- ═══════════ THE CALENDAR — injected by loadCalendar() ═══════════ -->
+    <div id="tab-calendar" class="tab-content"></div>
 
     <!-- ═══════════ ACTIVE DEALS ═══════════ -->
     <div id="tab-deals" class="tab-content">
       <div class="view-btns" style="margin-bottom:20px">
-        <button class="view-btn active" onclick="document.getElementById('tab-deals').querySelector('.k-wrap').classList.remove('hidden');document.getElementById('tab-deals-legacy').classList.add('hidden');this.classList.add('active');this.nextElementSibling.classList.remove('active')">The War Board</button>
-        <button class="view-btn" onclick="document.getElementById('tab-deals').querySelector('.k-wrap').classList.add('hidden');document.getElementById('tab-deals-legacy').classList.remove('hidden');this.classList.add('active');this.previousElementSibling.classList.remove('active');if(typeof window.loadLeads==='function')window.loadLeads()">Inbound Leads</button>
+        <button class="view-btn active" onclick="document.getElementById('deals-board').classList.remove('hidden');document.getElementById('deals-legacy').classList.add('hidden');this.classList.add('active');this.nextElementSibling.classList.remove('active')">The War Board</button>
+        <button class="view-btn" onclick="document.getElementById('deals-board').classList.add('hidden');document.getElementById('deals-legacy').classList.remove('hidden');this.classList.add('active');this.previousElementSibling.classList.remove('active');if(typeof window.loadLeads==='function')window.loadLeads()">Inbound Leads</button>
       </div>
 
-      <div class="k-wrap">
+      <div id="deals-board" class="k-wrap">
         <div class="k-col">
           <div class="k-head"><span class="k-title">The Magazine <span class="info-icon" onclick="window.showInfo('magazine')">ⓘ</span></span><span class="k-count" id="kd-c1">0</span></div>
           <div class="k-body" id="kd-col-1"><div class="loading">Loading…</div></div>
@@ -521,19 +673,23 @@ tbody td.dim{color:var(--marble-dim)}
         </div>
       </div>
 
-      <div id="tab-deals-legacy" class="hidden">
+      <div id="deals-legacy" class="hidden">
         <div class="section-title">Flagship Pipeline</div>
         <div class="tbl-wrap" style="margin-bottom:20px">
           <table>
-            <thead><tr><th>Name</th><th>Company</th><th>Status</th><th>Price Quoted</th><th>Proposal Date</th><th>Next Step</th><th>Added</th></tr></thead>
-            <tbody id="fs-tbody"><tr><td colspan="7" class="loading">Loading…</td></tr></tbody>
+            <thead>
+              <tr><th>#</th><th>Name</th><th>Company</th><th>Status</th><th>Price Quoted</th><th>Proposal Date</th><th>Next Step</th><th>Added</th></tr>
+            </thead>
+            <tbody id="fs-tbody"><tr><td colspan="8" class="loading">Loading…</td></tr></tbody>
           </table>
         </div>
         <div class="section-title">Inbound Scanner Leads</div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>Name</th><th>Email</th><th>Company</th><th>Type</th><th>Status</th><th>Source</th><th>Ext Score</th><th>Int Score</th><th>Date</th><th>Actions</th></tr></thead>
-            <tbody id="l-tbody"><tr><td colspan="10" class="loading">Loading…</td></tr></tbody>
+            <thead>
+              <tr><th>#</th><th>Name</th><th>Email</th><th>Company</th><th>Type</th><th>Status</th><th>Source</th><th>Ext Score</th><th>Int Score</th><th>Date</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="l-tbody"><tr><td colspan="11" class="loading">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -608,7 +764,6 @@ tbody td.dim{color:var(--marble-dim)}
     <div id="tab-regulation" class="tab-content"></div>
 
     <!-- ═══════════ ENGINE ROOM ═══════════ -->
-    <!-- Regulation DB removed from here — now its own sidebar tab -->
     <div id="tab-engine" class="tab-content">
       <div class="view-btns" style="margin-bottom:20px">
         <button class="view-btn active" onclick="window.setEngineView('finance',this)">Finance</button>
@@ -653,8 +808,8 @@ tbody td.dim{color:var(--marble-dim)}
             <div class="fg"><label class="fl">Scenario 3 (Post-Payment Activation)</label><input type="text" id="wh-s3" class="fi" placeholder="https://hook.eu1.make.com/…"></div>
             <div class="fg"><label class="fl">Scenario 4 (Delivery Trigger)</label><input type="text" id="wh-s4" class="fi" placeholder="https://hook.eu1.make.com/…"></div>
             <div class="fg"><label class="fl">Capacity — Max Concurrent Clients</label><input type="number" id="s-capacity" class="fi" placeholder="10" min="1" max="50"></div>
-            <!-- Case study video URL — surfaces in prospect panel Engagement Assets -->
-            <div class="fg"><label class="fl">Case Study Video URL (Standard — all prospects)</label><input type="text" id="s-case-study" class="fi" placeholder="https://… (one video, shown to all ENGAGED / NEGOTIATING prospects)"></div>
+            <div class="fg"><label class="fl">Daily Prospect Target</label><input type="number" id="s-daily-target" class="fi" placeholder="60" min="1"></div>
+            <div class="fg"><label class="fl">Case Study Video URL (Standard)</label><input type="text" id="s-case-study" class="fi" placeholder="https://…"></div>
             <button class="btn btn-primary" onclick="if(typeof window.saveSettings==='function')window.saveSettings()">Save Settings</button>
           </div>
           <div>
@@ -673,6 +828,7 @@ tbody td.dim{color:var(--marble-dim)}
                 <label class="fl" style="margin-bottom:8px;color:var(--gold)">Phase Access</label>
                 <div style="display:flex;gap:12px;flex-wrap:wrap">
                   <label style="display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer"><input type="checkbox" class="adm-perm-chk" value="hunt"> Phase 1 (Hunt)</label>
+                  <label style="display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer"><input type="checkbox" class="adm-perm-chk" value="calendar"> Phase 1 (Calendar)</label>
                   <label style="display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer"><input type="checkbox" class="adm-perm-chk" value="deals"> Phase 2 (Deals)</label>
                   <label style="display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer"><input type="checkbox" class="adm-perm-chk" value="factory"> Phase 3 (Factory)</label>
                   <label style="display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer"><input type="checkbox" class="adm-perm-chk" value="syndicate"> Phase 4 (Syndicate)</label>
@@ -707,16 +863,16 @@ tbody td.dim{color:var(--marble-dim)}
   </div>
 
   <div class="sub-tabs">
-    <div class="sub-tab active"  onclick="if(typeof window.detailTab==='function')window.detailTab('overview',this)">Overview</div>
-    <div class="sub-tab"        onclick="if(typeof window.detailTab==='function')window.detailTab('intake',this)">Intake</div>
-    <div class="sub-tab"        onclick="if(typeof window.detailTab==='function')window.detailTab('checklist',this)">Checklist</div>
-    <div class="sub-tab"        onclick="if(typeof window.detailTab==='function')window.detailTab('documents',this)">Documents</div>
-    <div class="sub-tab"        onclick="if(typeof window.detailTab==='function')window.detailTab('radar',this)">Radar</div>
-    <div class="sub-tab"        onclick="if(typeof window.detailTab==='function')window.detailTab('gap',this)">Gap Review</div>
-    <div class="sub-tab"        onclick="if(typeof window.detailTab==='function')window.detailTab('financials',this)">Financials</div>
-    <div class="sub-tab"        onclick="if(typeof window.detailTab==='function')window.detailTab('activity',this)">Activity</div>
-    <div class="sub-tab"        onclick="if(typeof window.detailTab==='function')window.detailTab('referrals',this)">The Syndicate</div>
-    <div class="sub-tab"        onclick="if(typeof window.detailTab==='function')window.detailTab('debrief',this)">Debrief</div>
+    <div class="sub-tab active" onclick="if(typeof window.detailTab==='function')window.detailTab('overview',this)">Overview</div>
+    <div class="sub-tab"       onclick="if(typeof window.detailTab==='function')window.detailTab('intake',this)">Intake</div>
+    <div class="sub-tab"       onclick="if(typeof window.detailTab==='function')window.detailTab('checklist',this)">Checklist</div>
+    <div class="sub-tab"       onclick="if(typeof window.detailTab==='function')window.detailTab('documents',this)">Documents</div>
+    <div class="sub-tab"       onclick="if(typeof window.detailTab==='function')window.detailTab('radar',this)">Radar</div>
+    <div class="sub-tab"       onclick="if(typeof window.detailTab==='function')window.detailTab('gap',this)">Gap Review</div>
+    <div class="sub-tab"       onclick="if(typeof window.detailTab==='function')window.detailTab('financials',this)">Financials</div>
+    <div class="sub-tab"       onclick="if(typeof window.detailTab==='function')window.detailTab('activity',this)">Activity</div>
+    <div class="sub-tab"       onclick="if(typeof window.detailTab==='function')window.detailTab('referrals',this)">The Syndicate</div>
+    <div class="sub-tab"       onclick="if(typeof window.detailTab==='function')window.detailTab('debrief',this)">Debrief</div>
   </div>
 
   <div class="detail-body">
@@ -772,7 +928,7 @@ tbody td.dim{color:var(--marble-dim)}
 </div><!-- /detailPanel -->
 
 <!-- ══════════════════════════════════════════════════════════ -->
-<!-- PROSPECT PANEL                                             -->
+<!-- PROSPECT PANEL — body injected by renderPPBody()           -->
 <!-- ══════════════════════════════════════════════════════════ -->
 <div id="prospectPanel">
   <div class="pp-header">
@@ -848,7 +1004,7 @@ window.login = function() {
   const err   = document.getElementById('loginError');
   err.style.display = 'none';
   window.auth.signInWithEmailAndPassword(email, pass)
-    .catch(() => { err.textContent='Invalid credentials.'; err.style.display='block'; });
+    .catch(() => { err.textContent = 'Invalid credentials.'; err.style.display = 'block'; });
 };
 
 window.signOut = function() { window.auth.signOut(); };
@@ -871,13 +1027,38 @@ window.auth.onAuthStateChanged(async u => {
   document.getElementById('adminPanel').classList.add('active');
   if (typeof window.init === 'function') window.init();
 });
+
+// ── Command Center view toggle ───────────────────────────────
+window.setDashView = function(view, el) {
+  document.querySelectorAll('#tab-dashboard .view-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  const ops = document.getElementById('cc-operations');
+  const anl = document.getElementById('cc-analytics');
+  if (ops) ops.classList.toggle('hidden', view !== 'operations');
+  if (anl) anl.classList.toggle('hidden', view !== 'analytics');
+  if (view === 'analytics' && typeof window.renderAnalytics === 'function') {
+    window.renderAnalytics();
+  }
+};
+
+// ── Advanced filters toggle (used by Hunt tab JS) ────────────
+window.toggleAdvFilters = function(btn) {
+  const inner = document.getElementById('adv-filters-inner');
+  if (!inner) return;
+  const isOpen = !inner.classList.contains('hidden');
+  inner.classList.toggle('hidden', isOpen);
+  if (btn) btn.classList.toggle('open', !isOpen);
+  if (btn) btn.textContent = isOpen ? '▾ Advanced Filters' : '▴ Hide Filters';
+};
 </script>
 
 <!-- ══════════════════════════════════════════════════════════ -->
-<!-- APPLICATION SCRIPTS (load order matters)                   -->
+<!-- APPLICATION SCRIPTS — load order is critical               -->
 <!-- ══════════════════════════════════════════════════════════ -->
 <script src="admin-js/admin-core.js"></script>
-<script src="admin-js/tab-hunt-deals.js"></script>
+<script src="admin-js/tab-hunt-deals.js"></script>  <!-- owns window.allProspects + onSnapshot listener -->
+<script src="admin-js/tab-calendar.js"></script>     <!-- reads window.allProspects -->
+<script src="admin-js/tab-analytics.js"></script>    <!-- reads window.allProspects -->
 <script src="admin-js/tab-factory.js"></script>
 <script src="admin-js/panel-client.js"></script>
 <script src="admin-js/admin-engine.js"></script>
