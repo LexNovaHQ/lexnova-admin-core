@@ -70,49 +70,239 @@ execution: AI takes autonomous actions, executes tasks, routes APIs, spends mone
 intelligence: AI evaluates, scores, ranks, or makes decisions about humans or business outcomes
 content: AI generates, synthesizes, or transforms media — text, image, audio, video, code
 
-── INT.10 ARCHETYPE DEFINITIONS ──
-Test each trigger against scraped product features. Assign all that match.
+── ARCHETYPE ASSIGNMENT — MASTER RULE ──────────────────────
+Before assigning ANY archetype, apply this test to every
+candidate trigger:
+
+THE PRIMARY OUTPUT TEST:
+What does this product's OWN code produce as its primary
+output when a paying customer uses it as intended?
+
+The archetype must describe THAT output — not:
+- What customers BUILD ON TOP of the product
+- What customers USE the product's output TO DO
+- What the product ENABLES in downstream pipelines
+- Incidental capabilities or integrations
+- The product category the company operates IN
+
+If the product is infrastructure, a database, a storage
+layer, an API, or a developer tool — ask: what does the
+infrastructure ITSELF output when called? Not what gets
+built on it.
+
+PATTERN A — INFRASTRUCTURE MISCLASSIFICATION (most common):
+Products that ENABLE or SUPPORT an archetype are NOT
+that archetype. The database is not the agent. The API
+gateway used by orchestrators is not the orchestrator.
+The retrieval layer used in a generation pipeline is not
+the generator. Always ask: is THIS product doing the
+action — or is the customer's application doing the action
+using this product's output?
+
+PATTERN B — DOWNSTREAM USE CASE MISCLASSIFICATION:
+Products that COULD BE USED FOR an archetype's purpose
+are NOT that archetype unless that is their designed
+primary function. A general data retrieval tool used
+by one customer for HR scoring is not INT.02. A logging
+tool used by one customer for security monitoring is not
+INT.08. The archetype must describe the product's designed
+primary function — not an edge use case.
+
+EXAMPLES OF CORRECT APPLICATION:
+
+✓ An AI SDR that autonomously sends emails, books
+  meetings, and updates CRM without human approval
+  per action → INT.01 The Doer. The autonomous action
+  IS the product's primary output.
+
+✗ A CRM database that sales agents are built on top of
+  → NOT INT.01. The database stores data. The agent
+  built by the customer is The Doer — not the database.
+
+✓ A hiring platform that outputs candidate scores and
+  reject/advance decisions → INT.02 The Judge. The
+  scoring decision IS the primary output.
+
+✗ A document retrieval system used in HR workflows
+  → NOT INT.02. It retrieves documents. A human or
+  another system uses those documents to make the
+  decision. The retrieval layer is not the judge.
+
+✓ An orchestration platform whose core product is
+  routing user requests between GPT-4, Claude, and
+  Gemini based on task type → INT.06 The Orchestrator.
+  The routing IS the product.
+
+✗ A vector database that orchestration frameworks
+  integrate with → NOT INT.06. It is a component
+  that orchestrators USE. Being integrated into an
+  orchestration pipeline does not make a product
+  The Orchestrator.
+
+✓ An image generation API whose primary output is
+  generated images → INT.04 The Creator.
+
+✗ An embedding database that stores vectors for use
+  in image generation pipelines → NOT INT.04. The
+  database's primary output is stored and retrieved
+  vectors. The image generation happens downstream
+  in the customer's application.
+
+MULTI-ARCHETYPE ASSIGNMENT:
+A product CAN have multiple archetypes if multiple
+triggers genuinely apply to its OWN primary outputs —
+not just its integrations or customer use cases.
+Assign all that apply AFTER passing the Primary Output
+Test for each one independently. When in doubt — assign
+fewer archetypes, not more. Over-assignment pollutes
+the gap matrix with irrelevant gaps.
+
+── INT.10 ARCHETYPE DEFINITIONS ─────────────────────────────
+Test each trigger against the PRIMARY OUTPUT TEST above
+before assigning. If the trigger describes what a customer
+builds on top of the product — do not assign.
 
 [INT.01] THE DOER
-Trigger: Product autonomously executes actions — routes APIs, places orders, moves money, executes workflows, takes actions in external systems — without requiring human approval for each individual action.
-Keywords: agentic, autonomous, executes, takes action, workflow automation, RPA, agent.
+Trigger: Product ITSELF autonomously executes actions —
+routes APIs, places orders, moves money, executes workflows,
+takes actions in external systems — without per-action
+human approval. The product is the agent doing the action.
+Keywords: agentic, autonomous, executes, takes action,
+workflow automation, RPA, agent.
+MISFIRE GUARD: Providing APIs that customers use to BUILD
+agents is NOT INT.01. Developer tools, SDKs, databases, and
+infrastructure for agent-building are NOT The Doer.
+The product itself must be the agent — not the platform
+agents are built on.
 
 [INT.02] THE JUDGE
-Trigger: Product scores, ranks, evaluates, or makes consequential decisions ABOUT HUMANS — hiring, firing, lending, insurance, healthcare, criminal risk, performance evaluation.
-Keywords: screening, scoring, risk assessment, eligibility, recommendation engine for human outcomes.
-NOTE: Must involve decisions affecting humans. Business intelligence dashboards do NOT qualify.
+Trigger: Product ITSELF outputs scores, rankings, or
+decisions ABOUT HUMANS — hiring, firing, lending, insurance,
+healthcare, criminal risk, performance evaluation.
+The product's primary output is the decision or score
+affecting a human's life or livelihood.
+Keywords: screening, scoring, risk assessment, eligibility,
+recommendation engine for human outcomes.
+NOTE: Must involve decisions affecting humans. Business
+intelligence dashboards do NOT qualify.
+MISFIRE GUARD: A product that stores or retrieves data used
+by a decision system is NOT INT.02. A tool that provides
+information a human then uses to make a decision is NOT
+INT.02. The product itself must OUTPUT the score or decision
+— not provide data for someone else's decision.
 
 [INT.03] THE COMPANION
-Trigger: Product engages in ongoing social, emotional, or therapeutic interaction with users — chatbots designed for relationship, companionship, mental health, coaching, or persistent persona.
-Keywords: companion, coach, therapy, mental health, persona, emotional support, social AI.
+Trigger: Product engages in ongoing social, emotional, or
+therapeutic interaction with end users — chatbots designed
+primarily for relationship, companionship, mental health,
+coaching for emotional wellbeing, or persistent persona.
+The emotional connection IS the product.
+Keywords: companion, coach (emotional), therapy, mental
+health, persona, emotional support, social AI.
+MISFIRE GUARD: Task-focused assistants, productivity
+coaches, and sales coaching tools are NOT INT.03 unless
+their primary purpose is the emotional relationship.
+"Coaching" alone does not trigger INT.03 — it must be
+coaching for emotional wellbeing or relationship.
 
 [INT.04] THE CREATOR
-Trigger: Product generates original content — text, images, audio, video, code, documents — as its primary output.
-Keywords: generates, creates, writes, synthesizes, produces, drafts, composes.
+Trigger: Product ITSELF generates original content —
+text, images, audio, video, code, documents — as its
+PRIMARY output. When a customer uses the product, the
+thing they receive is the generated content.
+Keywords: generates, creates, writes, synthesizes,
+produces, drafts, composes.
+MISFIRE GUARD: A product that stores, retrieves, or
+indexes content for use in generation pipelines is NOT
+INT.04 — that is INT.05. The product must itself produce
+the generated content as its output. Embedding databases,
+vector stores, and RAG infrastructure are INT.05, not
+INT.04, even if customers use them to build generation
+pipelines. The generation happens in the customer's
+application — not in the infrastructure layer.
 
 [INT.05] THE READER
-Trigger: Product ingests, scrapes, indexes, or retrieves data from external sources — PDFs, websites, databases, enterprise documents — to produce outputs.
-Keywords: RAG, ingestion, document chat, web scraping, indexing, retrieval, knowledge base.
+Trigger: Product ingests, scrapes, indexes, or retrieves
+data from external sources — PDFs, websites, databases,
+enterprise documents — to produce outputs. The ingested
+data is third-party content or knowledge sources, not
+operational telemetry or system logs.
+Keywords: RAG, ingestion, document chat, web scraping,
+indexing, retrieval, knowledge base, embeddings, vectors.
+MISFIRE GUARD: Products that ingest operational system
+logs, telemetry, or monitoring data for security or
+performance purposes are INT.08 (The Shield) — not INT.05.
+INT.05 is specifically about ingesting content and
+knowledge for retrieval and generation purposes.
 
 [INT.06] THE ORCHESTRATOR
-Trigger: Product routes requests between multiple AI models, APIs, or services — acts as middleware, gateway, or multi-agent coordinator.
-Keywords: orchestration, routing, multi-model, API gateway, middleware, pipeline, multi-agent.
+Trigger: Product's CORE VALUE PROPOSITION is routing
+requests between multiple AI models, APIs, or services.
+The routing, coordination, or orchestration IS the product.
+Keywords: orchestration, routing, multi-model, API gateway,
+middleware, pipeline, multi-agent coordinator.
+MISFIRE GUARD: A product that other orchestration tools
+use is NOT itself an Orchestrator. A database, storage
+layer, or retrieval system used within an orchestration
+pipeline is NOT INT.06 — it is a component. LangChain
+uses Chroma; Chroma is not the orchestrator. The
+Orchestrator coordinates the components — it is not one
+of the components being coordinated.
+Integration with orchestration frameworks (LangChain,
+LlamaIndex) does NOT make a product INT.06.
 
 [INT.07] THE TRANSLATOR
-Trigger: Product captures, transcribes, translates, or analyzes human voice or video — meeting transcription, voice analysis, speech-to-text, video analysis of humans.
-Keywords: transcription, diarization, speaker recognition, voice, meeting notes, video analysis.
+Trigger: Product captures, transcribes, translates, or
+analyzes human voice or video containing identifiable
+human speech or faces — meeting transcription, voice
+analysis, speech-to-text, video analysis of humans.
+Keywords: transcription, diarization, speaker recognition,
+voice, meeting notes, video analysis.
+MISFIRE GUARD: General audio processing, environmental
+sound analysis, or video processing of non-human subjects
+is NOT INT.07. The audio or video must contain identifiable
+human voices or faces to trigger biometric exposure.
 
 [INT.08] THE SHIELD
-Trigger: Product monitors, detects, or responds to security threats, compliance violations, or anomalous behavior — cybersecurity, fraud detection, compliance monitoring.
-Keywords: security monitoring, threat detection, anomaly detection, fraud, compliance monitoring.
+Trigger: Product monitors, detects, or responds to
+EXTERNAL security threats or compliance violations against
+technical systems — cybersecurity, fraud detection,
+anomalous behavior in networks or transactions.
+Keywords: security monitoring, threat detection, anomaly
+detection, fraud, compliance monitoring.
+MISFIRE GUARD: Internal document compliance checking,
+HR policy monitoring, or content moderation for business
+processes is NOT INT.08. The Shield monitors external
+attack surfaces and technical threats — not internal
+business process compliance. A legal document generator
+that checks compliance is NOT The Shield.
 
 [INT.09] THE OPTIMIZER
-Trigger: Product optimizes critical infrastructure, financial systems, or resource allocation at systemic scale — algorithmic trading, grid management, supply chain optimization, pricing algorithms.
-Keywords: algorithmic trading, HFT, grid management, infrastructure optimization, dynamic pricing.
+Trigger: Product optimizes CRITICAL INFRASTRUCTURE or
+FINANCIAL MARKETS at systemic scale — algorithmic trading,
+power grid management, supply chain optimization at
+national/industrial scale, financial market pricing.
+Keywords: algorithmic trading, HFT, grid management,
+infrastructure optimization, dynamic pricing.
+MISFIRE GUARD: Standard business optimization — marketing
+spend optimization, A/B testing, conversion rate
+optimization, or single-company inventory pricing — is
+NOT INT.09. "At systemic scale" means infrastructure or
+markets where algorithmic failure creates systemic risk
+beyond a single company. Normal SaaS pricing features
+are not The Optimizer.
 
 [INT.10] THE MOVER
-Trigger: Product controls or operates physical hardware — robots, drones, autonomous vehicles, physical automation systems.
-Keywords: robot, drone, autonomous vehicle, physical automation, hardware control.
+Trigger: Product controls or operates physical hardware —
+robots, drones, autonomous vehicles, physical automation
+systems. The product's outputs directly cause physical
+movement or action in the world.
+Keywords: robot, drone, autonomous vehicle, physical
+automation, hardware control.
+MISFIRE GUARD: Software that processes data about physical
+systems without controlling them is NOT INT.10. Simulation,
+digital twin, or monitoring software for physical systems
+is not The Mover unless it actively commands the hardware.
 
 ── EXT.10 SURFACE DEFINITIONS ──
 Assign all surfaces triggered by the company's product and jurisdiction.
