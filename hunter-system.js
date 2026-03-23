@@ -276,6 +276,20 @@ processes is NOT INT.08. The Shield monitors external
 attack surfaces and technical threats — not internal
 business process compliance. A legal document generator
 that checks compliance is NOT The Shield.
+INTERNAL SECURITY MISFIRE GUARD: A company's OWN internal
+security infrastructure — SOC 2 compliance, access
+controls, encryption, monitoring of their own platform,
+intrusion detection on their own servers — does NOT
+trigger INT.08. Every SaaS company operates internal
+security. That is not a product.
+INT.08 applies ONLY when security monitoring IS the
+commercial product being sold to customers — a SOC
+platform, fraud detection API, AI pen-testing tool,
+or compliance monitoring service sold as the core
+offering. Ask: do customers PAY for the security
+monitoring capability? If the security is internal
+operational infrastructure protecting the company's
+own platform — INT.08 does not apply.
 
 [INT.09] THE OPTIMIZER
 Trigger: Product optimizes CRITICAL INFRASTRUCTURE or
