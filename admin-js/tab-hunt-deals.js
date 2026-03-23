@@ -881,7 +881,7 @@ window.ppRecalcFUDates = function() {
         // Fallback: compute locally
         const d = new Date(cd+'T00:00:00');
         const add = (date, n) => { const x=new Date(date); x.setDate(x.getDate()+n); return x.toISOString().split('T')[0]; };
-        const fu1=add(cd,3), fu2=add(fu1,3), fu3=add(fu2,4), fu4=add(fu3,4);
+        const fu1=add(cd,4), fu2=add(fu1,4), fu3=add(fu2,5), fu4=add(fu3,5);
         window.db.collection('prospects').doc(p.prospectId||p.id)
             .update({ ceDate:cd, fu1Date:fu1, fu2Date:fu2, fu3Date:fu3, fu4Date:fu4, nextActionDate:cd, updatedAt:nowTs() })
             .then(()=>{ Object.assign(p,{ceDate:cd,fu1Date:fu1,fu2Date:fu2,fu3Date:fu3,fu4Date:fu4}); renderPPBody(p); if(window.toast)window.toast('FU dates calculated'); })
