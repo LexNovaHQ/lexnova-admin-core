@@ -1,14 +1,12 @@
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ LEX NOVA ADMIN: CORE MODULE (admin-core.js) V5.5 ═════════════
+// ═════════ LEX NOVA ADMIN: CORE MODULE (admin-core.js) V5.6 ═════════════
 // ════════════════════════════════════════════════════════════════════════
-// Changelog V5.5:
-//   + Regulation DB tab routing added to nav() and init()
-//   + Dashboard loadDashboard() reads new vault schema (baseline.company)
-//     with fallback to legacy c.name
-//   + SLA clock reads submittedAt as additional fallback timestamp
-//   + Sunday Ritual loadRitual() reads allProspects using new QUEUED/
-//     SEQUENCE/ENGAGED/NEGOTIATING/CONVERTED status model
-//   + showInfo() knowledge base updated with new statuses and tab names
+// V5.6 CHANGES FROM V5.5:
+//   + calendar case added to nav() switch — calls window.loadCalendar()
+//   + calendar entry added to headers{} map
+//   + 'calendar' added to pageActions clear exclusion list
+//     (calendar sets no page actions, but listed for explicitness)
+//   All other code unchanged from V5.5
 // ════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -39,14 +37,25 @@ window.fmtMoney = function(n) {
     return (n == null || isNaN(n)) ? '—' : '$' + Number(n).toLocaleString('en-US');
 };
 
+window.copyToClipboard = function(inputId) {
+    const el = window.$(inputId);
+    if (!el) return;
+    el.select?.();
+    try {
+        navigator.clipboard.writeText(el.value)
+            .then(()=>{ if(window.toast) window.toast('Copied'); })
+            .catch(()=>{ document.execCommand('copy'); if(window.toast) window.toast('Copied'); });
+    } catch { document.execCommand('copy'); if(window.toast) window.toast('Copied'); }
+};
+
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ 2. MODALS & TOASTS ════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 window.toast = function(msg, type = 'success') {
     const t = window.$('toast');
     if (!t) return;
-    t.textContent = msg;
-    t.className   = type;
+    t.textContent   = msg;
+    t.className     = type;
     t.style.display = 'block';
     if (window._toastTimer) clearTimeout(window._toastTimer);
     window._toastTimer = setTimeout(() => { t.style.display = 'none'; }, 3500);
@@ -83,7 +92,7 @@ const INFO_DICT = {
     sla:
         "<strong>SLA Danger Zone:</strong> Builds with less than 12 hours remaining on the 48-hour delivery clock.",
     hunt_status:
-        "<strong>Pipeline Statuses (V5.5):</strong><br>" +
+        "<strong>Pipeline Statuses (V6.1):</strong><br>" +
         "<strong>QUEUED:</strong> Hunter pushed. No cold email sent yet.<br>" +
         "<strong>SEQUENCE:</strong> Active cold sequence firing (C / FU1–FU4). Step tracked separately.<br>" +
         "<strong>ENGAGED:</strong> Replied. Scanner link sent. Waiting for click or payment.<br>" +
@@ -127,18 +136,14 @@ window.loadDashboard = async function() {
     const now = Date.now();
 
     try {
-        // ── Clients ──
         const snap = await window.db.collection('clients').get();
         snap.forEach(d => {
             const c = d.data();
 
-            // MRR from maintenance
             if (c.maintenanceActive) mrr += 297;
 
-            // Capacity — active builds
             if (['intake_received','under_review','in_production'].includes(c.status)) {
                 cap++;
-                // SLA clock: try multiple timestamp fields (V5.5 + legacy)
                 const startTs = c.intakeReceivedAt || c.intakeSentAt
                     || c.productionStartedAt   || c.submittedAt
                     || c.baseline?.submittedAt || c.createdAt;
@@ -158,10 +163,9 @@ window.loadDashboard = async function() {
                 }
             }
 
-            // Gap upsell: delivered clients with exposures but no maintenance
             if (c.status === 'delivered' && !c.maintenanceActive) {
                 const hasExposure = (c._red > 0) || (c._yellow > 0)
-                    || (c.activeGaps  && c.activeGaps.length  > 0)
+                    || (c.activeGaps   && c.activeGaps.length   > 0)
                     || (c.forensicGaps && c.forensicGaps.length > 0);
                 if (hasExposure) { gapOpps++; gapPipe += 497; }
             }
@@ -174,7 +178,6 @@ window.loadDashboard = async function() {
         window.setText('d-gaps-sub', `${window.fmtMoney(gapPipe)} Upsell Pipeline`);
         window.setText('d-sla-crit', slaCrit);
 
-        // Capacity bar
         let mCap = 10;
         try {
             const cfg = await window.db.collection('settings').doc('config').get();
@@ -188,12 +191,10 @@ window.loadDashboard = async function() {
             bar.style.background = pct > 90 ? '#d47a7a' : 'var(--gold)';
         }
 
-        // SLA table
         const dSla = window.$('d-sla-table');
         if (dSla) dSla.innerHTML = slaRows ||
             '<tr><td colspan="3" class="dim" style="text-align:center;padding:20px">✓ All SLAs secure</td></tr>';
 
-        // ── Scanner funnel from prospects ──
         if (window.allProspects) {
             let clicks=0, comps=0, paid=0;
             window.allProspects.forEach(p => {
@@ -217,7 +218,6 @@ window.loadDashboard = async function() {
 // ════════════════════════════════════════════════════════════════════════
 window.loadRitual = async function() {
     try {
-        // Load manual inputs
         const snap = await window.db.collection('settings').doc('ritual').get();
         if (snap.exists) {
             window.setVal('r-outreach', snap.data().outreachVolume  || '');
@@ -227,17 +227,15 @@ window.loadRitual = async function() {
         const oneWeek = Date.now() - (7 * 24 * 60 * 60 * 1000);
         let weekForms=0, weekDeals=0, pipeValue=0;
 
-        // V5.5 status model
         if (window.allProspects) {
             window.allProspects.forEach(p => {
                 const updTs = new Date(p.updatedAt||p.addedAt||0).getTime();
-                if (p.scannerCompleted && updTs > oneWeek)   weekForms++;
+                if (p.scannerCompleted && updTs > oneWeek)     weekForms++;
                 if (p.status==='CONVERTED' && updTs > oneWeek) weekDeals++;
                 if (['NEGOTIATING','ENGAGED'].includes(p.status)) pipeValue += 997;
             });
         }
 
-        // Flagship pipeline value
         if (window.allFlagship) {
             window.allFlagship.forEach(f => {
                 if (['Proposal Sent','Negotiating'].includes(f.status))
@@ -278,14 +276,16 @@ window.nav = function(tabId) {
     const activeNav = document.querySelector(`.nav-item[data-tab="${tabId}"]`);
     if (activeNav) activeNav.classList.add('active');
 
-    // Page header copy
+    // ── PAGE HEADER MAP ───────────────────────────────────────────────
     const headers = {
-        dashboard:  { title:'Command Center',  sub:'Global metrics and Sunday Ritual inputs.' },
+        dashboard:  { title:'Command Center',  sub:'Global metrics and operating intelligence.' },
         hunt:       { title:'The Hunt',         sub:'Phase 1: Target acquisition, forensic pipeline, and daily action queue.' },
+        // ── V5.6: calendar added ──
+        calendar:   { title:'The Calendar',     sub:'Phase 1: Sequence execution — daily digest, sequence matrix, and scorecard.' },
         deals:      { title:'Active Deals',     sub:'Phase 2: The War Board and lead conversions.' },
         factory:    { title:'The Factory',      sub:'Phase 3: Legal architecture production line.' },
         syndicate:  { title:'The Syndicate',    sub:'Phase 4: Risk exposure tracking and referral engine.' },
-        regulation: { title:'Regulation DB',    sub:'Master threat registry — INT.10 Archetypes × EXT.10 Tripwires. CSV import supported.' },
+        regulation: { title:'Regulation DB',    sub:'Master threat registry — INT.10 Archetypes × EXT.10 Tripwires.' },
         engine:     { title:'Engine Room',      sub:'Finance, Content, and System configuration.' }
     };
 
@@ -294,11 +294,11 @@ window.nav = function(tabId) {
         window.setText('pageSub',   headers[tabId].sub);
     }
 
-    // Clear page actions on non-specific tabs (individual loaders set their own)
+    // Clear page actions (individual loaders set their own when needed)
     const pa = window.$('pageActions');
     if (pa && !['factory','deals'].includes(tabId)) pa.innerHTML = '';
 
-    // Route to loader
+    // ── ROUTE TO LOADER ───────────────────────────────────────────────
     try {
         switch (tabId) {
             case 'dashboard':
@@ -306,6 +306,10 @@ window.nav = function(tabId) {
                 break;
             case 'hunt':
                 if (typeof window.loadOutreach === 'function') window.loadOutreach();
+                break;
+            // ── V5.6: calendar case added ──
+            case 'calendar':
+                if (typeof window.loadCalendar === 'function') window.loadCalendar();
                 break;
             case 'deals':
                 if (typeof window.loadOutreach === 'function') window.loadOutreach();
@@ -331,8 +335,8 @@ window.nav = function(tabId) {
 // ═════════ 7. INIT ═══════════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 window.init = function() {
-    // Warm up background data loads — outreach listener fires first
-    // so allProspects is populated before dashboard tries to read it
+    // Warm up outreach listener first — allProspects must be populated
+    // before dashboard, calendar, or analytics try to read it
     if (typeof window.loadOutreach === 'function') window.loadOutreach();
     if (typeof window.loadFactory  === 'function') window.loadFactory();
     if (typeof window.loadFlagship === 'function') window.loadFlagship();
