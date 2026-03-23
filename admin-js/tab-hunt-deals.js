@@ -1147,18 +1147,24 @@ Scanner: ${p.scannerCompleted?'COMPLETED 🔥🔥':p.scannerClicked?'CLICKED �
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ SPEAR REPORT COPY ═════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
-window.copySpearReport = async function(id) {
+indow.copySpearReport = async function(id) {
     const p = window.allProspects.find(x=>x.id===id);
     if (!p) return;
     const isNEG = !!p.scannerCompleted;
 
+    // ── CONSEQUENCE TIER ──────────────────────────────────────────────
+    // Exact mapping — must match Architect and Copywriter exactly
+    // Series C+ = CREDIBILITY, $750 slot suppressed in FU4
     function getConsequenceTier(fs) {
-        if (!fs) return {tier:'MOMENTUM',rule:'Deal velocity language. Mid-stage urgency.'};
-        const f=fs.toLowerCase();
-        if(f.includes('pre-seed')||f.includes('seed')||f.includes('bootstrap')) return {tier:'SURVIVAL',rule:'Existential risk language. Runway urgency. $750 founding slot permitted in FU4.'};
-        if(f.includes('series a')||f.includes('series b')) return {tier:'MOMENTUM',rule:'Deal velocity language. Mid-stage urgency. $750 founding slot permitted in FU4.'};
-        if(f.includes('series c')||f.includes('series d')||f.includes('late')||f.includes('public')) return {tier:'CREDIBILITY',rule:'Enterprise buyer rejection language. $750 SUPPRESSED — pure meet offer only in FU4.'};
-        return {tier:'MOMENTUM',rule:'Deal velocity language. Mid-stage urgency.'};
+        if (!fs) return { tier:'MOMENTUM', rule:'Deal velocity language. $750 slot permitted in FU4.' };
+        const f = fs.toLowerCase();
+        if (f.includes('pre-seed')||f.includes('seed')||f.includes('bootstrap'))
+            return { tier:'SURVIVAL',    rule:'Existential language. Runway urgency. $750 slot permitted in FU4.' };
+        if (f.includes('series a')||f.includes('series b'))
+            return { tier:'MOMENTUM',    rule:'Deal velocity language. $750 slot permitted in FU4.' };
+        if (f.includes('series c')||f.includes('series d')||f.includes('series e')||f.includes('series f')||f.includes('late')||f.includes('public'))
+            return { tier:'CREDIBILITY', rule:'Enterprise buyer rejection language. $750 SUPPRESSED — pure meet offer only in FU4.' };
+        return { tier:'MOMENTUM', rule:'Deal velocity language. $750 slot permitted in FU4.' };
     }
 
     const gapPool = getEvidenceBackedGaps(p);
@@ -1167,89 +1173,215 @@ window.copySpearReport = async function(id) {
         return;
     }
 
-    const productSignalRaw = p.productSignal||[];
-    let featuresForReport='';
-    if (Array.isArray(productSignalRaw)&&productSignalRaw.length) {
-        const poolExt = new Set(gapPool.flatMap(g=>(g.ext||'').split(',').map(e=>e.trim())));
-        const rel = productSignalRaw.filter(f=>(f.exposesExt||[]).some(ext=>poolExt.has(ext)));
-        featuresForReport = rel.length
-            ? rel.map(f=>`• [FEATURE] "${f.feature}"\n  [SOURCE] ${f.source}\n  [INT] ${f.triggersInt}\n  [EXT] ${(f.exposesExt||[]).join(', ')}`).join('\n\n')
-            : '• [No structured feature map — re-run Hunter v6.1]';
-    } else if (typeof productSignalRaw==='string'&&productSignalRaw.trim()) {
-        featuresForReport = productSignalRaw;
-    } else { featuresForReport = '• [No product signal — run Hunter]'; }
-
-    const gapMatrix = gapPool.map((g,i)=>{
-        const tl={1:'Legal Document',2:'Product Page',3:'Observable Absence'}[g.evidenceTier]||'Scanner Confession';
-        return `GAP ${i+1} — ${(g.severity||'').toUpperCase()} — T${g.evidenceTier||'S'}${g.source==='dual-verified'?' [DUAL-VERIFIED]':''}\n`+
-               `Threat ID: ${g.threatId||'—'}\nName:      ${g.trap||'—'}\nLegal:     ${g.legalAmmo||'—'}\n`+
-               `Pain:      ${g.thePain||g.plain||'—'}\nVelocity:  ${velDisplay(g.velocity||'')}\nFix:       ${g.theFix||g.doc||'—'}\n`+
-               `Evidence:  ${tl}\nSource:    ${g.evidence?.source||'—'}\nReason:    ${g.evidence?.reason||'—'}`;
-    }).join('\n\n');
-
-    let scanSection='';
-    if (isNEG) {
-        const pw={Uncapped:4,High:3,Medium:2,Low:1};
-        const top3=[...(p.vaultInputs||[])].sort((a,b)=>(pw[b.penalty]||0)-(pw[a.penalty]||0)).slice(0,3)
-            .map((v,i)=>`[${i+1}] Penalty: ${v.penalty||'—'}\n    Q: ${v.question||'—'}\n    A: ${v.answer||'—'}`).join('\n\n');
-        scanSection=`\n═══════════════════════════════════════\n[SCANNER INTELLIGENCE]\n═══════════════════════════════════════\nScore: ${p.scannerScore||0}\nUnsure: ${p.unsureFlag?'YES':'No'}\nSurfaces: ${(p.trippedSurfaces||[]).join(', ')||'None'}\n\nTOP CONFESSIONS:\n${top3||'None recorded'}`;
+    // ── EXT HELPER ────────────────────────────────────────────────────
+    // Handles Hunter v6.2 array format AND legacy comma-string
+    function getExtArray(g) {
+        if (Array.isArray(g.ext)) return g.ext;
+        if (typeof g.ext === 'string' && g.ext.trim()) return g.ext.split(',').map(e=>e.trim()).filter(Boolean);
+        return [];
     }
 
-    const {tier,rule} = getConsequenceTier(p.fundingStage);
+    // ── INT PREFIX EXTRACTION ─────────────────────────────────────────
+    // Derives INT.01 → INT.10 from threatId prefix
+    // UNI gaps return null — no archetype
+    function getIntCode(threatId) {
+        if (!threatId) return null;
+        const m = threatId.match(/^INT(\d{2})/);
+        if (!m) return null;
+        return `INT.${parseInt(m[1], 10)}`; // INT.01, INT.02, ... INT.10
+    }
 
+    // ── FEATURE-TO-GAP LINKING ────────────────────────────────────────
+    // Matches productSignal entries to gaps by INT code
+    // UNI gaps never have a feature — always null
+    // Each INT code is used only once (first match wins)
+    const productSignalRaw = Array.isArray(p.productSignal) ? p.productSignal : [];
+    const usedIntCodes     = new Set();
+
+    function findFeatureForGap(g) {
+        if (!productSignalRaw.length) return null;
+        const intCode = getIntCode(g.threatId);
+        if (!intCode) return null; // UNI gap — no feature match
+        if (usedIntCodes.has(intCode)) return null; // already linked to a higher-priority gap
+        const match = productSignalRaw.find(f => f.triggersInt === intCode);
+        if (match) usedIntCodes.add(intCode);
+        return match || null;
+    }
+
+    // ── GAP MATRIX ────────────────────────────────────────────────────
+    // Structured for Architect parsing — all fields pre-computed
+    // Architect reads this to populate JSON payload without derivation
+    const gapMatrix = gapPool.map((g, i) => {
+        const extArr  = getExtArray(g);
+        const intCode = getIntCode(g.threatId);
+        const feature = findFeatureForGap(g);
+        const dual    = g.source === 'dual-verified' ? ' [DUAL-VERIFIED]' : '';
+
+        // Tier label — matches Architect tier-based source assignment rule
+        const tierLabel = {
+            1: 'TIER-1 (Legal Document)',
+            2: 'TIER-2 (Product Page)',
+            3: 'TIER-3 (Observable Absence)'
+        }[g.evidenceTier] || 'TIER-S (Scanner Confession)';
+
+        // Source pre-split — Architect reads these directly into JSON
+        // No splitting logic needed in Architect — values are ready
+        let productSource, evidenceSource;
+        if (g.evidenceTier === 1) {
+            productSource  = 'null';
+            evidenceSource = g.evidence?.source || '—';
+        } else if (g.evidenceTier === 2) {
+            productSource  = g.evidence?.source || '—';
+            evidenceSource = 'null';
+        } else if (g.evidenceTier === 3) {
+            productSource  = 'Website Footer / Homepage Copy';
+            evidenceSource = 'null';
+        } else {
+            // Scanner confession
+            productSource  = 'null';
+            evidenceSource = 'Scanner Confession';
+        }
+
+        // Feature citation — ready for Architect to drop into JSON
+        const featureBlock = feature
+            ? `Feature to Cite: "${feature.feature}"\nFeature Source:  ${feature.source || '—'}`
+            : `Feature to Cite: null\nFeature Source:  null`;
+
+        return [
+            `── GAP ${i+1} ─────────────────────────────────────────`,
+            `Severity:        ${(g.severity||'').toUpperCase()}`,
+            `Evidence:        ${tierLabel}${dual}`,
+            `Threat ID:       ${g.threatId||'—'}`,
+            `INT Code:        ${intCode||'null (Universal Gap)'}`,
+            `EXT Codes:       ${extArr.join(', ')||'—'}`,
+            `Name:            ${g.trap||'—'}`,
+            `Velocity:        ${g.velocity||'—'}`,    // RAW — Immediate/High/Upcoming only
+            `Pain:            ${g.thePain||g.plain||'—'}`,
+            `Legal Ammo:      ${g.legalAmmo||'—'}`,
+            `Fix:             ${g.theFix||g.doc||'—'}`,
+            `Product Source:  ${productSource}`,
+            `Evidence Source: ${evidenceSource}`,
+            featureBlock,
+            `Evidence Reason: ${g.evidence?.reason||'—'}`
+        ].join('\n');
+    }).join('\n\n');
+
+    // ── FEATURE MAP (full list — for Architect product intelligence) ──
+    let featuresSection = '';
+    if (productSignalRaw.length) {
+        featuresSection = productSignalRaw.map(f =>
+            `• [FEATURE]  "${f.feature}"\n  [INT]      ${f.triggersInt||'—'}\n  [EXT]      ${(f.exposesExt||[]).join(', ')||'—'}\n  [SOURCE]   ${f.source||'—'}`
+        ).join('\n\n');
+    } else if (typeof p.productSignal === 'string' && p.productSignal.trim()) {
+        featuresSection = p.productSignal;
+    } else {
+        featuresSection = '• [No product signal — run Hunter v6.2]';
+    }
+
+    // ── NEG MODE — SCANNER INTELLIGENCE ──────────────────────────────
+    // Architect note instructs Pro to promote dual-confirmed gaps
+    let scanSection = '';
+    if (isNEG) {
+        const pw = { Uncapped:4, High:3, Medium:2, Low:1 };
+        const top3 = [...(p.vaultInputs||[])]
+            .sort((a,b) => (pw[b.penalty]||0) - (pw[a.penalty]||0))
+            .slice(0,3)
+            .map((v, i) => [
+                `[CONFESSION ${i+1}]`,
+                `Penalty:  ${v.penalty||'—'}`,
+                `Question: ${v.question||'—'}`,
+                `Answer:   ${v.answer||'—'}`
+            ].join('\n'))
+            .join('\n\n');
+
+        scanSection = `
+
+═══════════════════════════════════════
+[SCANNER INTELLIGENCE — NEG MODE]
+═══════════════════════════════════════
+ARCHITECT NOTE: Promote any gap whose surface is directly confirmed by
+a confession below to PRIORITY 0 — above all Tier 1 gaps. A gap is
+confirmed when the confession Answer describes behavior that satisfies
+that gap's trigger condition. Use the confession text as feature_to_cite
+in NEG mode where available — it is stronger than Hunter product page
+evidence. trigger_reason must reference BOTH Hunter evidence AND
+scanner confirmation when both exist.
+
+Scanner Score: ${p.scannerScore||0}
+Unsure Flags:  ${p.unsureFlag ? 'YES — treat as additional unverified surfaces' : 'No'}
+EXT Surfaces Tripped: ${(p.trippedSurfaces||[]).join(', ')||'None'}
+
+TOP CONFESSIONS:
+${top3||'None recorded'}`;
+    }
+
+    const { tier, rule } = getConsequenceTier(p.fundingStage);
+
+    // ── FULL REPORT ───────────────────────────────────────────────────
     const report =
 `═══════════════════════════════════════
-[MODE: ${isNEG?'NEG':'COLD'}]
+[LEX NOVA SPEAR REPORT — ${new Date().toLocaleDateString('en-GB')}]
+[MODE: ${isNEG ? 'NEG' : 'COLD'}]
 ═══════════════════════════════════════
-FOUNDER:      ${p.founderName||p.name||'—'}
-COMPANY:      ${p.company||'—'}
-EMAIL:        ${p.email||'—'}
+
+[TARGET]
+Founder:      ${p.founderName||p.name||'—'}
+Company:      ${p.company||'—'}
+Email:        ${p.email||'—'}
 PID:          ${p.prospectId||'—'}
-SCANNER LINK: ${p.scannerLink||`https://lexnovahq.com/scanner.html?pid=${p.prospectId||''}`}
+Scanner Link: ${p.scannerLink||`https://lexnovahq.com/scanner.html?pid=${p.prospectId||''}`}
 
 ═══════════════════════════════════════
 [CONSEQUENCE TIER: ${tier}]
 ═══════════════════════════════════════
-FUNDING: ${p.fundingStage||'Unknown'}
-RULE:    ${rule}
+Funding Stage: ${p.fundingStage||'Unknown'}
+Rule:          ${rule}
 
 ═══════════════════════════════════════
 [PRODUCT INTELLIGENCE]
 ═══════════════════════════════════════
-Lanes:      ${(p.lanes||[]).join(', ').toUpperCase()||'—'}
-Archetypes: ${(p.intArchetypes||[]).join(', ')||'—'}
-EXT:        ${(p.extExposures||[]).join(', ')||'—'}
+Lanes:        ${(p.lanes||[]).join(', ').toUpperCase()||'—'}
+Archetypes:   ${(p.intArchetypes||[]).join(', ')||'—'}
+EXT Surfaces: ${(p.extExposures||[]).join(', ')||'—'}
+Geography:    ${p.registrationJurisdiction||p.geography||'—'}
+Jurisdiction: ${p.serviceJurisdictions||'—'}
+Funding:      ${p.fundingStage||'—'} | Headcount: ${p.headcount||'—'}
+Verdict:      ${p.verdict||'—'}
 
 FEATURE MAP:
-${featuresForReport}
+${featuresSection}
 
 ═══════════════════════════════════════
 [GAP MATRIX — ${gapPool.length} gaps]
+Sort order: Tier 1 → Tier 2 → Tier 3 → Scanner
+Within each tier: INT before UNI | Nuclear before Critical
+Each gap has pre-computed INT Code, EXT Codes, Product/Evidence Source
+split, and Feature match — read directly into JSON payload.
 ═══════════════════════════════════════
+
 ${gapMatrix}${scanSection}
 
 ═══════════════════════════════════════
-[LOGISTICS]
+[SEQUENCE STATE]
 ═══════════════════════════════════════
-Funding:   ${p.fundingStage||'—'} | Headcount: ${p.headcount||'—'}
-Geo:       ${p.registrationJurisdiction||p.geography||'—'}
-Juris:     ${p.serviceJurisdictions||'—'}
-Plan:      ${p.intendedPlan||'agentic_shield'}
-Emails:    ${p.emailsSent||0} | Step: ${p.sequenceStep||'C'}
-CE Date:   ${p.ceDate||'—'}`;
+Status:  ${p.status||'—'} | Step: ${p.sequenceStep||'C'}
+Emails:  ${p.emailsSent||0}
+CE Date: ${p.ceDate||'—'}
+Plan:    ${p.intendedPlan||'agentic_shield'}`;
 
     try {
         await navigator.clipboard.writeText(report);
-        if(window.toast) window.toast(`${isNEG?'NEG ':''}Spear copied — ${gapPool.length} gaps · ${tier}`);
+        if(window.toast) window.toast(`${isNEG ? 'NEG ' : ''}Spear Report copied — ${gapPool.length} gaps · ${tier}`);
     } catch {
-        const ta=document.createElement('textarea'); ta.value=report; document.body.appendChild(ta);
+        const ta = document.createElement('textarea');
+        ta.value  = report;
+        document.body.appendChild(ta);
         ta.focus(); ta.select();
-        try { document.execCommand('copy'); if(window.toast) window.toast('Report copied'); }
+        try   { document.execCommand('copy'); if(window.toast) window.toast('Spear Report copied'); }
         catch { if(window.toast) window.toast('Copy failed','error'); }
         document.body.removeChild(ta);
     }
 };
-
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ ICP TABLE COPY ════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
