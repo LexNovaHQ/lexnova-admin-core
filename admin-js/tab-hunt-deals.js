@@ -1191,6 +1191,10 @@ window.copySpearReport = async function(id) {
         return `INT.${m[1]}`; // preserve raw match — "05" stays "05", matches Feature Map format
     }
 
+    // ── RAW PRODUCT SIGNAL ────────────────────────────────────────────
+    // Declared first — everything below depends on this
+    const productSignalRaw = Array.isArray(p.productSignal) ? p.productSignal : [];
+
     // ── SOURCE VALIDATOR ──────────────────────────────────────────────
     // Cleans productSignal sources before feature linking and report output.
     // Replaces third-party publication sources with "Homepage" fallback.
