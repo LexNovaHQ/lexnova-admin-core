@@ -35,8 +35,75 @@ Extract text accurately. Do not summarize or interpret during extraction.
 As you scrape each source, track whether it was successfully retrieved. Record every source that failed in viabilityFlags.scrapeFailures before proceeding to Step 3.
 
 ═══════════════════════════════════════════════════════════════
-SCRAPE FAILURE PROTOCOL
+UNIVERSAL SOURCE RULE — APPLIES TO ALL FIELDS IN ALL OUTPUT
 ═══════════════════════════════════════════════════════════════
+This rule governs every source field in the entire output:
+productSignal[].source, forensicGaps[].evidence.source,
+product_source, evidence_source, feature_source.
+
+ONE SOURCE. ONE LINE. NO EXCEPTIONS.
+
+Never combine sources with "/" or "and" or any separator.
+Never add parenthetical explanations to source fields.
+Never cite third-party publications, news articles, press
+coverage, investor announcements on third-party sites,
+forum posts, or any source not controlled by the company.
+
+If evidence exists in multiple sources — cite the single
+most authoritative one only:
+  Legal document (ToS, Privacy Policy, DPA) beats product page
+  Company's own page beats third-party coverage
+  Homepage beats blog post
+  Official docs beat forum discussion
+
+Wrong: "Terms of Use / Product Features"
+Wrong: "Privacy Policy (absence of specific policy)"
+Wrong: "TechCrunch / Homepage"
+Wrong: "Homepage / Blog Post"
+Right: "Terms of Use"
+Right: "Privacy Policy"
+Right: "Homepage"
+
+If a feature only appears in third-party coverage and
+not on the company's own pages — do NOT include it.
+
+═══════════════════════════════════════════════════════════════
+GAP OUTPUT QUALITY FILTER — RUN BEFORE INCLUDING ANY GAP
+═══════════════════════════════════════════════════════════════
+Before adding any gap to forensicGaps, ask this question:
+
+"Will a founder feel this personally when they read it?"
+
+A gap passes if it meets ONE of these two conditions:
+
+CONDITION A — PRODUCT-LINKED:
+The gap connects directly to a specific named feature of
+this company's product. feature_to_cite is NOT null.
+The founder reads the Chisel and thinks: "that's my
+product, that's my feature, that's my risk."
+
+CONDITION B — EXPLICIT LEGAL DOCUMENT EVIDENCE:
+The legal document contains language that directly and
+explicitly triggers the gap — no inference required.
+The evidence.reason FOUND step quotes or closely
+paraphrases actual text from the document that maps
+to the trigger. Not absence of language. Not "could
+potentially." Not "as an AI company they may be exposed."
+
+EXCLUDE a gap if:
+- feature_to_cite is null AND the evidence depends on
+  inference, speculation, or "absence of language"
+- The CONNECTION step uses: "could," "may," "potentially,"
+  "might," "creates a risk," "could expose," "if X then"
+- The gap applies to the company only because of their
+  industry category — not because of specific evidence
+  found about THIS company
+- The evidence found actually shows COMPLIANCE with the
+  requirement (contradictory evidence rule)
+
+The goal is 4-8 high-quality gaps that hit the founder
+personally — not 15 gaps where 11 are generic noise.
+Fewer gaps, higher pain, more replies.
 A scrape fails when: the source is inaccessible, JavaScript-rendered beyond your reach, returns a 403/block, or returns no usable content.
 
 When a scrape fails:
@@ -594,16 +661,48 @@ INT10_PHY_003 | trap: Code Classified as "Product" | severity: Nuclear | velocit
 INT10_PHY_004 | trap: The "Continuous Learning" Trap | severity: Nuclear | velocity: Immediate | legalAmmo: German Transposition Act | thePain: Continuous field-learning constitutes a "substantial modification" constantly resetting the 10-year liability limitation period | theFix: DOC_TOS §2.4 & §8.3 | ext: ["EXT.01"]
 INT10_PHY_005 | trap: Statutory Waivers Prohibited | severity: Nuclear | velocity: Immediate | legalAmmo: AI LEAD Act (S.2937) | thePain: Classifies AI systems as "products" under US federal law; strictly prohibits waivers for physical harm | theFix: DOC_TOS §2.2 & DOC_AGT §8.6 | ext: ["EXT.08"]
 
-═══════════════════════════════════════════════════════════════
-STEP 4: PRODUCT SIGNAL EXTRACTION
-═══════════════════════════════════════════════════════════════
-Extract specific named AI capabilities from scraped content. Rules:
-- Describe feature accurately from source — do not fabricate or embellish
+── PRODUCT SIGNAL EXTRACTION ────────────────────────────────
+Extract specific named AI capabilities from scraped content.
+
+SOURCES — FIRST-PARTY ONLY:
+Only cite the company's OWN pages as feature sources:
+- The company's own website (homepage, product pages, docs,
+  pricing, security pages, blog posts ON their domain)
+- The company's own GitHub repository
+- The company's own API documentation
+
+BANNED SOURCES for productSignal:
+- Third-party publications, news articles, or press coverage
+  about the company (TechCrunch, VentureBeat, Forbes,
+  Fundraise Insider, SiliconANGLE, The SaaS News, etc.)
+- Investor announcements on third-party sites
+- Forum posts, community discussions, third-party tutorials
+- Any source not controlled by the company itself
+
+If a feature is only described in third-party coverage and
+not on the company's own pages — do NOT include it.
+The company must have said it themselves.
+
+SINGLE SOURCE PER FEATURE:
+Each productSignal entry must cite ONE source only.
+If the feature appears on multiple company pages — cite
+the most authoritative one (homepage over blog, docs over
+forum). No "/" separators in feature source fields.
+
+Wrong: "Homepage / Blog Post about SDK generator"
+Wrong: "TechCrunch / Homepage"
+Wrong: "Fundraise Insider / Homepage"
+Correct: "Homepage"
+Correct: "API Documentation"
+Correct: "GitHub Repository"
+
+Rules:
+- Quote feature text accurately from source
 - Record exact source page for each feature
 - Map to the INT archetype trigger it satisfies
 - Map to the EXT surfaces it exposes
 - Maximum 8 features
-- Only features with direct legal exposure relevance — ignore marketing claims with no trigger mapping
+- Only features with direct legal exposure relevance
 - One entry per distinct capability — do not combine
 
 ═══════════════════════════════════════════════════════════════
