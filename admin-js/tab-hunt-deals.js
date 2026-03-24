@@ -1,42 +1,8 @@
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ LEX NOVA ADMIN: THE CRM ENGINE (tab-hunt-deals.js) V6.1 ══════
 // ════════════════════════════════════════════════════════════════════════
-// V6.1 CHANGES FROM V6.0 — Full Phase 1 Spec Applied:
-//
-// HUNT TAB RESTRUCTURED:
-//   · Queue view removed — Daily Digest lives in tab-calendar.js
-//   · HOT QUEUE pinned section (scanner completed / replied / unactioned)
-//   · Filter bar: 1 primary row + collapsible Advanced Filters toggle
-//   · Pipeline table: new cols Readiness | Intel | Scanner+Spear | CE Date
-//   · Pipeline table boxed (fixed height, internal scroll)
-//   · Unscheduled section below table (no ceDate set)
-//   · Batch performance removed from Hunt — renders in Command Center
-//
-// PROSPECT PANEL stripped to 3 sections:
-//   · Intel Brief: archetypes, EXT, lanes, verdict, viabilityFlags, gaps
-//   · Logistics: status, plan, identity, CE Date + FU display, notes
-//   · Comm Log: email log, manual entry
-//   · CUT: personalizedHook, emailSubject, websiteAnalysis, clipchampUrl,
-//           Engagement Assets, Case Study URL, Sequence Engine UI block
-//
-// ADD MODAL stripped to 4 fields: Founder, Company, Email, Batch
-// SHARED getFilteredSortedProspects() — filterProspects + copyICPTable
-//   both use same function, no drift risk
-// populateBatchFilter now always rebuilds — fixes mid-session new batch
-// onSnapshot calls window.refreshCalendar() for Calendar live-sync
-//
-// ALL V6.0 FIXES PRESERVED:
-//   getAllGaps: threatId||trap dedup (ag.id removed)
-//   getEvidenceBackedGaps: includes activeGaps (scanner-only leads)
-//   saveProspect: dead alreadyInBatch removed; CE date auto-calc added
-//   renderPPBody: thePain/theFix throughout; g.plain/g.doc/g.damage gone
-//   VELOCITY_DISPLAY + velDisplay() — registry values mapped
-//   viabilityFlags section in Intel Brief
-//   deleteProspect: doc key standardised to prospectId||id
-// ════════════════════════════════════════════════════════════════════════
 'use strict';
 
-// ── CONSTANTS ─────────────────────────────────────────────────────────
 var PLANS = {
     agentic_shield:'Agentic Shield', workplace_shield:'Workplace Shield',
     complete_stack:'Complete Stack', flagship:'Flagship'
@@ -47,7 +13,6 @@ var STEP_LABELS    = { C:'Cold Email', FU1:'Follow-Up 1', FU2:'Follow-Up 2', FU3
 var STATUSES       = ['QUEUED','SEQUENCE','ENGAGED','NEGOTIATING','CONVERTED','ARCHIVED','DEAD'];
 var VELOCITY_DISPLAY = { 'Immediate':'Active Now', 'High':'This Year', 'Upcoming':'Incoming', 'Pending':'Watch' };
 
-// ── STATE ──────────────────────────────────────────────────────────────
 window.allProspects    = [];
 window.allFlagship     = [];
 window.currentProspect = null;
@@ -56,7 +21,6 @@ var outreachListener   = null;
 var caseStudyUrl       = '';
 var huntBuilt          = false;
 
-// ── UTILITIES ──────────────────────────────────────────────────────────
 var $h = id => document.getElementById(id);
 function datePlusDays(n) { const d=new Date(); d.setDate(d.getDate()+n); return d.toISOString().split('T')[0]; }
 function todayStr()      { return new Date().toISOString().split('T')[0]; }
@@ -79,7 +43,6 @@ function statusBadgeHtml(s) {
     return `<span class="badge ${cls}">${s}</span>`;
 }
 
-// ── READINESS & INTEL STATE ────────────────────────────────────────────
 function getReadiness(p) {
     if (p.ceSent || (p.sequenceStep && p.sequenceStep !== 'C')) return 'ACTIVE';
     if (p.ceDate) return 'SCHEDULED';
@@ -89,12 +52,7 @@ function getReadiness(p) {
 
 function readinessBadge(p) {
     const r = getReadiness(p);
-    const map = {
-        'ACTIVE':       'b-seq-active',
-        'SCHEDULED':    'b-scheduled',
-        'INTEL READY':  'b-intel-ready',
-        'UNVERIFIED':   'b-unverified'
-    };
+    const map = { 'ACTIVE':'b-seq-active', 'SCHEDULED':'b-scheduled', 'INTEL READY':'b-intel-ready', 'UNVERIFIED':'b-unverified' };
     return `<span class="badge ${map[r]||'b-unverified'}" style="font-size:8px">${r}</span>`;
 }
 
@@ -126,8 +84,6 @@ function ceDateCell(p) {
     return `<span style="${style};font-size:10px;">${lbl}</span>`;
 }
 
-// ── GAP HELPERS ────────────────────────────────────────────────────────
-// FIXED V6.0: dedup uses threatId||trap only (ag.id removed)
 function getAllGaps(p) {
     const active   = p.activeGaps  || [];
     const forensic = p.forensicGaps|| [];
@@ -142,7 +98,6 @@ function getAllGaps(p) {
     return merged;
 }
 
-// FIXED V6.0: includes activeGaps (scanner confessions) — Spear works without Hunter
 function getEvidenceBackedGaps(p) {
     const fq = (p.forensicGaps||[]).filter(g =>
         ['NUCLEAR','CRITICAL'].includes((g.severity||'').toUpperCase()) &&
@@ -173,9 +128,6 @@ function getActionText(p) {
     }
 }
 
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ HUNT TAB HTML SCAFFOLD ════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════════════
 function buildHuntTabHTML() {
     if (huntBuilt) return;
     const wrap = $h('tab-hunt');
@@ -183,7 +135,6 @@ function buildHuntTabHTML() {
     huntBuilt = true;
 
     wrap.innerHTML = `
-    <!-- ── HOT QUEUE ─────────────────────────────────────────── -->
     <div id="hunt-hot-queue" class="hot-queue hidden" style="margin-bottom:16px;">
         <div class="hot-queue-header">
             <div style="display:flex;align-items:center;gap:8px;">
@@ -195,9 +146,7 @@ function buildHuntTabHTML() {
         <div id="hq-rows"></div>
     </div>
 
-    <!-- ── FILTER BAR ────────────────────────────────────────── -->
     <div style="margin-bottom:16px;">
-        <!-- Primary row -->
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
             <input type="text" class="fi" placeholder="Search targets…" id="op-search"
                 oninput="if(typeof window.filterProspects==='function')window.filterProspects()"
@@ -222,7 +171,6 @@ function buildHuntTabHTML() {
             <button class="btn btn-primary" onclick="if(typeof window.openAddProspect==='function')window.openAddProspect()">+ Add Lead</button>
             <button class="btn btn-outline" onclick="window.copyICPTable()" style="border-color:var(--gold);color:var(--gold);">📋 Copy List</button>
         </div>
-        <!-- Advanced filters row (collapsed by default) -->
         <div id="adv-filters-inner" class="hidden adv-filters-inner">
             <select class="fi" id="op-gap" onchange="if(typeof window.filterProspects==='function')window.filterProspects()">
                 <option value="">Severity: All</option>
@@ -254,34 +202,22 @@ function buildHuntTabHTML() {
         </div>
     </div>
 
-    <!-- ── PIPELINE TABLE (boxed, internal scroll) ───────────── -->
     <div class="tbl-box" id="pipeline-box">
         <table>
             <thead>
                 <tr>
-                    <th>#</th>
-                    <th>Prospect</th>
-                    <th>Company</th>
-                    <th>Batch</th>
-                    <th>Readiness</th>
-                    <th>Status</th>
-                    <th>Intel</th>
-                    <th>Scanner + Spear</th>
-                    <th>CE Date</th>
-                    <th>Emails</th>
+                    <th>#</th><th>Prospect</th><th>Company</th><th>Batch</th>
+                    <th>Readiness</th><th>Status</th><th>Intel</th>
+                    <th>Scanner + Spear</th><th>CE Date</th><th>Emails</th>
                 </tr>
             </thead>
             <tbody id="op-tbody"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
         </table>
     </div>
 
-    <!-- ── UNSCHEDULED SECTION ───────────────────────────────── -->
     <div id="hunt-unscheduled" style="margin-top:20px;"></div>`;
 }
 
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ LOAD OUTREACH ═════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════════════
 window.loadOutreach = function() {
     const pa = $h('pageActions');
     if (pa) pa.innerHTML = '';
@@ -302,26 +238,20 @@ window.loadOutreach = function() {
     }, e => { console.error(e); if(window.toast) window.toast('Outreach sync failed','error'); });
 };
 
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ HOT QUEUE ═════════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════════════
 function renderHotQueue() {
     const wrap = $h('hunt-hot-queue');
     const rows = $h('hq-rows');
     const cnt  = $h('hq-count');
     if (!wrap || !rows) return;
-
     const hot = window.allProspects.filter(p => {
         if (['CONVERTED','DEAD','ARCHIVED'].includes(p.status)) return false;
         if (p.scannerCompleted && !['NEGOTIATING','CONVERTED'].includes(p.status)) return true;
         if (p.repliedAt && p.status === 'ENGAGED') return true;
         return false;
     });
-
     if (!hot.length) { wrap.classList.add('hidden'); return; }
     wrap.classList.remove('hidden');
     if (cnt) cnt.textContent = hot.length;
-
     rows.innerHTML = hot.map(p => {
         const fire  = p.scannerCompleted ? '🔥🔥 Scanner Completed — start NEG' : '🔥 Replied — set NEG-1 date';
         const diff  = p.nextActionDate ? daysDiff(p.nextActionDate) : null;
@@ -337,9 +267,6 @@ function renderHotQueue() {
     }).join('');
 }
 
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ COMMAND CENTER STATS ══════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════════════
 function populateCommandCenter() {
     let clicks=0, comps=0, paid=0, fuToday=0, fuOver=0, liPending=0;
     const today = todayStr();
@@ -372,8 +299,6 @@ function populateCommandCenter() {
     renderBatchPerformance();
 }
 
-// ── BATCH PERFORMANCE (renders into #cc-batches in Command Center) ──
-// FIXED V6.1: populateBatchFilter always rebuilds (no mid-session stale)
 window.populateBatchFilter = function() {
     const sel = $h('op-batch');
     if (!sel) return;
@@ -382,7 +307,7 @@ window.populateBatchFilter = function() {
     [...new Set(window.allProspects.map(p=>p.batchNumber).filter(Boolean))].sort().forEach(b => {
         const o=document.createElement('option'); o.value=b; o.textContent=b; sel.appendChild(o);
     });
-    if (cur) sel.value = cur; // restore selection if still valid
+    if (cur) sel.value = cur;
 };
 
 function renderBatchPerformance() {
@@ -418,11 +343,6 @@ function renderBatchPerformance() {
     tbodies.forEach(tb=>tb.innerHTML=html);
 }
 
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ SHARED FILTER + SORT ══════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════════════
-// Single function used by both filterProspects() and copyICPTable()
-// Eliminates the duplicate filter logic that caused drift in V5.8
 function getFilteredSortedProspects() {
     const s   = ($h('op-search')?.value  ||'').toLowerCase();
     const st  = $h('op-status')?.value   ||'';
@@ -471,15 +391,12 @@ window.filterProspects = function() {
 function renderPipeline(list) {
     const tbodies = document.querySelectorAll('#op-tbody');
     if (!tbodies.length) return;
-    const today    = todayStr();
     const filtered = list.filter(p=>p.status!=='DEAD');
-
     const html = !filtered.length
         ? '<tr><td colspan="10" class="loading">No prospects match the current filters</td></tr>'
         : filtered.map((p,i) => {
             const fire   = p.scannerCompleted?'🔥🔥':p.scannerClicked?'🔥':'';
             const nuclear= getAllGaps(p).some(g=>(g.severity||'').toUpperCase()==='NUCLEAR');
-            // Scanner+Spear cell — badge + inline copy button
             const scanBadge = p.scannerCompleted
                 ? `<span class="badge b-delivered" style="font-size:8px">Completed</span>`
                 : p.scannerClicked
@@ -488,7 +405,6 @@ function renderPipeline(list) {
             const spearBtn = `<button class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:9px;color:var(--gold);"
                 onclick="event.stopPropagation();window.copySpearReport('${window.esc(p.id)}')"
                 title="${p.scannerCompleted?'NEG Mode':'COLD Mode'} Spear">🎯</button>`;
-
             return `<tr onclick="window.openPP('${window.esc(p.id)}')">
                 <td class="dim" style="font-size:10px;text-align:center;">${i+1}</td>
                 <td>
@@ -508,7 +424,6 @@ function renderPipeline(list) {
     tbodies.forEach(tb=>tb.innerHTML=html);
 }
 
-// Unscheduled section — prospects with no CE date (below pipeline table)
 function renderUnscheduled() {
     const el = $h('hunt-unscheduled');
     if (!el) return;
@@ -530,9 +445,6 @@ function renderUnscheduled() {
     <div style="border:1px solid var(--border);">${rows}</div>`;
 }
 
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ DEALS KANBAN ══════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════════════
 window.renderDealsBoard = function() {
     const cols={1:[],2:[],3:[],4:[],5:[]};
     window.allProspects.forEach(p=>{
@@ -546,9 +458,9 @@ window.renderDealsBoard = function() {
     if (window.allFlagship) {
         window.allFlagship.forEach(f=>{
             if(f.status==='Lost') return;
-            if(f.status==='Won')         cols[5].push(f);
+            if(f.status==='Won')             cols[5].push(f);
             else if(f.status==='Identified') cols[1].push(f);
-            else                         cols[4].push(f);
+            else                             cols[4].push(f);
         });
     }
     const today = todayStr();
@@ -578,9 +490,6 @@ window.renderDealsBoard = function() {
     }
 };
 
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ INBOUND LEADS ═════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════════════
 window.loadLeads = function() {
     const tbodies = document.querySelectorAll('#l-tbody');
     tbodies.forEach(tb=>tb.innerHTML='<tr><td colspan="11" class="loading">Loading inbound leads…</td></tr>');
@@ -612,9 +521,6 @@ window.loadLeads = function() {
     });
 };
 
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ PROSPECT PANEL ════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════════════
 window.openPP = function(id) {
     const p = window.allProspects.find(x=>x.id===id);
     if (!p) return;
@@ -629,12 +535,6 @@ window.openPP = function(id) {
 
 window.closePP = function() { window.currentProspect=null; $h('prospectPanel')?.classList.remove('open'); };
 
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ PROSPECT PANEL BODY — 3 SECTIONS ══════════════════════════════
-// ════════════════════════════════════════════════════════════════════════
-// V6.1: Stripped to Intel Brief | Logistics | Comm Log
-// CUT: personalizedHook, emailSubject, websiteAnalysis, clipchampUrl,
-//      Engagement Assets, Case Study URL, Sequence Engine UI block
 function renderPPBody(p) {
     const body = $h('pp-body');
     if (!body) return;
@@ -642,8 +542,6 @@ function renderPPBody(p) {
     const allGaps  = getAllGaps(p);
     const sevColor = g => (g.severity||'').toUpperCase()==='NUCLEAR'?'#ef4444':'#f97316';
 
-    // ── SECTION 1: INTEL BRIEF ─────────────────────────────────────────
-    // Gap section
     let gapsHtml = '';
     if (allGaps.length) {
         const ks  = allGaps[0];
@@ -686,7 +584,6 @@ function renderPPBody(p) {
         gapsHtml=`<div class="empty" style="border:1px dashed var(--border);padding:14px;text-align:center;font-size:11px;">No gaps detected yet</div>`;
     }
 
-    // Viability flags
     let viabilityHtml='';
     const vf=p.viabilityFlags;
     if (vf) {
@@ -704,12 +601,10 @@ function renderPPBody(p) {
         </div>`;
     }
 
-    // Product signal — handles array (Hunter v6.1) or string (legacy)
     const ps = Array.isArray(p.productSignal)
         ? p.productSignal.map(f=>`• ${window.esc(f.feature||'—')}`).join('<br>')
         : window.esc(p.productSignal||'—');
 
-    // ── SECTION 2: LOGISTICS (CE Date + FU display) ─────────────────
     const fuDisplay = p.fu1Date ? `
     <div style="font-size:10px;color:var(--marble-dim);margin-top:6px;line-height:1.9;background:var(--surface2);border:1px solid var(--border);padding:8px;">
         <span style="color:var(--marble-faint);font-size:9px;text-transform:uppercase;letter-spacing:.1em;">Auto-calc FU dates</span><br>
@@ -719,7 +614,6 @@ function renderPPBody(p) {
         &nbsp;·&nbsp; FU4 <span style="color:var(--gold)">${fmtShort(p.fu4Date)}</span>
     </div>` : '';
 
-    // ── SECTION 3: COMM LOG ────────────────────────────────────────────
     const logRows = (p.emailLog||[]).slice().reverse().map(e=>
         `<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid rgba(197,160,89,.06);font-size:10px;flex-wrap:wrap;">
             <span style="color:var(--marble-faint);flex-shrink:0;width:76px">${window.esc(e.date||'—')}</span>
@@ -731,9 +625,7 @@ function renderPPBody(p) {
     const planSel   = Object.entries(PLANS).map(([k,v])=>`<option value="${k}" ${p.intendedPlan===k?'selected':''}>${v}</option>`).join('');
     const statusSel = STATUSES.map(s=>`<option value="${s}" ${p.status===s?'selected':''}>${s}</option>`).join('');
 
-    // ── FULL BODY ──────────────────────────────────────────────────────
     body.innerHTML = `
-    <!-- Top bar: scanner link + action buttons -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap;">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             <input type="text" class="fi" id="pp-scanner-url" readonly value="${window.esc(scanLink)}" style="font-size:10px;color:var(--gold);width:280px;background:var(--void);border-color:var(--gold-mid);">
@@ -746,14 +638,10 @@ function renderPPBody(p) {
         </div>
     </div>
 
-    <!-- Two-column layout -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;height:calc(100vh - 180px);overflow:hidden;">
-
-        <!-- LEFT: Intel Brief -->
         <div style="overflow-y:auto;padding-right:6px;display:flex;flex-direction:column;gap:12px;">
             <div class="card" style="padding:14px;">
                 <div style="font-size:9px;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:10px;">Intel Brief</div>
-
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
                     <div><label class="fl">INT Archetypes</label>
                         <div style="font-size:10px;color:var(--marble);">${window.esc((p.intArchetypes||[]).join(', ')||p.internalCategory||'—')}</div>
@@ -762,38 +650,29 @@ function renderPPBody(p) {
                         <div style="font-size:10px;color:#ef4444;font-weight:600">${window.esc((p.extExposures||[]).join(', ')||'—')}</div>
                     </div>
                 </div>
-
                 <div style="margin-bottom:8px;">
                     <label class="fl">Lanes</label>
                     <div style="font-size:10px;color:var(--gold);font-weight:600">${window.esc((p.lanes||[]).join(', ').toUpperCase()||'—')}</div>
                 </div>
-
                 <div style="margin-bottom:8px;">
                     <label class="fl">Verdict</label>
                     <div style="font-size:10px;color:${p.verdict==='GREEN LIGHT'?'#7ab88a':p.verdict==='RED LIGHT'?'#d47a7a':'var(--gold)'};">
                         ${window.esc(p.verdict||'—')}${p.verdictReason?' — '+window.esc(p.verdictReason):''}
                     </div>
                 </div>
-
                 <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);">
                     <label class="fl">Product Signal</label>
                     <div style="font-size:10px;color:var(--marble-dim);line-height:1.5;">${ps}</div>
                 </div>
-
                 ${viabilityHtml}
-
                 <div style="font-size:9px;color:var(--marble-dim);text-transform:uppercase;letter-spacing:.1em;margin:10px 0 8px;">${allGaps.length} Gap${allGaps.length!==1?'s':''} Detected</div>
                 ${gapsHtml}
             </div>
         </div>
 
-        <!-- RIGHT: Logistics + Comm Log -->
         <div style="overflow-y:auto;padding-right:6px;display:flex;flex-direction:column;gap:12px;">
-
-            <!-- Logistics -->
             <div class="card" style="padding:14px;">
                 <div style="font-size:9px;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:12px;">Logistics</div>
-
                 <div class="fi-row" style="margin-bottom:10px;">
                     <div class="fg" style="margin:0;"><label class="fl">Status</label>
                         <select class="fi" id="pp-status" style="border-color:var(--gold);color:var(--gold);font-weight:600;">${statusSel}</select>
@@ -802,30 +681,24 @@ function renderPPBody(p) {
                         <select class="fi" id="pp-plan">${planSel}</select>
                     </div>
                 </div>
-
                 <div class="fi-row" style="margin-bottom:8px;">
                     <div class="fg" style="margin:0;"><label class="fl">Founder</label><input type="text" class="fi" id="pp-name-edit" value="${window.esc(p.founderName||p.name||'')}"></div>
                     <div class="fg" style="margin:0;"><label class="fl">Company</label><input type="text" class="fi" id="pp-company-edit" value="${window.esc(p.company||'')}"></div>
                 </div>
-
                 <div class="fi-row" style="margin-bottom:8px;">
                     <div class="fg" style="margin:0;"><label class="fl">Email</label><input type="email" class="fi" id="pp-email-edit" value="${window.esc(p.email||'')}"></div>
                     <div class="fg" style="margin:0;"><label class="fl">LinkedIn</label><input type="text" class="fi" id="pp-linkedin-edit" value="${window.esc(p.linkedinUrl||'')}"></div>
                 </div>
-
                 <div class="fi-row" style="margin-bottom:8px;">
                     <div class="fg" style="margin:0;"><label class="fl">Funding</label>
                         <select class="fi" id="pp-funding-text">${['','Pre-seed','Seed','Series A','Series B+','Bootstrapped'].map(s=>`<option value="${s}" ${p.fundingStage===s?'selected':''}>${s||'—'}</option>`).join('')}</select>
                     </div>
                     <div class="fg" style="margin:0;"><label class="fl">Headcount</label><input type="text" class="fi" id="pp-headcount" value="${window.esc(p.headcount||'')}"></div>
                 </div>
-
                 <div class="fi-row" style="margin-bottom:8px;">
                     <div class="fg" style="margin:0;"><label class="fl">Batch</label><input type="text" class="fi" id="pp-batch-edit" value="${window.esc(p.batchNumber||'')}" placeholder="e.g. 03A"></div>
                     <div class="fg" style="margin:0;"><label class="fl">Geography</label><input type="text" class="fi" id="pp-geo-edit" value="${window.esc(p.registrationJurisdiction||p.geography||'')}"></div>
                 </div>
-
-                <!-- CE Date block -->
                 <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;margin-bottom:10px;">
                     <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px;">
                         <label class="fl" style="margin:0">CE Date</label>
@@ -834,22 +707,19 @@ function renderPPBody(p) {
                     <input type="date" class="fi" id="pp-ce-date" value="${p.ceDate||''}">
                     ${fuDisplay}
                 </div>
-
                 <div class="fg" style="margin-bottom:12px;"><label class="fl">Notes</label>
                     <textarea class="fi" id="pp-notes" rows="2">${window.esc(p.notes||'')}</textarea>
                 </div>
-
                 <button class="btn btn-primary btn-full" style="padding:12px;margin-bottom:8px;" onclick="window.saveProspect()">💾 Save Dossier</button>
                 <div style="display:flex;gap:8px;margin-bottom:12px;">
                     <button class="btn btn-outline" style="flex:1;padding:9px;border-color:#d4a850;color:#d4a850;" onclick="window.pivotToFlagship()">💎 Flagship</button>
-                    <button class="btn btn-outline" style="flex:1;padding:9px;border-color:#7ab88a;color:#7ab88a;"   onclick="window.archiveProspect()">📦 Archive</button>
+                    <button class="btn btn-outline" style="flex:1;padding:9px;border-color:#7ab88a;color:#7ab88a;" onclick="window.archiveProspect()">📦 Archive</button>
                 </div>
                 <div style="text-align:center;border-top:1px dashed rgba(138,58,58,.3);padding-top:10px;">
                     <button class="btn btn-danger btn-sm" onclick="window.deleteProspect('${window.esc(p.prospectId||p.id)}')">Permanently Delete</button>
                 </div>
             </div>
 
-            <!-- Comm Log -->
             <div class="card" style="padding:14px;">
                 <div style="font-size:9px;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:10px;">Comm Log (${p.emailsSent||0} emails)</div>
                 <div style="background:var(--void);border:1px solid var(--border);padding:8px;max-height:100px;overflow-y:auto;margin-bottom:10px;">${logRows}</div>
@@ -864,23 +734,19 @@ function renderPPBody(p) {
                     <button class="btn btn-outline" style="padding:6px 12px;font-size:9px;" onclick="window.logEmail()">+ Log</button>
                 </div>
             </div>
-
         </div>
     </div>`;
 }
 
-// CE Date recalc from panel — calls tab-calendar.js calSetCEDate
 window.ppRecalcFUDates = function() {
     const p  = window.currentProspect;
     if (!p) return;
     const cd = $h('pp-ce-date')?.value;
     if (!cd) { if(window.toast) window.toast('Set CE date first','error'); return; }
     if (typeof window.calSetCEDate === 'function') {
-        window.calSetCEDate(p.id, cd, false); // false = prompt if FU dates exist
+        window.calSetCEDate(p.id, cd, false);
     } else {
-        // Fallback: compute locally
-        const d = new Date(cd+'T00:00:00');
-        const add = (date, n) => { const x=new Date(date); x.setDate(x.getDate()+n); return x.toISOString().split('T')[0]; };
+        const add = (date, n) => { const x=new Date(date+'T00:00:00'); x.setDate(x.getDate()+n); return x.toISOString().split('T')[0]; };
         const fu1=add(cd,4), fu2=add(fu1,4), fu3=add(fu2,5), fu4=add(fu3,5);
         window.db.collection('prospects').doc(p.prospectId||p.id)
             .update({ ceDate:cd, fu1Date:fu1, fu2Date:fu2, fu3Date:fu3, fu4Date:fu4, nextActionDate:cd, updatedAt:nowTs() })
@@ -889,7 +755,6 @@ window.ppRecalcFUDates = function() {
     }
 };
 
-// Copy minimal Hunter payload — no panel open needed for Hunter workflow
 window.copyHunterPayload = async function(id) {
     const p = window.allProspects.find(x=>x.id===id);
     if (!p) return;
@@ -898,9 +763,6 @@ window.copyHunterPayload = async function(id) {
     catch { if(window.toast) window.toast('Copy failed','error'); }
 };
 
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ SEQUENCE ENGINE (utilities — Calendar drives UI) ══════════════
-// ════════════════════════════════════════════════════════════════════════
 window.advanceSequence = async function() {
     const p = window.currentProspect;
     if (!p) return;
@@ -949,9 +811,6 @@ window.logEmail = async function() {
     } catch(e) { if(window.toast) window.toast('Log failed','error'); }
 };
 
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ ARCHIVE / REVIVE / KEEP ═══════════════════════════════════════
-// ════════════════════════════════════════════════════════════════════════
 window.archiveProspect = async function() {
     if (!window.currentProspect) return;
     if (!confirm('Archive for next quarter?')) return;
@@ -999,17 +858,11 @@ window.keepArchived = async function(id) {
     } catch(e) { if(window.toast) window.toast('Update failed','error'); }
 };
 
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ SAVE PROSPECT ═════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════════════
-// FIXED V6.0: alreadyInBatch removed (was always false inside batchChanged)
-// V6.1: CE date saved; if changed and no FU dates yet, auto-calcs FU dates
 window.saveProspect = async function() {
     const p = window.currentProspect;
     if (!p) return;
     const newCE = $h('pp-ce-date')?.value || p.ceDate || '';
     const ceChanged = newCE && newCE !== (p.ceDate||'');
-
     const updates = {
         founderName:  $h('pp-name-edit')?.value?.trim()    ||'',
         company:      $h('pp-company-edit')?.value?.trim() ||'',
@@ -1025,8 +878,6 @@ window.saveProspect = async function() {
         ceDate:       newCE,
         updatedAt:    nowTs()
     };
-
-    // Auto-calc FU dates if CE changed and no FU dates exist yet
     if (ceChanged && !p.fu1Date && newCE) {
         const add=(d,n)=>{ const x=new Date(d+'T00:00:00'); x.setDate(x.getDate()+n); return x.toISOString().split('T')[0]; };
         updates.fu1Date = add(newCE,3);
@@ -1035,17 +886,14 @@ window.saveProspect = async function() {
         updates.fu4Date = add(updates.fu3Date,4);
         updates.nextActionDate = newCE;
     }
-
     const batchChanged = updates.batchNumber && updates.batchNumber !== (p.batchNumber||'');
     if (batchChanged && isBatchFull(updates.batchNumber)) {
         if(window.toast) window.toast(`Batch ${updates.batchNumber} is full (${BATCH_LIMIT}/${BATCH_LIMIT}).`,'error');
         return;
     }
-
     if (updates.status==='ENGAGED' && p.status!=='ENGAGED' && !p.repliedAt) {
         updates.repliedAt = nowTs();
     }
-
     const isConverting = updates.status==='CONVERTED' && p.status!=='CONVERTED';
     if (isConverting) {
         if (!confirm('Migrate to Factory?')) return;
@@ -1054,7 +902,6 @@ window.saveProspect = async function() {
         await window.db.collection('clients').doc(updates.email).set(clientData);
         if(window.toast) window.toast(`Migrated → ${clientId}`,'success');
     }
-
     try {
         await window.db.collection('prospects').doc(p.prospectId||p.id).set(updates,{merge:true});
         Object.assign(window.currentProspect,updates);
@@ -1066,7 +913,6 @@ window.saveProspect = async function() {
     } catch(e) { console.error(e); if(window.toast) window.toast('Save failed','error'); }
 };
 
-// FIXED V6.1: uses prospectId||id consistently (was id in V5.8, causing mismatch)
 window.deleteProspect = async function(docId) {
     if (!confirm('Permanently delete?')) return;
     try {
@@ -1076,9 +922,6 @@ window.deleteProspect = async function(docId) {
     } catch(e) { if(window.toast) window.toast('Delete failed','error'); }
 };
 
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ DOSSIER COPY ══════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════════════
 window.copyDossier = async function(id) {
     const p = window.allProspects.find(x=>x.id===id);
     if (!p) return;
@@ -1092,18 +935,15 @@ window.copyDossier = async function(id) {
             `  Fix:    ${g.theFix||g.doc||'—'}`
           ).join('\n\n')
         : 'No evidence-backed gaps detected';
-
     let scanSection='';
     if (p.scannerCompleted) {
         const top5=(p.activeGaps||[]).filter(g=>['NUCLEAR','CRITICAL'].includes((g.severity||'').toUpperCase())).slice(0,5)
             .map((g,i)=>`[${i+1}] ${g.severity} [${g.ext||'N/A'}] — ${g.trap||'—'}\n    Pain: ${g.thePain||g.plain||'—'}\n    Fix: ${g.theFix||g.doc||'—'}`).join('\n\n');
         scanSection=`\n\n[SCANNER INTELLIGENCE]\nScore: ${p.scannerScore||0}\nUnsure: ${p.unsureFlag?'YES':'No'}\nSurfaces: ${(p.trippedSurfaces||[]).join(', ')||'None'}\n\n${top5||'None'}`;
     }
-
     const psSig = Array.isArray(p.productSignal)
         ? p.productSignal.map(f=>`• "${f.feature||'—'}" [${f.triggersInt||'—'}] ${(f.exposesExt||[]).join(', ')}`).join('\n')
         : (p.productSignal||'—');
-
     const text =
 `[LEX NOVA FORENSIC DOSSIER — ${new Date().toLocaleDateString('en-GB')}]
 ID: ${p.prospectId||'—'}
@@ -1131,7 +971,6 @@ Status: ${p.status||'—'} | Step: ${p.sequenceStep||'C'} | Emails: ${p.emailsSe
 CE: ${p.ceDate||'—'} | FU1: ${p.fu1Date||'—'} | FU2: ${p.fu2Date||'—'} | FU3: ${p.fu3Date||'—'} | FU4: ${p.fu4Date||'—'}
 Plan: ${PLANS[p.intendedPlan]||p.intendedPlan||'—'}
 Scanner: ${p.scannerCompleted?'COMPLETED 🔥🔥':p.scannerClicked?'CLICKED 🔥':'Not started'}`;
-
     try {
         await navigator.clipboard.writeText(text);
         if(window.toast) window.toast('Dossier copied — '+backedGaps.length+' evidence-backed gaps');
@@ -1145,23 +984,20 @@ Scanner: ${p.scannerCompleted?'COMPLETED 🔥🔥':p.scannerClicked?'CLICKED �
 };
 
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ SPEAR REPORT COPY ═════════════════════════════════════════════
+// ═════════ SPEAR REPORT COPY — FIXED ════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 window.copySpearReport = async function(id) {
     const p = window.allProspects.find(x=>x.id===id);
     if (!p) return;
     const isNEG = !!p.scannerCompleted;
 
-    // ── CONSEQUENCE TIER ──────────────────────────────────────────────
-    // Exact mapping — must match Architect and Copywriter exactly
-    // Series C+ = CREDIBILITY, $750 slot suppressed in FU4
     function getConsequenceTier(fs) {
         if (!fs) return { tier:'MOMENTUM', rule:'Deal velocity language. $750 slot permitted in FU4.' };
         const f = fs.toLowerCase();
         if (f.includes('pre-seed')||f.includes('seed')||f.includes('bootstrap'))
-            return { tier:'SURVIVAL',    rule:'Existential language. Runway urgency. $750 slot permitted in FU4.' };
+            return { tier:'SURVIVAL', rule:'Existential language. Runway urgency. $750 slot permitted in FU4.' };
         if (f.includes('series a')||f.includes('series b'))
-            return { tier:'MOMENTUM',    rule:'Deal velocity language. $750 slot permitted in FU4.' };
+            return { tier:'MOMENTUM', rule:'Deal velocity language. $750 slot permitted in FU4.' };
         if (f.includes('series c')||f.includes('series d')||f.includes('series e')||f.includes('series f')||f.includes('late')||f.includes('public'))
             return { tier:'CREDIBILITY', rule:'Enterprise buyer rejection language. $750 SUPPRESSED — pure meet offer only in FU4.' };
         return { tier:'MOMENTUM', rule:'Deal velocity language. $750 slot permitted in FU4.' };
@@ -1173,49 +1009,29 @@ window.copySpearReport = async function(id) {
         return;
     }
 
-    // ── EXT HELPER ────────────────────────────────────────────────────
-    // Handles Hunter v6.2 array format AND legacy comma-string
     function getExtArray(g) {
         if (Array.isArray(g.ext)) return g.ext;
         if (typeof g.ext === 'string' && g.ext.trim()) return g.ext.split(',').map(e=>e.trim()).filter(Boolean);
         return [];
     }
 
-    // ── INT PREFIX EXTRACTION ─────────────────────────────────────────
-    // Derives INT.01 → INT.10 from threatId prefix
-    // UNI gaps return null — no archetype
     function getIntCode(threatId) {
         if (!threatId) return null;
         const m = threatId.match(/^INT(\d{2})/);
         if (!m) return null;
-        return `INT.${m[1]}`; // preserve raw match — "05" stays "05", matches Feature Map format
+        return `INT.${m[1]}`;
     }
 
-    // ── RAW PRODUCT SIGNAL ────────────────────────────────────────────
-    // Declared first — everything below depends on this
+    // ── DECLARE productSignalRaw FIRST — everything below depends on it ──
     const productSignalRaw = Array.isArray(p.productSignal) ? p.productSignal : [];
 
     // ── SOURCE VALIDATOR ──────────────────────────────────────────────
-    // Cleans productSignal sources before feature linking and report output.
-    // Replaces third-party publication sources with "Homepage" fallback.
-    // A source is valid if it looks like the company's own page.
-    // A source is invalid if it's a named third-party publication.
-    //
-    // APPROACH: whitelist valid source patterns rather than blacklisting
-    // specific publications — blacklists require constant maintenance.
-    // Valid = contains domain-agnostic page-type words the company controls.
-    // Invalid = proper noun publication names that are clearly not the company.
-
     const VALID_SOURCE_PATTERNS = [
         /homepage/i, /product/i, /blog/i, /docs/i, /documentation/i,
         /github/i, /pricing/i, /security/i, /api/i, /getting.started/i,
         /introduction/i, /features/i, /platform/i, /website/i,
-        /marketing/i, /youtube/i, /changelog/i, /about/i, /faq/i,
-        /trychroma/i, /stainless/i, /openai/i  // company own domains
+        /marketing/i, /youtube/i, /changelog/i, /about/i, /faq/i
     ];
-
-    // Known third-party publication patterns — catches the most common
-    // offenders without requiring an exhaustive list
     const THIRD_PARTY_PATTERNS = [
         /techcrunch/i, /venturebeat/i, /forbes/i, /wired/i,
         /fundraise.insider/i, /siliconangle/i, /saas.news/i,
@@ -1225,92 +1041,49 @@ window.copySpearReport = async function(id) {
         /aspiring.for.intelligence/i, /mlops/i,
         /ibm.*certificate/i, /udemy/i, /coursera/i
     ];
-
     function isValidSource(source) {
         if (!source || source === 'null' || source === '—') return false;
-        // If it matches a known third-party pattern — invalid
-        if (THIRD_PARTY_PATTERNS.some(p => p.test(source))) return false;
-        // If it matches a valid page-type pattern — valid
-        if (VALID_SOURCE_PATTERNS.some(p => p.test(source))) return true;
-        // Unknown source — default to invalid (safer than passing bad data)
+        if (THIRD_PARTY_PATTERNS.some(pt => pt.test(source))) return false;
+        if (VALID_SOURCE_PATTERNS.some(pt => pt.test(source))) return true;
         return false;
     }
-
-    // Sanitize productSignal sources before any downstream use.
-    // Features with invalid sources get source replaced with "Homepage"
-    // so they can still be linked by INT code — the feature itself is
-    // valid, only the source attribution was from a third party.
     const sanitizedProductSignal = productSignalRaw.map(f => {
-        if (!isValidSource(f.source)) {
-            return { ...f, source: 'Homepage', _sourceSanitized: true };
-        }
+        if (!isValidSource(f.source)) return { ...f, source:'Homepage', _sourceSanitized:true };
         return f;
     });
-    // Matches productSignal entries to gaps by INT code + EXT overlap scoring
-    //
-    // V6.2 FIX: Removed usedIntCodes set — old logic claimed INT code on
-    // first match, leaving every subsequent gap with the same INT code
-    // returning null. For Chroma all 7 INT gaps are INT.05 — only Gap 5
-    // was getting a feature, Gaps 6/9/10/11 all got null.
-    //
-    // New logic: for each gap, find all candidate features sharing the
-    // same INT code, then score by EXT overlap. The feature whose EXT
-    // codes best match the gap's EXT codes wins. Multiple gaps with the
-    // same INT code each independently find their best-match feature.
-    // A single feature can be cited by multiple gaps — that's correct
-    // because one product capability can trigger multiple legal surfaces.
-    const productSignalRaw = Array.isArray(p.productSignal) ? p.productSignal : [];
 
+    // ── FEATURE-TO-GAP LINKING ────────────────────────────────────────
     function findFeatureForGap(g) {
-        if (!productSignalRaw.length) return null;
+        if (!sanitizedProductSignal.length) return null;
         const intCode = getIntCode(g.threatId);
-        if (!intCode) return null; // UNI gap — no feature match possible
-
-        // All candidates sharing this INT code
-        const candidates = productSignalRaw.filter(f => f.triggersInt === intCode);
+        if (!intCode) return null;
+        const candidates = sanitizedProductSignal.filter(f => f.triggersInt === intCode);
         if (!candidates.length) return null;
-
-        // Score each candidate by EXT overlap with gap
         const gapExt = getExtArray(g);
         let best = null, bestScore = -1;
-
         candidates.forEach(f => {
             const fExt = Array.isArray(f.exposesExt) ? f.exposesExt : [];
             const overlap = gapExt.filter(e => fExt.includes(e)).length;
-            // Prefer higher overlap; tiebreak on feature string length
-            // (longer = more specific description)
-            if (
-                overlap > bestScore ||
-                (overlap === bestScore && best && (f.feature||'').length > (best.feature||'').length)
-            ) {
+            if (overlap > bestScore || (overlap === bestScore && best && (f.feature||'').length > (best.feature||'').length)) {
                 bestScore = overlap;
                 best = f;
             }
         });
-
-        // If no EXT overlap at all, fall back to first candidate rather
-        // than returning null — a same-INT feature is still relevant
         return best || candidates[0];
     }
 
     // ── GAP MATRIX ────────────────────────────────────────────────────
-    // Structured for Architect parsing — all fields pre-computed
-    // Architect reads this to populate JSON payload without derivation
     const gapMatrix = gapPool.map((g, i) => {
         const extArr  = getExtArray(g);
         const intCode = getIntCode(g.threatId);
         const feature = findFeatureForGap(g);
         const dual    = g.source === 'dual-verified' ? ' [DUAL-VERIFIED]' : '';
-
-        // Tier label — matches Architect tier-based source assignment rule
         const tierLabel = {
-            1: 'TIER-1 (Legal Document)',
-            2: 'TIER-2 (Product Page)',
-            3: 'TIER-3 (Observable Absence)'
+            1:'TIER-1 (Legal Document)',
+            2:'TIER-2 (Product Page)',
+            3:'TIER-3 (Observable Absence)'
         }[g.evidenceTier] || 'TIER-S (Scanner Confession)';
 
-        // Source pre-split — Architect reads these directly into JSON
-        // No splitting logic needed in Architect — values are ready
         let productSource, evidenceSource;
         if (g.evidenceTier === 1) {
             productSource  = 'null';
@@ -1322,23 +1095,14 @@ window.copySpearReport = async function(id) {
             productSource  = 'Website Footer / Homepage Copy';
             evidenceSource = 'null';
         } else {
-            // Scanner confession
             productSource  = 'null';
             evidenceSource = 'Scanner Confession';
         }
 
-        // Feature citation — ready for Architect to drop into JSON
-        // When Tier 1 gap has a feature: Product Source is null from the
-        // tier rule, but the Chisel sentence 1 still needs a source.
-        // Feature Source is output as a SEPARATE field so the Architect
-        // can use it as product_source in that case.
-        // Rule: if Product Source is null AND Feature to Cite is not null
-        //       → Architect uses Feature Source as product_source
         const featureBlock = feature
-            ? `Feature to Cite: "${feature.feature}"\nFeature Source:  ${feature.source || '—'}`
+            ? `Feature to Cite: "${feature.feature}"\nFeature Source:  ${feature.source || '—'}${feature._sourceSanitized?' [sanitized]':''}`
             : `Feature to Cite: null\nFeature Source:  null`;
 
-        // Explicit override hint for Architect when Tier 1 + feature conflict
         const sourceOverride = (feature && productSource === 'null')
             ? `\nSOURCE OVERRIDE: Product Source is null (Tier 1 rule) but Feature to Cite exists.\n  → Use Feature Source as product_source in JSON.\n  → Use Evidence Source as evidence_source in JSON.`
             : '';
@@ -1351,24 +1115,23 @@ window.copySpearReport = async function(id) {
             `INT Code:        ${intCode||'null (Universal Gap)'}`,
             `EXT Codes:       ${extArr.join(', ')||'—'}`,
             `Name:            ${g.trap||'—'}`,
-            `Velocity:        ${g.velocity||'—'}`,    // RAW — Immediate/High/Upcoming only
+            `Velocity:        ${g.velocity||'—'}`,
             `Pain:            ${g.thePain||g.plain||'—'}`,
             `Legal Ammo:      ${g.legalAmmo||'—'}`,
             `Fix:             ${g.theFix||g.doc||'—'}`,
             `Product Source:  ${productSource}`,
             `Evidence Source: ${evidenceSource}`,
             featureBlock,
-            `Evidence Reason: ${g.evidence?.reason||'—'}`
-        ].join('\n');
+            `Evidence Reason: ${g.evidence?.reason||'—'}`,
+            sourceOverride
+        ].filter(Boolean).join('\n');
     }).join('\n\n');
 
-    // ── FEATURE MAP (full list — for Architect product intelligence) ──
-    // Uses sanitizedProductSignal — marks sanitized sources with [sanitized]
-    // so the human reviewer can see what was replaced
+    // ── FEATURE MAP ───────────────────────────────────────────────────
     let featuresSection = '';
     if (sanitizedProductSignal.length) {
         featuresSection = sanitizedProductSignal.map(f =>
-            `• [FEATURE]  "${f.feature}"\n  [INT]      ${f.triggersInt||'—'}\n  [EXT]      ${(f.exposesExt||[]).join(', ')||'—'}\n  [SOURCE]   ${f.source||'—'}${f._sourceSanitized ? ' [source sanitized — was third-party]' : ''}`
+            `• [FEATURE]  "${f.feature}"\n  [INT]      ${f.triggersInt||'—'}\n  [EXT]      ${(f.exposesExt||[]).join(', ')||'—'}\n  [SOURCE]   ${f.source||'—'}${f._sourceSanitized?' [sanitized]':''}`
         ).join('\n\n');
     } else if (typeof p.productSignal === 'string' && p.productSignal.trim()) {
         featuresSection = p.productSignal;
@@ -1376,37 +1139,25 @@ window.copySpearReport = async function(id) {
         featuresSection = '• [No product signal — run Hunter v6.2]';
     }
 
-    // ── NEG MODE — SCANNER INTELLIGENCE ──────────────────────────────
-    // Architect note instructs Pro to promote dual-confirmed gaps
+    // ── NEG MODE ──────────────────────────────────────────────────────
     let scanSection = '';
     if (isNEG) {
         const pw = { Uncapped:4, High:3, Medium:2, Low:1 };
         const top3 = [...(p.vaultInputs||[])]
             .sort((a,b) => (pw[b.penalty]||0) - (pw[a.penalty]||0))
             .slice(0,3)
-            .map((v, i) => [
-                `[CONFESSION ${i+1}]`,
-                `Penalty:  ${v.penalty||'—'}`,
-                `Question: ${v.question||'—'}`,
-                `Answer:   ${v.answer||'—'}`
-            ].join('\n'))
+            .map((v, i) => `[CONFESSION ${i+1}]\nPenalty:  ${v.penalty||'—'}\nQuestion: ${v.question||'—'}\nAnswer:   ${v.answer||'—'}`)
             .join('\n\n');
-
         scanSection = `
 
 ═══════════════════════════════════════
 [SCANNER INTELLIGENCE — NEG MODE]
 ═══════════════════════════════════════
 ARCHITECT NOTE: Promote any gap whose surface is directly confirmed by
-a confession below to PRIORITY 0 — above all Tier 1 gaps. A gap is
-confirmed when the confession Answer describes behavior that satisfies
-that gap's trigger condition. Use the confession text as feature_to_cite
-in NEG mode where available — it is stronger than Hunter product page
-evidence. trigger_reason must reference BOTH Hunter evidence AND
-scanner confirmation when both exist.
+a confession below to PRIORITY 0 — above all Tier 1 gaps.
 
 Scanner Score: ${p.scannerScore||0}
-Unsure Flags:  ${p.unsureFlag ? 'YES — treat as additional unverified surfaces' : 'No'}
+Unsure Flags:  ${p.unsureFlag ? 'YES' : 'No'}
 EXT Surfaces Tripped: ${(p.trippedSurfaces||[]).join(', ')||'None'}
 
 TOP CONFESSIONS:
@@ -1415,7 +1166,6 @@ ${top3||'None recorded'}`;
 
     const { tier, rule } = getConsequenceTier(p.fundingStage);
 
-    // ── FULL REPORT ───────────────────────────────────────────────────
     const report =
 `═══════════════════════════════════════
 [LEX NOVA SPEAR REPORT — ${new Date().toLocaleDateString('en-GB')}]
@@ -1451,10 +1201,6 @@ ${featuresSection}
 
 ═══════════════════════════════════════
 [GAP MATRIX — ${gapPool.length} gaps]
-Sort order: Tier 1 → Tier 2 → Tier 3 → Scanner
-Within each tier: INT before UNI | Nuclear before Critical
-Each gap has pre-computed INT Code, EXT Codes, Product/Evidence Source
-split, and Feature match — read directly into JSON payload.
 ═══════════════════════════════════════
 
 ${gapMatrix}${scanSection}
@@ -1469,10 +1215,10 @@ Plan:    ${p.intendedPlan||'agentic_shield'}`;
 
     try {
         await navigator.clipboard.writeText(report);
-        if(window.toast) window.toast(`${isNEG ? 'NEG ' : ''}Spear Report copied — ${gapPool.length} gaps · ${tier}`);
+        if(window.toast) window.toast(`${isNEG?'NEG ':''}Spear Report copied — ${gapPool.length} gaps · ${tier}`);
     } catch {
         const ta = document.createElement('textarea');
-        ta.value  = report;
+        ta.value = report;
         document.body.appendChild(ta);
         ta.focus(); ta.select();
         try   { document.execCommand('copy'); if(window.toast) window.toast('Spear Report copied'); }
@@ -1480,14 +1226,10 @@ Plan:    ${p.intendedPlan||'agentic_shield'}`;
         document.body.removeChild(ta);
     }
 };
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ ICP TABLE COPY ════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════════════
-// REFACTORED V6.1: uses getFilteredSortedProspects() — no drift from filterProspects
+
 window.copyICPTable = function() {
     const list = getFilteredSortedProspects().filter(p=>p.status!=='DEAD');
     if (!list.length) { if(window.toast) window.toast('No prospects in current view','error'); return; }
-
     let sliced = list, offset = 0;
     const range = prompt('Enter S.No. range (e.g. 1-25) or leave blank for ALL:','');
     if (range) {
@@ -1496,7 +1238,6 @@ window.copyICPTable = function() {
         else if(window.toast) window.toast('Invalid format. Copying all.');
     }
     if (!sliced.length) { if(window.toast) window.toast('No rows in that range','error'); return; }
-
     const header = `S. No.\tBatch\tFounder\tCompany\tRole\tScanner Link\tEmail`;
     const rows   = sliced.map((p,i)=>{
         const sno  = offset+i+1;
@@ -1504,27 +1245,23 @@ window.copyICPTable = function() {
         return `${sno}\t${p.batchNumber||'—'}\t${p.founderName||p.name||'—'}\t${p.company||'—'}\t${p.jobTitle||'—'}\t${link}\t${p.email||'—'}`;
     }).join('\n');
     const text = `${header}\n${rows}`;
-
     navigator.clipboard.writeText(text)
         .then(()=>{ if(window.toast) window.toast(`Copied rows ${offset+1}–${offset+sliced.length}`); })
         .catch(()=>{
             const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta);
             ta.focus(); ta.select();
-            try { document.execCommand('copy'); if(window.toast) window.toast(`Copied`); }
+            try { document.execCommand('copy'); if(window.toast) window.toast('Copied'); }
             catch { if(window.toast) window.toast('Copy failed','error'); }
             document.body.removeChild(ta);
         });
 };
 
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ PIVOT TO FLAGSHIP ═════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════════════
 window.pivotToFlagship = async function() {
     if (!window.currentProspect) return;
     if (!confirm('Pivot to Flagship pipeline?')) return;
     const p    = window.currentProspect;
     const data = {
-        founderName:  p.founderName||p.name||'', email: p.email||'', company: p.company||'',
+        founderName: p.founderName||p.name||'', email: p.email||'', company: p.company||'',
         preCallNotes: `Pivoted from pipeline.\nTop gap: ${getAllGaps(p)[0]?.trap||'N/A'}`,
         status:'Identified', addedAt:nowTs(), updatedAt:nowTs()
     };
@@ -1537,9 +1274,6 @@ window.pivotToFlagship = async function() {
     } catch(e) { console.error(e); if(window.toast) window.toast('Pivot failed','error'); }
 };
 
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ LEAD CONVERSION ═══════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════════════
 window.convertLead = async function(leadId) {
     if (!confirm('Convert to Pipeline Prospect?')) return;
     try {
@@ -1551,7 +1285,7 @@ window.convertLead = async function(leadId) {
         if(isBatchFull(batch)){
             const letters='IJKLMNOP';
             for(let i=1;i<letters.length;i++){const t=`${month}${letters[i]}`;if(!isBatchFull(t)){batch=t;break;}}
-            if(isBatchFull(batch)){if(window.toast)window.toast('All inbound batches full. Create new batch manually.','error');return;}
+            if(isBatchFull(batch)){if(window.toast)window.toast('All inbound batches full.','error');return;}
         }
         const pid=await window.genProspectId(batch);
         const data={
@@ -1573,9 +1307,6 @@ window.convertLead = async function(leadId) {
     } catch(e){console.error(e);if(window.toast)window.toast('Conversion failed','error');}
 };
 
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ ADD PROSPECT (stripped to 4 fields) ═══════════════════════════
-// ════════════════════════════════════════════════════════════════════════
 window.openAddProspect = function() {
     const month = String(new Date().getMonth()+1).padStart(2,'0');
     const defBatch = `${month}A`;
@@ -1634,9 +1365,6 @@ window.genProspectId = async function(batchCode) {
     } catch { return `LN-P-AI-26-01A-001`; }
 };
 
-// ════════════════════════════════════════════════════════════════════════
-// ═════════ FLAGSHIP CRM ══════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════════════
 window.loadFlagship = async function() {
     const pa=$h('pageActions');
     if(pa) pa.innerHTML=`<button class="btn btn-primary" onclick="window.openAddFlagship()">+ Add Flagship</button>`;
