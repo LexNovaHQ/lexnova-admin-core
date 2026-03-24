@@ -1191,7 +1191,57 @@ window.copySpearReport = async function(id) {
         return `INT.${m[1]}`; // preserve raw match — "05" stays "05", matches Feature Map format
     }
 
-    // ── FEATURE-TO-GAP LINKING ────────────────────────────────────────
+    // ── SOURCE VALIDATOR ──────────────────────────────────────────────
+    // Cleans productSignal sources before feature linking and report output.
+    // Replaces third-party publication sources with "Homepage" fallback.
+    // A source is valid if it looks like the company's own page.
+    // A source is invalid if it's a named third-party publication.
+    //
+    // APPROACH: whitelist valid source patterns rather than blacklisting
+    // specific publications — blacklists require constant maintenance.
+    // Valid = contains domain-agnostic page-type words the company controls.
+    // Invalid = proper noun publication names that are clearly not the company.
+
+    const VALID_SOURCE_PATTERNS = [
+        /homepage/i, /product/i, /blog/i, /docs/i, /documentation/i,
+        /github/i, /pricing/i, /security/i, /api/i, /getting.started/i,
+        /introduction/i, /features/i, /platform/i, /website/i,
+        /marketing/i, /youtube/i, /changelog/i, /about/i, /faq/i,
+        /trychroma/i, /stainless/i, /openai/i  // company own domains
+    ];
+
+    // Known third-party publication patterns — catches the most common
+    // offenders without requiring an exhaustive list
+    const THIRD_PARTY_PATTERNS = [
+        /techcrunch/i, /venturebeat/i, /forbes/i, /wired/i,
+        /fundraise.insider/i, /siliconangle/i, /saas.news/i,
+        /medium\.com/i, /towards.dev/i, /substack/i,
+        /preqin/i, /crunchbase/i, /linkedin/i,
+        /codebasics/i, /cloudron/i, /paraform/i,
+        /aspiring.for.intelligence/i, /mlops/i,
+        /ibm.*certificate/i, /udemy/i, /coursera/i
+    ];
+
+    function isValidSource(source) {
+        if (!source || source === 'null' || source === '—') return false;
+        // If it matches a known third-party pattern — invalid
+        if (THIRD_PARTY_PATTERNS.some(p => p.test(source))) return false;
+        // If it matches a valid page-type pattern — valid
+        if (VALID_SOURCE_PATTERNS.some(p => p.test(source))) return true;
+        // Unknown source — default to invalid (safer than passing bad data)
+        return false;
+    }
+
+    // Sanitize productSignal sources before any downstream use.
+    // Features with invalid sources get source replaced with "Homepage"
+    // so they can still be linked by INT code — the feature itself is
+    // valid, only the source attribution was from a third party.
+    const sanitizedProductSignal = productSignalRaw.map(f => {
+        if (!isValidSource(f.source)) {
+            return { ...f, source: 'Homepage', _sourceSanitized: true };
+        }
+        return f;
+    });
     // Matches productSignal entries to gaps by INT code + EXT overlap scoring
     //
     // V6.2 FIX: Removed usedIntCodes set — old logic claimed INT code on
@@ -1309,10 +1359,12 @@ window.copySpearReport = async function(id) {
     }).join('\n\n');
 
     // ── FEATURE MAP (full list — for Architect product intelligence) ──
+    // Uses sanitizedProductSignal — marks sanitized sources with [sanitized]
+    // so the human reviewer can see what was replaced
     let featuresSection = '';
-    if (productSignalRaw.length) {
-        featuresSection = productSignalRaw.map(f =>
-            `• [FEATURE]  "${f.feature}"\n  [INT]      ${f.triggersInt||'—'}\n  [EXT]      ${(f.exposesExt||[]).join(', ')||'—'}\n  [SOURCE]   ${f.source||'—'}`
+    if (sanitizedProductSignal.length) {
+        featuresSection = sanitizedProductSignal.map(f =>
+            `• [FEATURE]  "${f.feature}"\n  [INT]      ${f.triggersInt||'—'}\n  [EXT]      ${(f.exposesExt||[]).join(', ')||'—'}\n  [SOURCE]   ${f.source||'—'}${f._sourceSanitized ? ' [source sanitized — was third-party]' : ''}`
         ).join('\n\n');
     } else if (typeof p.productSignal === 'string' && p.productSignal.trim()) {
         featuresSection = p.productSignal;
