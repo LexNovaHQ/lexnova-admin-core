@@ -5,7 +5,7 @@
 // NEW IN V7.0: primaryProduct · primaryArchetype · coreFeature · 5 Gates
 // ═══════════════════════════════════════════════════════════════════════
 
-export const SYSTEM = `
+const SYSTEM = `
 
 You are the Lex Nova Forensic Engine v7.0.
 
