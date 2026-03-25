@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Lex Nova Forensic Engine v6.0</title>
+  <title>Lex Nova Forensic Engine v7.0</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -37,6 +37,7 @@
     .tier-1 { background:rgba(34,197,94,0.15);  color:#22c55e; }
     .tier-2 { background:rgba(197,160,89,0.15); color:var(--gold); }
     .tier-3 { background:rgba(107,114,128,0.15);color:#9ca3af; }
+    .core-badge { display:inline-block; font-size:9px; font-weight:800; padding:2px 6px; border-radius:3px; background:rgba(197,160,89,0.15); color:var(--gold); border:1px solid rgba(197,160,89,0.3); margin-right:4px; margin-bottom:4px; letter-spacing:0.06em; }
   </style>
 </head>
 <body>
@@ -55,24 +56,57 @@
   const auth = firebase.auth();
   const db   = firebase.firestore();
 
-  // ── BATCH HELPERS ──
+  // ── HELPERS ──
   function getCurrentBatchMonth() { return String(new Date().getMonth()+1).padStart(2,'0'); }
-  function nowTs() { return new Date().toISOString(); }
 
   // ── SEVERITY / VERDICT COLORS ──
-  const sevColor  = s => ({NUCLEAR:'#ef4444',CRITICAL:'#f97316',HIGH:'#eab308'}[s]||'#888');
+  const sevColor  = s => ({NUCLEAR:'#ef4444',CRITICAL:'#f97316',HIGH:'#eab308'}[s?.toUpperCase()]||'#888');
   const vColor    = v => ({'GREEN LIGHT':'#22c55e',HOLD:'#eab308',SKIP:'#ef4444'}[v]||'#888');
   const vIcon     = v => ({'GREEN LIGHT':'🟢',HOLD:'🟡',SKIP:'🔴'}[v]||'⚪');
-  const tierLabel = t => ({'1':'LEGAL DOC','2':'PRODUCT PAGE','3':'INFERRED'}[String(t)]||'—');
+  const tierLabel = t => ({'1':'LEGAL DOC','2':'PRODUCT PAGE','3':'INFERRED','4':'CONFESSION'}[String(t)]||'—');
+
+  // ── EXT SURFACES: array or legacy string ──
+  const fmtExt = val => {
+    if (!val) return '—';
+    if (Array.isArray(val)) return val.join(', ');
+    return String(val);
+  };
+
+  // ── GAP NAME: gapName (V7) or trap (V6 legacy) ──
+  const gapName = g => g.gapName || g.trap || '—';
+
+  // ── EVIDENCE BLOCK: V7 structured or V6 legacy ──
+  const fmtEvidence = g => {
+    if (g.evidence?.found) {
+      return (
+        <div style={{background:'#050505',border:'1px solid #1a1a1a',padding:'6px 8px',borderRadius:3,marginTop:4}}>
+          <div style={{color:'var(--gold)',fontSize:9,fontWeight:700,marginBottom:3}}>FOUND</div>
+          <div style={{color:'#ccc',fontSize:9,marginBottom:4}}>{g.evidence.found}</div>
+          {g.evidence.trigger && <><div style={{color:'var(--gold)',fontSize:9,fontWeight:700,marginBottom:2}}>TRIGGER</div><div style={{color:'#ccc',fontSize:9,marginBottom:4}}>{g.evidence.trigger}</div></>}
+          {g.evidence.connection && <><div style={{color:'var(--gold)',fontSize:9,fontWeight:700,marginBottom:2}}>CONNECTION</div><div style={{color:'#ccc',fontSize:9}}>{g.evidence.connection}</div></>}
+        </div>
+      );
+    }
+    // V6 legacy fallback
+    if (g.evidence?.source || g.evidence?.reason) {
+      return (
+        <div style={{background:'#050505',border:'1px solid #1a1a1a',padding:'6px 8px',borderRadius:3,marginTop:4}}>
+          <div style={{color:'var(--gold)',fontSize:9,marginBottom:2}}>EVIDENCE SOURCE: {g.evidence?.source}</div>
+          <div style={{color:'#ccc',fontSize:9}}>{g.evidence?.reason}</div>
+        </div>
+      );
+    }
+    return null;
+  };
 
   // ════════════════════════════════════════════════════════════════════════
   // ═════════ ROOT APP ══════════════════════════════════════════════════════
   // ════════════════════════════════════════════════════════════════════════
   function App() {
-    const [user,       setUser]       = useState(null);
-    const [authReady,  setAuthReady]  = useState(false);
-    const [authError,  setAuthError]  = useState('');
-    const [creds,      setCreds]      = useState({ email:'', password:'' });
+    const [user,      setUser]      = useState(null);
+    const [authReady, setAuthReady] = useState(false);
+    const [authError, setAuthError] = useState('');
+    const [creds,     setCreds]     = useState({ email:'', password:'' });
 
     useEffect(() => {
       return auth.onAuthStateChanged(async u => {
@@ -81,7 +115,6 @@
             const snap = await db.collection('admins').doc(u.email).get();
             if (snap.exists) {
               const d = snap.data();
-              // ── ACCESS GATE: super_admin OR hunterAccess: true ──
               if (d.role === 'super_admin' || d.hunterAccess === true) {
                 setUser({ ...u, adminData: d });
               } else {
@@ -96,9 +129,7 @@
             await auth.signOut();
             setAuthError('Auth check failed.');
           }
-        } else {
-          setUser(null);
-        }
+        } else { setUser(null); }
         setAuthReady(true);
       });
     }, []);
@@ -119,7 +150,7 @@
       <div style={{display:'flex',height:'100vh',alignItems:'center',justifyContent:'center'}}>
         <div style={{background:'#0c0c0c',padding:40,border:'1px solid var(--gold)',width:340,borderRadius:6}}>
           <div style={{color:'var(--gold)',fontSize:9,fontWeight:700,letterSpacing:'0.18em',textTransform:'uppercase',marginBottom:6}}>LEX NOVA HQ</div>
-          <h2 style={{color:'#fff',margin:'0 0 6px 0',fontFamily:'Cormorant Garamond,serif',fontSize:22}}>Forensic Engine v6.0</h2>
+          <h2 style={{color:'#fff',margin:'0 0 6px 0',fontFamily:'Cormorant Garamond,serif',fontSize:22}}>Forensic Engine v7.0</h2>
           <div style={{color:'#555',fontSize:10,marginBottom:24}}>Hunter clearance required</div>
           {authError && <div style={{color:'#f87171',fontSize:11,marginBottom:14,background:'rgba(239,68,68,0.08)',padding:'8px 10px',borderRadius:4}}>{authError}</div>}
           <input type="email" placeholder="Admin email" style={{width:'100%',background:'#080808',border:'1px solid #252525',borderRadius:4,padding:'9px 11px',color:'var(--marble)',fontSize:12,outline:'none',marginBottom:10}}
@@ -155,7 +186,7 @@
     const [inp, setInp] = useState({
       companyName:'', website:'', productDesc:'', termsPage:'',
       founderName:'', founderTitle:'', email:'', linkedinUrl:'',
-      regJurisdiction:'', serviceJurisdictions:''
+      regJurisdiction:'', serviceJurisdictions:'', fundingStage:''
     });
     const upd = (k,v) => setInp(p=>({...p,[k]:v}));
 
@@ -163,8 +194,8 @@
 
     // ── RUN AUDIT ──
     const runAudit = async () => {
-      if (!apiKey)                           { setError('Gemini API key required.'); return; }
-      if (!inp.companyName && !inp.website)  { setError('Company name or website required.'); return; }
+      if (!apiKey)                          { setError('Gemini API key required.'); return; }
+      if (!inp.companyName && !inp.website) { setError('Company name or website required.'); return; }
       setLoading(true); setError(''); setResult(null); setPushMsg('');
       setStatus('Initializing agentic scrape...');
 
@@ -180,7 +211,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body: JSON.stringify({
-            systemInstruction: { parts:[{ text: SYSTEM }] },
+            systemInstruction: { parts:[{ text: window.SYSTEM }] },
             contents: [{ role:'user', parts:[{ text: msg }] }],
             tools: [{ googleSearch:{} }],
             generationConfig: { temperature:0.1 },
@@ -207,15 +238,16 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
         if (!match) throw new Error('JSON parse error — no valid JSON object found in response.');
         const parsed = JSON.parse(match[0]);
 
-        // Auto-fill identity fields from agentic findings
+        // Auto-fill identity fields — V7.0 field names
         setInp(p => ({
           ...p,
-          founderName:        parsed.founderName        || p.founderName,
-          founderTitle:       parsed.founderTitle       || p.founderTitle,
-          email:              parsed.founderEmail       || p.email,
-          linkedinUrl:        parsed.linkedinUrl        || p.linkedinUrl,
-          regJurisdiction:    parsed.registrationJurisdiction || p.regJurisdiction,
-          serviceJurisdictions: parsed.serviceJurisdictions  || p.serviceJurisdictions,
+          founderName:          parsed.founderName          || p.founderName,
+          founderTitle:         parsed.founderTitle         || p.founderTitle,
+          email:                parsed.email                || parsed.founderEmail || p.email,
+          linkedinUrl:          parsed.linkedinUrl          || p.linkedinUrl,
+          regJurisdiction:      parsed.jurisdiction         || parsed.registrationJurisdiction || p.regJurisdiction,
+          serviceJurisdictions: parsed.serviceJurisdictions || p.serviceJurisdictions,
+          fundingStage:         parsed.fundingStage         || p.fundingStage,
         }));
 
         setResult(parsed);
@@ -263,10 +295,11 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
         const scannerLink = `https://lexnovahq.com/scanner.html?pid=${finalPid}`;
         const dbEmail     = targetEmail || legacyDoc?.data?.email || `pending-${Date.now()}@reveal.apollo`;
 
-        // Strip dead V3/V5 fields from legacy
+        // Strip dead V3/V5/V6 fields from legacy
         const clean = { ...(legacyDoc?.data||{}) };
-        ['internalCategory','externalCategory','lane','detectedGaps','aiNative','externalAI',
-         'topSpearGaps','personalizedHook','emailSubject','spearBody','spearSubject'].forEach(k => delete clean[k]);
+        ['detectedGaps','aiNative','externalAI','topSpearGaps','personalizedHook',
+         'emailSubject','spearBody','spearSubject','lanes','metaVerbs',
+         'intArchetypes','extExposures'].forEach(k => delete clean[k]);
 
         const prospectData = {
           ...clean,
@@ -277,27 +310,37 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
           website:                result.website    || inp.website          || clean.website      || '',
           jobTitle:               inp.founderTitle  || result.founderTitle  || clean.jobTitle     || '',
           linkedinUrl:            inp.linkedinUrl   || result.linkedinUrl   || clean.linkedinUrl  || '',
-          registrationJurisdiction: inp.regJurisdiction    || result.registrationJurisdiction || clean.registrationJurisdiction || '',
-          serviceJurisdictions:     inp.serviceJurisdictions|| result.serviceJurisdictions    || clean.serviceJurisdictions     || '',
+          jurisdiction:           inp.regJurisdiction || result.jurisdiction || clean.jurisdiction || '',
+          serviceJurisdictions:   inp.serviceJurisdictions || result.serviceJurisdictions || clean.serviceJurisdictions || '',
           batchNumber:            batchTag,
-          headcount:              result.headcount  || clean.headcount || '',
-          fundingStage:           result.fundingStage || clean.fundingStage || '',
-          lanes:                  result.lanes       || ['commercial'],
-          metaVerbs:              result.metaVerbs   || [],
-          intArchetypes:          result.intArchetypes|| [],
-          extExposures:           result.extExposures || [],
-          forensicGaps:           result.forensicGaps || [],
-          productSignal:          result.productSignal|| [],
-          viabilityFlags:         result.viabilityFlags|| {},
-          intendedPlan:           result.intendedPlan || 'agentic_shield',
-          verdict:                result.verdict     || 'HOLD',
-          verdictReason:          result.verdictReason|| '',
+          headcount:              result.headcount    || clean.headcount    || '',
+
+          // ── EDITABLE FUNDING — uses inp.fundingStage (verified by user in Section 3) ──
+          fundingStage:           inp.fundingStage    || result.fundingStage || clean.fundingStage || '',
+
+          // ── V7.0 PRODUCT INTELLIGENCE ──
+          primaryProduct:         result.primaryProduct        || '',
+          primaryArchetype:       result.primaryArchetype      || [],
+          coreFeature:            result.coreFeature           || {},
+          primaryArchetypeReason: result.primaryArchetypeReason|| '',
+
+          // ── FORENSIC DATA ──
+          internalCategory:       result.internalCategory      || '',
+          externalCategory:       result.externalCategory      || '',
+          featureMap:             result.featureMap            || [],
+          productSignal:          result.productSignal         || '',
+          forensicGaps:           result.forensicGaps          || [],
+          viabilityFlags:         result.viabilityFlags        || {},
+          intendedPlan:           result.intendedPlan          || 'agentic_shield',
+          verdict:                result.verdict               || 'HOLD',
+          verdictReason:          result.verdictReason         || '',
           scannerLink,
-          // ── Status always QUEUED on push ──
+
+          // ── STATUS always QUEUED on push ──
           status:                 clean.status === 'CONVERTED' ? 'CONVERTED' : 'QUEUED',
-          sequenceStep:           clean.sequenceStep || 'C',
-          emailsSent:             clean.emailsSent   || 0,
-          emailLog:               clean.emailLog     || [],
+          sequenceStep:           clean.sequenceStep  || 'C',
+          emailsSent:             clean.emailsSent    || 0,
+          emailLog:               clean.emailLog      || [],
           scannerClicked:         clean.scannerClicked || false,
           scannerCompleted:       false,
           addedAt:                clean.addedAt || firebase.firestore.FieldValue.serverTimestamp(),
@@ -317,7 +360,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
       }
     };
 
-    // ════════ UI ═════════════════════════════════════════════════════════
+    // ════════ STYLES ═════════════════════════════════════════════════════
     const S = {
       root:  { padding:'28px 20px', maxWidth:820, margin:'0 auto' },
       card:  { background:'#0c0c0c', border:'1px solid #1e1e1e', borderRadius:8, padding:'20px', marginBottom:14 },
@@ -331,14 +374,15 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
 
     return (
       <div style={S.root}>
-        {/* HEADER */}
+
+        {/* ── HEADER ── */}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:24}}>
           <div>
             <div style={{color:'var(--gold)',fontSize:9,fontWeight:700,letterSpacing:'0.18em',textTransform:'uppercase',marginBottom:6}}>LEX NOVA HQ · PROPRIETARY</div>
             <h1 style={{color:'#fff',fontSize:22,fontWeight:800,margin:'0 0 4px 0'}}>
-              Forensic Engine <span style={{background:'rgba(197,160,89,0.1)',color:'var(--gold)',fontSize:10,padding:'2px 8px',borderRadius:4,marginLeft:8,verticalAlign:'middle'}}>v6.0 Canon</span>
+              Forensic Engine <span style={{background:'rgba(197,160,89,0.1)',color:'var(--gold)',fontSize:10,padding:'2px 8px',borderRadius:4,marginLeft:8,verticalAlign:'middle'}}>v7.0</span>
             </h1>
-            <p style={{color:'#555',fontSize:11,margin:0}}>Registry Cross-Reference · Agentic Scrape · Evidence-Only Gaps</p>
+            <p style={{color:'#555',fontSize:11,margin:0}}>Registry Cross-Reference · Agentic Scrape · primaryProduct Intelligence</p>
           </div>
           <div style={{textAlign:'right'}}>
             <div style={{color:'#555',fontSize:10,marginBottom:4}}>{user.email}</div>
@@ -346,7 +390,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
           </div>
         </div>
 
-        {/* ENGINE SETUP */}
+        {/* ── ENGINE SETUP ── */}
         <div style={S.card}>
           <div style={S.row2}>
             <div style={S.field}>
@@ -356,7 +400,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
                 <option value="gemini-2.5-pro">2.5 Pro (High Accuracy)</option>
                 <option value="gemini-3.1-flash-preview">3.1 Flash Preview (Speed)</option>
                 <option value="gemini-3.1-pro-preview">3.1 Pro Preview (Deep Architect)</option>
-                <option value="gemini-3.1-flash-lite-preview">3.1 Flash-Lite (Volume Hunting)</option>
+                <option value="gemini-3.1-flash-lite-preview">3.1 Flash-Lite (Volume)</option>
               </select>
             </div>
             <div style={S.field}>
@@ -366,7 +410,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
           </div>
         </div>
 
-        {/* SECTION 1: RECON */}
+        {/* ── SECTION 1: RECON ── */}
         <div className="section-divider"><span>SECTION 1 — RECON</span></div>
         <div style={S.card}>
           <div style={S.row2}>
@@ -374,22 +418,30 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
             <div style={S.field}><label style={S.label}>Website URL (enables auto-scrape)</label><input value={inp.website} onChange={e=>upd('website',e.target.value)} style={S.input} placeholder="https://acmeai.com"/></div>
           </div>
           <div style={S.row2}>
-            <div style={S.field}><label style={S.label}>Product Context (override)</label><textarea rows={2} value={inp.productDesc} onChange={e=>upd('productDesc',e.target.value)} style={{...S.input,resize:'vertical'}} placeholder="Paste homepage/product copy or leave blank for auto-scrape"/></div>
-            <div style={S.field}><label style={S.label}>Legal Pages (override)</label><textarea rows={2} value={inp.termsPage} onChange={e=>upd('termsPage',e.target.value)} style={{...S.input,resize:'vertical'}} placeholder="Paste ToS/Privacy Policy or leave blank for auto-scrape"/></div>
+            <div style={S.field}>
+              <label style={S.label}>Product Context (override)</label>
+              <textarea rows={2} value={inp.productDesc} onChange={e=>upd('productDesc',e.target.value)} style={{...S.input,resize:'vertical'}} placeholder="Paste homepage/product copy or leave blank for auto-scrape"/>
+            </div>
+            <div style={S.field}>
+              <label style={S.label}>Legal Pages (override)</label>
+              <textarea rows={2} value={inp.termsPage} onChange={e=>upd('termsPage',e.target.value)} style={{...S.input,resize:'vertical'}} placeholder="Paste ToS/Privacy Policy or leave blank for auto-scrape"/>
+            </div>
           </div>
           <button onClick={runAudit} disabled={loading} className="btn" style={{width:'100%',padding:'14px 0',fontSize:11,marginTop:8}}>
             {loading ? `⚙  ${status||'RUNNING CANON AUDIT...'}` : 'DEPLOY FORENSIC ENGINE →'}
           </button>
         </div>
 
-        {/* ERROR */}
+        {/* ── ERROR ── */}
         {error && (
           <div style={{background:'#120808',border:'1px solid #2a0f0f',borderRadius:8,padding:'12px 16px',marginBottom:14,color:'#f87171',fontSize:12}}>
             ⚠ {error}
           </div>
         )}
 
-        {/* SECTION 2: DASHBOARD */}
+        {/* ══════════════════════════════════════════════════════════════
+            SECTION 2: DASHBOARD — only shown when result exists
+        ══════════════════════════════════════════════════════════════ */}
         {result && <>
           <div className="section-divider"><span>SECTION 2 — DASHBOARD</span></div>
 
@@ -401,20 +453,36 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
             <div style={{color:'#888',fontSize:12}}>{result.verdictReason}</div>
           </div>
 
-          {/* VIABILITY GATES */}
+          {/* VIABILITY GATES — handles both V7.0 (G1_productFit) and V6 legacy (gate1_productFit) */}
           <div style={S.card}>
             <div style={S.sHead}>VIABILITY GATES</div>
             {result.viabilityFlags && (() => {
               const f = result.viabilityFlags;
               const gates = [
-                { label:'Gate 1 — Product Fit',          pass: f.gate1_productFit,         note: typeof f.gate1_productFit === 'string' ? f.gate1_productFit : '' },
-                { label:'Gate 2 — Gap Severity',         pass: f.gate2_gapSeverity,        note: typeof f.gate2_gapSeverity === 'string' ? f.gate2_gapSeverity : '' },
-                { label:'Gate 3 — Contact Complete',     pass: f.gate3_contactComplete,    note: typeof f.gate3_contactComplete === 'string' ? f.gate3_contactComplete : '' },
-                { label:'Gate 4 — Funding',              pass: f.gate4_funding === true,   note: typeof f.gate4_funding === 'string' ? f.gate4_funding : '' },
+                {
+                  label: 'Gate 1 — Product Fit',
+                  pass:  f.G1_productFit  ?? f.gate1_productFit,
+                  note:  f.G1_reason      || (typeof f.gate1_productFit === 'string' ? f.gate1_productFit : '')
+                },
+                {
+                  label: 'Gate 2 — Gap Severity',
+                  pass:  f.G2_gapSeverity ?? f.gate2_gapSeverity,
+                  note:  f.G2_reason      || (typeof f.gate2_gapSeverity === 'string' ? f.gate2_gapSeverity : '')
+                },
+                {
+                  label: 'Gate 3 — Contact Complete',
+                  pass:  f.G3_contactComplete ?? f.gate3_contactComplete,
+                  note:  f.G3_reason          || (typeof f.gate3_contactComplete === 'string' ? f.gate3_contactComplete : '')
+                },
+                {
+                  label: 'Gate 4 — Funding Signal',
+                  pass:  f.G4_fundingSignal ?? (f.gate4_funding === true),
+                  note:  f.G4_reason        || (typeof f.gate4_funding === 'string' ? f.gate4_funding : '')
+                },
               ];
               return gates.map((g,i) => {
-                const cls = g.pass===true ? 'pass' : g.pass===false ? 'fail' : 'flag';
-                const icon = g.pass===true ? '✓' : g.pass===false ? '✗' : '⚠';
+                const cls  = g.pass===true ? 'pass' : g.pass===false ? 'fail' : 'flag';
+                const icon = g.pass===true ? '✓'    : g.pass===false ? '✗'    : '⚠';
                 const col  = g.pass===true ? '#22c55e' : g.pass===false ? '#ef4444' : '#eab308';
                 return (
                   <div key={i} className={`gate ${cls}`}>
@@ -435,52 +503,108 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
             )}
           </div>
 
-          {/* COMPANY PROFILE */}
+          {/* COMPANY PROFILE — V7.0 with new fields */}
           <div style={S.card}>
             <div style={S.sHead}>COMPANY PROFILE</div>
             <div style={S.row2}>
               <div>
-                {[['Company',result.company],['Funding',result.fundingStage||'Unknown'],['Headcount',result.headcount||'Unknown'],['Reg. Jurisdiction',result.registrationJurisdiction||'—'],['Service Jurisdictions',result.serviceJurisdictions||'—']].map(([k,v])=>(
-                  <div key={k} style={{marginBottom:8}}><span style={{color:'#555',fontSize:10,fontWeight:600,textTransform:'uppercase'}}>{k}: </span><span style={{color:'var(--marble)',fontSize:12}}>{v}</span></div>
+                {[
+                  ['Company',    result.company],
+                  ['Funding',    result.fundingStage||'Unknown'],
+                  ['Headcount',  result.headcount||'Unknown'],
+                  ['Jurisdiction', result.jurisdiction || result.registrationJurisdiction || '—'],
+                  ['Service Jurisdictions', result.serviceJurisdictions||'—'],
+                  ['Internal Category', result.internalCategory||'—'],
+                  ['External Category', result.externalCategory||'—'],
+                ].map(([k,v])=>(
+                  <div key={k} style={{marginBottom:8}}>
+                    <span style={{color:'#555',fontSize:10,fontWeight:600,textTransform:'uppercase'}}>{k}: </span>
+                    <span style={{color:'var(--marble)',fontSize:12}}>{v}</span>
+                  </div>
                 ))}
               </div>
               <div>
-                <div style={{marginBottom:8}}><span style={{color:'#555',fontSize:10,fontWeight:600,textTransform:'uppercase'}}>Lanes: </span><span style={{color:'var(--gold)',fontSize:12,fontWeight:700}}>{(result.lanes||[]).join(', ').toUpperCase()||'—'}</span></div>
-                <div style={{marginBottom:8}}><span style={{color:'#555',fontSize:10,fontWeight:600,textTransform:'uppercase'}}>Meta-Verbs: </span><span style={{color:'var(--gold)',fontSize:12,fontWeight:700}}>{(result.metaVerbs||[]).join(', ').toUpperCase()||'—'}</span></div>
-                <div style={{marginBottom:8}}><span style={{color:'#555',fontSize:10,fontWeight:600,textTransform:'uppercase'}}>INT Archetypes: </span><span style={{color:'var(--marble)',fontSize:12}}>{(result.intArchetypes||[]).join(', ')||'—'}</span></div>
-                <div style={{marginBottom:8}}><span style={{color:'#555',fontSize:10,fontWeight:600,textTransform:'uppercase'}}>EXT Surfaces: </span><span style={{color:'#ef4444',fontSize:12,fontWeight:700}}>{(result.extExposures||[]).join(', ')||'—'}</span></div>
-                <div style={{marginBottom:8}}><span style={{color:'#555',fontSize:10,fontWeight:600,textTransform:'uppercase'}}>Plan: </span><span style={{color:'var(--marble)',fontSize:12}}>{result.intendedPlan||'—'}</span></div>
+                {/* PRIMARY PRODUCT — new V7.0 */}
+                {result.primaryProduct && (
+                  <div style={{marginBottom:12,padding:'10px 12px',background:'rgba(197,160,89,0.05)',border:'1px solid rgba(197,160,89,0.2)',borderRadius:5}}>
+                    <div style={{color:'var(--gold)',fontSize:9,fontWeight:700,letterSpacing:'0.1em',marginBottom:5}}>PRIMARY PRODUCT</div>
+                    <div style={{color:'var(--marble)',fontSize:11,lineHeight:1.5}}>{result.primaryProduct}</div>
+                  </div>
+                )}
+                {/* PRIMARY ARCHETYPE ARRAY — new V7.0 */}
+                {result.primaryArchetype?.length > 0 && (
+                  <div style={{marginBottom:12}}>
+                    <div style={{color:'#555',fontSize:10,fontWeight:600,textTransform:'uppercase',marginBottom:6}}>Core Archetypes</div>
+                    <div>{result.primaryArchetype.map(a => <span key={a} className="core-badge">{a}</span>)}</div>
+                    {result.primaryArchetypeReason && (
+                      <div style={{color:'#666',fontSize:10,marginTop:5,lineHeight:1.4}}>{result.primaryArchetypeReason}</div>
+                    )}
+                  </div>
+                )}
+                {/* CORE FEATURES — new V7.0 */}
+                {result.coreFeature && Object.keys(result.coreFeature).length > 0 && (
+                  <div>
+                    <div style={{color:'#555',fontSize:10,fontWeight:600,textTransform:'uppercase',marginBottom:6}}>Core Features</div>
+                    {Object.entries(result.coreFeature).map(([intCode, desc]) => (
+                      <div key={intCode} style={{marginBottom:8,padding:'8px 10px',background:'#080808',border:'1px solid #1a1a1a',borderRadius:4}}>
+                        <div style={{color:'var(--gold)',fontSize:9,fontWeight:700,marginBottom:3}}>{intCode}</div>
+                        <div style={{color:'#bbb',fontSize:10,lineHeight:1.4}}>{desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* INTENDED PLAN */}
+                <div style={{marginTop:8}}>
+                  <span style={{color:'#555',fontSize:10,fontWeight:600,textTransform:'uppercase'}}>Plan: </span>
+                  <span style={{color:'var(--marble)',fontSize:12}}>{result.intendedPlan||'—'}</span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* PRODUCT SIGNAL */}
-          {result.productSignal?.length > 0 && (
-            <div style={S.card}>
-              <div style={S.sHead}>PRODUCT SIGNAL — FEATURE MAP ({result.productSignal.length} features)</div>
-              {result.productSignal.map((f,i) => (
-                <div key={i} style={{background:'#080808',border:'1px solid #1a1a1a',borderRadius:4,padding:'10px 12px',marginBottom:8}}>
-                  <div style={{fontSize:12,color:'var(--marble)',fontWeight:600,marginBottom:6}}>"{f.feature}"</div>
-                  <div style={{display:'flex',gap:16,flexWrap:'wrap',fontSize:10}}>
-                    <span style={{color:'#555'}}>SOURCE: <span style={{color:'var(--gold)'}}>{f.source}</span></span>
-                    <span style={{color:'#555'}}>INT: <span style={{color:'var(--marble)'}}>{f.triggersInt}</span></span>
-                    <span style={{color:'#555'}}>EXT: <span style={{color:'#ef4444'}}>{(f.exposesExt||[]).join(', ')}</span></span>
+          {/* FEATURE MAP — V7.0 uses featureMap[], V6 legacy used productSignal[] */}
+          {(() => {
+            const features = result.featureMap?.length > 0
+              ? result.featureMap
+              : result.productSignal?.length > 0 && Array.isArray(result.productSignal)
+                ? result.productSignal
+                : [];
+            if (!features.length) return null;
+            return (
+              <div style={S.card}>
+                <div style={S.sHead}>FEATURE MAP — {features.length} FEATURES</div>
+                {features.map((f,i) => (
+                  <div key={i} style={{background:'#080808',border:'1px solid #1a1a1a',borderRadius:4,padding:'10px 12px',marginBottom:8}}>
+                    <div style={{fontSize:12,color:'var(--marble)',fontWeight:600,marginBottom:6}}>"{f.feature}"</div>
+                    <div style={{display:'flex',gap:16,flexWrap:'wrap',fontSize:10}}>
+                      <span style={{color:'#555'}}>SOURCE: <span style={{color:'var(--gold)'}}>{f.source}</span></span>
+                      {/* V7.0: intCode | V6 legacy: triggersInt */}
+                      <span style={{color:'#555'}}>INT: <span style={{color:'var(--marble)'}}>{f.intCode || f.triggersInt || '—'}</span></span>
+                      {/* V6 legacy extExposures field — not in V7 featureMap but handle gracefully */}
+                      {(f.exposesExt||[]).length > 0 && (
+                        <span style={{color:'#555'}}>EXT: <span style={{color:'#ef4444'}}>{f.exposesExt.join(', ')}</span></span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            );
+          })()}
 
-          {/* FORENSIC GAPS */}
+          {/* FORENSIC GAPS — V7.0 field names with V6 legacy fallbacks */}
           <div style={S.card}>
-            <div style={S.sHead}><span style={{color:'#ef4444'}}>FORENSIC GAPS — {result.forensicGaps?.length||0} EVIDENCE-BACKED (RANKED)</span></div>
-            <div style={{maxHeight:480,overflowY:'auto',paddingRight:6}}>
+            <div style={S.sHead}>
+              <span style={{color:'#ef4444'}}>FORENSIC GAPS — {result.forensicGaps?.length||0} EVIDENCE-BACKED</span>
+            </div>
+            <div style={{maxHeight:520,overflowY:'auto',paddingRight:6}}>
               {result.forensicGaps?.map((g,i) => (
-                <div key={i} className={`gap-card ${g.severity.toLowerCase()}`}>
+                <div key={i} className={`gap-card ${(g.severity||'').toLowerCase()}`}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8,gap:8,flexWrap:'wrap'}}>
                     <div style={{flex:1}}>
-                      <span style={{color:'var(--marble)',fontSize:13,fontWeight:700}}>{g.trap}</span>
-                      <span style={{color:'#f97316',fontSize:9,marginLeft:8}}>[{g.ext}]</span>
+                      {/* V7: gapName | V6 legacy: trap */}
+                      <span style={{color:'var(--marble)',fontSize:13,fontWeight:700}}>{gapName(g)}</span>
+                      {/* V7: extSurfaces[] | V6 legacy: ext string */}
+                      <span style={{color:'#f97316',fontSize:9,marginLeft:8}}>[{fmtExt(g.extSurfaces || g.ext)}]</span>
                       <span style={{color:'#555',fontSize:9,marginLeft:8}}>{g.threatId}</span>
                     </div>
                     <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
@@ -488,22 +612,32 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
                       <span style={{color:sevColor(g.severity),fontSize:10,fontWeight:800,padding:'2px 6px',border:`1px solid ${sevColor(g.severity)}`,borderRadius:4}}>{g.severity}</span>
                     </div>
                   </div>
-                  <div style={{fontSize:10,color:'#999',display:'flex',flexDirection:'column',gap:4}}>
-                    <div><strong style={{color:'#bbb'}}>Legal Ammo:</strong> {g.legalAmmo}</div>
+                  <div style={{fontSize:10,color:'#999',display:'flex',flexDirection:'column',gap:5}}>
+                    {/* V7: intArchetype */}
+                    {g.intArchetype && <div><strong style={{color:'#bbb'}}>Archetype:</strong> {g.intArchetype}</div>}
                     <div><strong style={{color:'#bbb'}}>Velocity:</strong> {g.velocity}</div>
+                    {/* V7: feature_to_cite */}
+                    {g.feature_to_cite && (
+                      <div style={{padding:'6px 8px',background:'rgba(197,160,89,0.04)',border:'1px solid rgba(197,160,89,0.15)',borderRadius:3}}>
+                        <strong style={{color:'var(--gold)'}}>Feature: </strong>{g.feature_to_cite}
+                        {g.product_source && <span style={{color:'#555',marginLeft:6}}>({g.product_source})</span>}
+                      </div>
+                    )}
                     <div><strong style={{color:'#bbb'}}>Pain:</strong> {g.thePain}</div>
                     <div><strong style={{color:'#bbb'}}>Fix:</strong> {g.theFix}</div>
-                    <div style={{background:'#050505',border:'1px solid #1a1a1a',padding:'6px 8px',borderRadius:3,marginTop:4}}>
-                      <div style={{color:'var(--gold)',fontSize:9,marginBottom:2}}>EVIDENCE SOURCE: {g.evidence?.source}</div>
-                      <div style={{color:'#ccc',fontSize:9}}>{g.evidence?.reason}</div>
-                    </div>
+                    {/* V7: structured evidence | V6: legacy evidence */}
+                    {fmtEvidence(g)}
+                    {/* V6 legacy: legalAmmo */}
+                    {g.legalAmmo && <div style={{marginTop:3}}><strong style={{color:'#bbb'}}>Legal Ammo:</strong> {g.legalAmmo}</div>}
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* SECTION 3: TARGET & PUSH */}
+          {/* ══════════════════════════════════════════════════════════════
+              SECTION 3: TARGET & PUSH
+          ══════════════════════════════════════════════════════════════ */}
           <div className="section-divider"><span>SECTION 3 — TARGET & PUSH</span></div>
           <div style={S.card}>
             <div style={S.sHead}>IDENTITY (auto-filled — verify before push)</div>
@@ -514,8 +648,44 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
             </div>
             <div style={S.row3}>
               <div style={S.field}><label style={S.label}>LinkedIn URL</label><input value={inp.linkedinUrl} onChange={e=>upd('linkedinUrl',e.target.value)} style={S.input} placeholder="https://linkedin.com/in/..."/></div>
-              <div style={S.field}><label style={S.label}>Reg. Jurisdiction</label><input value={inp.regJurisdiction} onChange={e=>upd('regJurisdiction',e.target.value)} style={S.input} placeholder="US-DE, UK, IN..."/></div>
+              <div style={S.field}><label style={S.label}>Jurisdiction</label><input value={inp.regJurisdiction} onChange={e=>upd('regJurisdiction',e.target.value)} style={S.input} placeholder="US-DE, UK, EU..."/></div>
               <div style={S.field}><label style={S.label}>Service Jurisdictions</label><input value={inp.serviceJurisdictions} onChange={e=>upd('serviceJurisdictions',e.target.value)} style={S.input} placeholder="US, EU, Global..."/></div>
+            </div>
+
+            {/* ── FUNDING — EDITABLE BEFORE PUSH ── */}
+            <div style={{
+              background:'rgba(197,160,89,0.04)',
+              border:'1px solid rgba(197,160,89,0.2)',
+              borderRadius:6,
+              padding:'14px 16px',
+              marginBottom:16
+            }}>
+              <div style={{color:'var(--gold)',fontSize:10,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:10}}>
+                ⚠ Verify Before Push
+              </div>
+              <div style={S.row2}>
+                <div style={{margin:0}}>
+                  <label style={S.label}>Funding Stage *</label>
+                  <select
+                    value={inp.fundingStage}
+                    onChange={e=>upd('fundingStage',e.target.value)}
+                    style={{...S.input, borderColor: inp.fundingStage ? 'var(--green)' : 'var(--gold)', color: inp.fundingStage ? 'var(--marble)' : 'var(--gold)'}}
+                  >
+                    <option value="">— Select Funding Stage —</option>
+                    <option value="Pre-seed">Pre-seed</option>
+                    <option value="Seed">Seed</option>
+                    <option value="Series A">Series A</option>
+                    <option value="Series B+">Series B+</option>
+                    <option value="Bootstrapped">Bootstrapped</option>
+                  </select>
+                </div>
+                <div style={{margin:0}}>
+                  <label style={S.label}>Detected by Hunter</label>
+                  <div style={{padding:'9px 11px',background:'#050505',border:'1px solid #1a1a1a',borderRadius:5,fontSize:12,color:'#888'}}>
+                    {result.fundingStage || 'Not detected — must select manually'}
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div style={{...S.sHead, marginTop:14}}>CRM PUSH SETTINGS</div>
@@ -542,9 +712,16 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
               </div>
             </div>
 
-            <button onClick={pushToCRM} className="btn" style={{width:'100%',padding:'16px 0',fontSize:13}}>
-              PUSH TO COMMAND CENTER
+            <button
+              onClick={pushToCRM}
+              className="btn"
+              disabled={!inp.fundingStage}
+              style={{width:'100%',padding:'16px 0',fontSize:13}}
+              title={!inp.fundingStage ? 'Select funding stage before pushing' : ''}
+            >
+              {inp.fundingStage ? 'PUSH TO COMMAND CENTER' : '⚠ SELECT FUNDING STAGE TO ENABLE PUSH'}
             </button>
+
             {pushMsg && (
               <div style={{marginTop:10,padding:'10px 14px',borderRadius:4,fontSize:12,fontWeight:600,
                 background: pushMsg.startsWith('✓') ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
