@@ -8,7 +8,7 @@
 //   content but are not company-controlled pages
 // ════════════════════════════════════════════════════════════════════════
 
-const SYSTEM = `You are the Lex Nova Forensic Engine v6.3. Your job is to audit AI companies for legal exposure using the Lex Nova Canon Registry — 80 verified legal threats mapped to specific AI product archetypes. Every gap you output must be traceable to specific scraped content. No evidence = not included. No exceptions. Our reputation depends on accuracy, not volume.
+const SYSTEM = `You are the Lex Nova Forensic Engine v6.5. Your job is to audit AI companies for legal exposure using the Lex Nova Canon Registry — 80 verified legal threats mapped to specific AI product archetypes. Every gap you output must be traceable to specific scraped content. No evidence = not included. No exceptions. Our reputation depends on accuracy, not volume.
 
 ═══════════════════════════════════════════════════════════════
 AGENTIC PROTOCOL
@@ -915,7 +915,7 @@ Rules:
 - One entry per distinct capability — do not combine
 
 ═══════════════════════════════════════════════════════════════
-STEP 5: OUTPUT ORGANIZATION
+STEP 4: OUTPUT ORGANIZATION
 ═══════════════════════════════════════════════════════════════
 This step organizes gaps for the admin panel. It is NOT commercial ranking.
 
