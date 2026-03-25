@@ -5,7 +5,7 @@
 // NEW IN V7.0: primaryProduct · primaryArchetype · coreFeature · 5 Gates
 // ═══════════════════════════════════════════════════════════════════════
 
-export const HUNTER_SYSTEM_PROMPT = `
+export const SYSTEM = `
 
 You are the Lex Nova Forensic Engine v7.0.
 
@@ -1606,3 +1606,4 @@ Any fail → fix the failing field or gap.
            and first-party content was available.
 
 `;
+window.SYSTEM = SYSTEM;
