@@ -9,19 +9,16 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <!-- SYSTEM PROMPT — edit hunter-system.js only for registry/prompt changes -->
   <script src="hunter-system.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root { --gold:#C5A059; --void:#050505; --surf:#0c0c0c; --border:#1e1e1e; --marble:#e5e5e5; --red:#ef4444; --orange:#f97316; --yellow:#eab308; --green:#22c55e; }
-    * { box-sizing: border-box; }
+    * { box-sizing:border-box; }
     body { margin:0; background:var(--void); color:var(--marble); font-family:'Inter',sans-serif; overflow-x:hidden; }
     textarea,input,select { font-family:'Inter',sans-serif; }
     ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:var(--gold); border-radius:2px; }
     .btn { background:var(--gold); color:var(--void); font-weight:800; border:none; cursor:pointer; transition:all 0.2s; letter-spacing:0.08em; text-transform:uppercase; border-radius:4px; }
     .btn:hover:not(:disabled) { background:#e0b96b; }
-    .btn-outline { background:transparent; color:var(--gold); border:1px solid var(--gold); }
-    .btn-outline:hover:not(:disabled) { background:rgba(197,160,89,0.1); }
     .btn:disabled { opacity:0.5; cursor:not-allowed; }
     .gap-card { background:#080808; border:1px solid #252525; border-left:3px solid var(--gold); border-radius:6px; padding:14px; margin-bottom:10px; }
     .gap-card.nuclear  { border-left-color:var(--red);    background:rgba(239,68,68,0.03); }
@@ -37,6 +34,7 @@
     .tier-1 { background:rgba(34,197,94,0.15);  color:#22c55e; }
     .tier-2 { background:rgba(197,160,89,0.15); color:var(--gold); }
     .tier-3 { background:rgba(107,114,128,0.15);color:#9ca3af; }
+    .tier-4 { background:rgba(139,92,246,0.15); color:#a78bfa; }
     .core-badge { display:inline-block; font-size:9px; font-weight:800; padding:2px 6px; border-radius:3px; background:rgba(197,160,89,0.15); color:var(--gold); border:1px solid rgba(197,160,89,0.3); margin-right:4px; margin-bottom:4px; letter-spacing:0.06em; }
   </style>
 </head>
@@ -45,7 +43,6 @@
 <script type="text/babel">
   const { useState, useEffect } = React;
 
-  // ── FIREBASE ──
   const FB_CONFIG = {
     apiKey:"AIzaSyDO4s_W8_87XnsLnuAfyUqgsF8BgaHRYWA",
     authDomain:"lexnova-hq.firebaseapp.com",
@@ -56,52 +53,36 @@
   const auth = firebase.auth();
   const db   = firebase.firestore();
 
-  // ── HELPERS ──
   function getCurrentBatchMonth() { return String(new Date().getMonth()+1).padStart(2,'0'); }
 
-  // ── SEVERITY / VERDICT COLORS ──
   const sevColor  = s => ({NUCLEAR:'#ef4444',CRITICAL:'#f97316',HIGH:'#eab308'}[s?.toUpperCase()]||'#888');
   const vColor    = v => ({'GREEN LIGHT':'#22c55e',HOLD:'#eab308',SKIP:'#ef4444'}[v]||'#888');
   const vIcon     = v => ({'GREEN LIGHT':'🟢',HOLD:'🟡',SKIP:'🔴'}[v]||'⚪');
   const tierLabel = t => ({'1':'LEGAL DOC','2':'PRODUCT PAGE','3':'INFERRED','4':'CONFESSION'}[String(t)]||'—');
+  const fmtExt    = val => { if (!val) return '—'; if (Array.isArray(val)) return val.join(', '); return String(val); };
+  const gapName   = g => g.gapName || g.trap || '—';
 
-  // ── EXT SURFACES: array or legacy string ──
-  const fmtExt = val => {
-    if (!val) return '—';
-    if (Array.isArray(val)) return val.join(', ');
-    return String(val);
-  };
-
-  // ── GAP NAME: gapName (V7) or trap (V6 legacy) ──
-  const gapName = g => g.gapName || g.trap || '—';
-
-  // ── EVIDENCE BLOCK: V7 structured or V6 legacy ──
   const fmtEvidence = g => {
-    if (g.evidence?.found) {
-      return (
-        <div style={{background:'#050505',border:'1px solid #1a1a1a',padding:'6px 8px',borderRadius:3,marginTop:4}}>
-          <div style={{color:'var(--gold)',fontSize:9,fontWeight:700,marginBottom:3}}>FOUND</div>
-          <div style={{color:'#ccc',fontSize:9,marginBottom:4}}>{g.evidence.found}</div>
-          {g.evidence.trigger && <><div style={{color:'var(--gold)',fontSize:9,fontWeight:700,marginBottom:2}}>TRIGGER</div><div style={{color:'#ccc',fontSize:9,marginBottom:4}}>{g.evidence.trigger}</div></>}
-          {g.evidence.connection && <><div style={{color:'var(--gold)',fontSize:9,fontWeight:700,marginBottom:2}}>CONNECTION</div><div style={{color:'#ccc',fontSize:9}}>{g.evidence.connection}</div></>}
-        </div>
-      );
-    }
-    // V6 legacy fallback
-    if (g.evidence?.source || g.evidence?.reason) {
-      return (
-        <div style={{background:'#050505',border:'1px solid #1a1a1a',padding:'6px 8px',borderRadius:3,marginTop:4}}>
-          <div style={{color:'var(--gold)',fontSize:9,marginBottom:2}}>EVIDENCE SOURCE: {g.evidence?.source}</div>
-          <div style={{color:'#ccc',fontSize:9}}>{g.evidence?.reason}</div>
-        </div>
-      );
-    }
+    if (g.evidence?.found) return (
+      <div style={{background:'#050505',border:'1px solid #1a1a1a',padding:'6px 8px',borderRadius:3,marginTop:4}}>
+        <div style={{color:'var(--gold)',fontSize:9,fontWeight:700,marginBottom:3}}>FOUND</div>
+        <div style={{color:'#ccc',fontSize:9,marginBottom:4}}>{g.evidence.found}</div>
+        {g.evidence.trigger && <><div style={{color:'var(--gold)',fontSize:9,fontWeight:700,marginBottom:2}}>TRIGGER</div><div style={{color:'#ccc',fontSize:9,marginBottom:4}}>{g.evidence.trigger}</div></>}
+        {g.evidence.connection && <><div style={{color:'var(--gold)',fontSize:9,fontWeight:700,marginBottom:2}}>CONNECTION</div><div style={{color:'#ccc',fontSize:9}}>{g.evidence.connection}</div></>}
+      </div>
+    );
+    if (g.evidence?.source || g.evidence?.reason) return (
+      <div style={{background:'#050505',border:'1px solid #1a1a1a',padding:'6px 8px',borderRadius:3,marginTop:4}}>
+        <div style={{color:'var(--gold)',fontSize:9,marginBottom:2}}>EVIDENCE SOURCE: {g.evidence?.source}</div>
+        <div style={{color:'#ccc',fontSize:9}}>{g.evidence?.reason}</div>
+      </div>
+    );
     return null;
   };
 
-  // ════════════════════════════════════════════════════════════════════════
-  // ═════════ ROOT APP ══════════════════════════════════════════════════════
-  // ════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════
+  // ROOT APP
+  // ═══════════════════════════════════════════════════════════
   function App() {
     const [user,      setUser]      = useState(null);
     const [authReady, setAuthReady] = useState(false);
@@ -125,10 +106,7 @@
               await auth.signOut();
               setAuthError('Admin record not found.');
             }
-          } catch(e) {
-            await auth.signOut();
-            setAuthError('Auth check failed.');
-          }
+          } catch(e) { await auth.signOut(); setAuthError('Auth check failed.'); }
         } else { setUser(null); }
         setAuthReady(true);
       });
@@ -153,9 +131,11 @@
           <h2 style={{color:'#fff',margin:'0 0 6px 0',fontFamily:'Cormorant Garamond,serif',fontSize:22}}>Forensic Engine v7.0</h2>
           <div style={{color:'#555',fontSize:10,marginBottom:24}}>Hunter clearance required</div>
           {authError && <div style={{color:'#f87171',fontSize:11,marginBottom:14,background:'rgba(239,68,68,0.08)',padding:'8px 10px',borderRadius:4}}>{authError}</div>}
-          <input type="email" placeholder="Admin email" style={{width:'100%',background:'#080808',border:'1px solid #252525',borderRadius:4,padding:'9px 11px',color:'var(--marble)',fontSize:12,outline:'none',marginBottom:10}}
+          <input type="email" placeholder="Admin email"
+            style={{width:'100%',background:'#080808',border:'1px solid #252525',borderRadius:4,padding:'9px 11px',color:'var(--marble)',fontSize:12,outline:'none',marginBottom:10}}
             onChange={e=>setCreds(p=>({...p,email:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&login()} />
-          <input type="password" placeholder="Passcode" style={{width:'100%',background:'#080808',border:'1px solid #252525',borderRadius:4,padding:'9px 11px',color:'var(--marble)',fontSize:12,outline:'none',marginBottom:20}}
+          <input type="password" placeholder="Passcode"
+            style={{width:'100%',background:'#080808',border:'1px solid #252525',borderRadius:4,padding:'9px 11px',color:'var(--marble)',fontSize:12,outline:'none',marginBottom:20}}
             onChange={e=>setCreds(p=>({...p,password:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&login()} />
           <button onClick={login} className="btn" style={{width:'100%',padding:12,fontSize:11}}>Access Engine</button>
         </div>
@@ -165,9 +145,9 @@
     return <ForensicEngine user={user} />;
   }
 
-  // ════════════════════════════════════════════════════════════════════════
-  // ═════════ FORENSIC ENGINE ═══════════════════════════════════════════════
-  // ════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════
+  // FORENSIC ENGINE
+  // ═══════════════════════════════════════════════════════════
   function ForensicEngine({ user }) {
     const [apiKey,  setApiKey]  = useState(() => localStorage.getItem('lnApiKey')||'');
     const [model,   setModel]   = useState('gemini-2.5-flash');
@@ -177,12 +157,10 @@
     const [result,  setResult]  = useState(null);
     const [pushMsg, setPushMsg] = useState('');
 
-    // ── BATCH STATE ──
     const [batchMonth, setBatchMonth] = useState(getCurrentBatchMonth);
     const [batchAlpha, setBatchAlpha] = useState('A');
     const [pillar,     setPillar]     = useState('AI');
 
-    // ── RECON INPUTS ──
     const [inp, setInp] = useState({
       companyName:'', website:'', productDesc:'', termsPage:'',
       founderName:'', founderTitle:'', email:'', linkedinUrl:'',
@@ -192,10 +170,14 @@
 
     useEffect(() => { if(apiKey) localStorage.setItem('lnApiKey', apiKey); }, [apiKey]);
 
-    // ── RUN AUDIT ──
+    // ── RUN AUDIT ──────────────────────────────────────────
     const runAudit = async () => {
       if (!apiKey)                          { setError('Gemini API key required.'); return; }
       if (!inp.companyName && !inp.website) { setError('Company name or website required.'); return; }
+      if (!window.SYSTEM || window.SYSTEM.trim().length < 100) {
+        setError('System prompt not loaded — hunter-system.js may be cached. Hard refresh (Ctrl+Shift+R) and retry.');
+        return;
+      }
       setLoading(true); setError(''); setResult(null); setPushMsg('');
       setStatus('Initializing agentic scrape...');
 
@@ -207,22 +189,25 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
 
       try {
         setStatus('Running Canon registry cross-reference...');
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            systemInstruction: { parts:[{ text: window.SYSTEM }] },
-            contents: [{ role:'user', parts:[{ text: msg }] }],
-            tools: [{ googleSearch:{} }],
-            generationConfig: { temperature:0.1 },
-            safetySettings: [
-              { category:'HARM_CATEGORY_HARASSMENT',        threshold:'BLOCK_NONE' },
-              { category:'HARM_CATEGORY_HATE_SPEECH',       threshold:'BLOCK_NONE' },
-              { category:'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold:'BLOCK_NONE' },
-              { category:'HARM_CATEGORY_DANGEROUS_CONTENT', threshold:'BLOCK_NONE' }
-            ]
-          })
-        });
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              systemInstruction: { parts:[{ text: window.SYSTEM }] },
+              contents: [{ role:'user', parts:[{ text: msg }] }],
+              tools: [{ googleSearch:{} }],
+              generationConfig: { temperature:0.1 },
+              safetySettings: [
+                { category:'HARM_CATEGORY_HARASSMENT',        threshold:'BLOCK_NONE' },
+                { category:'HARM_CATEGORY_HATE_SPEECH',       threshold:'BLOCK_NONE' },
+                { category:'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold:'BLOCK_NONE' },
+                { category:'HARM_CATEGORY_DANGEROUS_CONTENT', threshold:'BLOCK_NONE' }
+              ]
+            })
+          }
+        );
 
         const data = await res.json();
         if (data.error) throw new Error(data.error.message);
@@ -233,10 +218,36 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
 
         setStatus('Parsing forensic output...');
         let raw = data.candidates[0].content.parts[0].text;
-        raw = raw.replace(/```json|```/g,'').trim();
+
+        // ── ROBUST JSON EXTRACTION AND CLEANUP ──
+        raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+
         const match = raw.match(/\{[\s\S]*\}/);
         if (!match) throw new Error('JSON parse error — no valid JSON object found in response.');
-        const parsed = JSON.parse(match[0]);
+        let jsonStr = match[0];
+
+        // Fix type-notation artifacts Gemini echoes from schema
+        jsonStr = jsonStr.replace(/:\s*true\|false/g,        ': true');
+        jsonStr = jsonStr.replace(/:\s*false\|true/g,        ': false');
+        jsonStr = jsonStr.replace(/:\s*1\|2\|3\|4/g,         ': 1');
+        jsonStr = jsonStr.replace(/:\s*"INT\.[A-Z0-9.]+\|null"/g, ': null');
+        jsonStr = jsonStr.replace(/:\s*"string\s*—[^"]*"/g,  ': null');
+        jsonStr = jsonStr.replace(/:\s*"string[^"]*"/g,      ': null');
+
+        // Remove trailing commas before } or ]
+        jsonStr = jsonStr.replace(/,\s*([\]}])/g, '$1');
+
+        // Remove JS-style comments
+        jsonStr = jsonStr.replace(/\/\/[^\n]*/g, '');
+        jsonStr = jsonStr.replace(/\/\*[\s\S]*?\*\//g, '');
+
+        let parsed;
+        try {
+          parsed = JSON.parse(jsonStr);
+        } catch(parseErr) {
+          console.error('JSON parse failed. Raw extract (first 800 chars):', jsonStr.substring(0, 800));
+          throw new Error(`JSON parse error — ${parseErr.message}. Raw output logged to console.`);
+        }
 
         // Auto-fill identity fields — V7.0 field names
         setInp(p => ({
@@ -255,7 +266,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
       setLoading(false); setStatus('');
     };
 
-    // ── PUSH TO CRM ──
+    // ── PUSH TO CRM ────────────────────────────────────────
     const pushToCRM = async () => {
       if (!result) return;
       setPushMsg('Running triple guard...');
@@ -295,7 +306,6 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
         const scannerLink = `https://lexnovahq.com/scanner.html?pid=${finalPid}`;
         const dbEmail     = targetEmail || legacyDoc?.data?.email || `pending-${Date.now()}@reveal.apollo`;
 
-        // Strip dead V3/V5/V6 fields from legacy
         const clean = { ...(legacyDoc?.data||{}) };
         ['detectedGaps','aiNative','externalAI','topSpearGaps','personalizedHook',
          'emailSubject','spearBody','spearSubject','lanes','metaVerbs',
@@ -314,16 +324,13 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
           serviceJurisdictions:   inp.serviceJurisdictions || result.serviceJurisdictions || clean.serviceJurisdictions || '',
           batchNumber:            batchTag,
           headcount:              result.headcount    || clean.headcount    || '',
-
-          // ── EDITABLE FUNDING — uses inp.fundingStage (verified by user in Section 3) ──
+          // ── VERIFIED FUNDING — from user-edited inp field ──
           fundingStage:           inp.fundingStage    || result.fundingStage || clean.fundingStage || '',
-
           // ── V7.0 PRODUCT INTELLIGENCE ──
           primaryProduct:         result.primaryProduct        || '',
           primaryArchetype:       result.primaryArchetype      || [],
           coreFeature:            result.coreFeature           || {},
           primaryArchetypeReason: result.primaryArchetypeReason|| '',
-
           // ── FORENSIC DATA ──
           internalCategory:       result.internalCategory      || '',
           externalCategory:       result.externalCategory      || '',
@@ -335,8 +342,6 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
           verdict:                result.verdict               || 'HOLD',
           verdictReason:          result.verdictReason         || '',
           scannerLink,
-
-          // ── STATUS always QUEUED on push ──
           status:                 clean.status === 'CONVERTED' ? 'CONVERTED' : 'QUEUED',
           sequenceStep:           clean.sequenceStep  || 'C',
           emailsSent:             clean.emailsSent    || 0,
@@ -348,11 +353,9 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
         };
 
         await db.collection('prospects').doc(finalPid).set(prospectData);
-
         if (legacyDoc && legacyDoc.id !== finalPid) {
           await db.collection('prospects').doc(legacyDoc.id).delete();
         }
-
         setPushMsg(`✓ Pushed — ${finalPid}`);
       } catch(e) {
         console.error(e);
@@ -360,7 +363,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
       }
     };
 
-    // ════════ STYLES ═════════════════════════════════════════════════════
+    // ── STYLES ─────────────────────────────────────────────
     const S = {
       root:  { padding:'28px 20px', maxWidth:820, margin:'0 auto' },
       card:  { background:'#0c0c0c', border:'1px solid #1e1e1e', borderRadius:8, padding:'20px', marginBottom:14 },
@@ -375,7 +378,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
     return (
       <div style={S.root}>
 
-        {/* ── HEADER ── */}
+        {/* HEADER */}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:24}}>
           <div>
             <div style={{color:'var(--gold)',fontSize:9,fontWeight:700,letterSpacing:'0.18em',textTransform:'uppercase',marginBottom:6}}>LEX NOVA HQ · PROPRIETARY</div>
@@ -390,7 +393,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
           </div>
         </div>
 
-        {/* ── ENGINE SETUP ── */}
+        {/* ENGINE SETUP */}
         <div style={S.card}>
           <div style={S.row2}>
             <div style={S.field}>
@@ -410,7 +413,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
           </div>
         </div>
 
-        {/* ── SECTION 1: RECON ── */}
+        {/* SECTION 1 — RECON */}
         <div className="section-divider"><span>SECTION 1 — RECON</span></div>
         <div style={S.card}>
           <div style={S.row2}>
@@ -432,16 +435,14 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
           </button>
         </div>
 
-        {/* ── ERROR ── */}
+        {/* ERROR */}
         {error && (
           <div style={{background:'#120808',border:'1px solid #2a0f0f',borderRadius:8,padding:'12px 16px',marginBottom:14,color:'#f87171',fontSize:12}}>
             ⚠ {error}
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════
-            SECTION 2: DASHBOARD — only shown when result exists
-        ══════════════════════════════════════════════════════════════ */}
+        {/* SECTION 2 — DASHBOARD */}
         {result && <>
           <div className="section-divider"><span>SECTION 2 — DASHBOARD</span></div>
 
@@ -453,36 +454,20 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
             <div style={{color:'#888',fontSize:12}}>{result.verdictReason}</div>
           </div>
 
-          {/* VIABILITY GATES — handles both V7.0 (G1_productFit) and V6 legacy (gate1_productFit) */}
+          {/* VIABILITY GATES */}
           <div style={S.card}>
             <div style={S.sHead}>VIABILITY GATES</div>
             {result.viabilityFlags && (() => {
               const f = result.viabilityFlags;
               const gates = [
-                {
-                  label: 'Gate 1 — Product Fit',
-                  pass:  f.G1_productFit  ?? f.gate1_productFit,
-                  note:  f.G1_reason      || (typeof f.gate1_productFit === 'string' ? f.gate1_productFit : '')
-                },
-                {
-                  label: 'Gate 2 — Gap Severity',
-                  pass:  f.G2_gapSeverity ?? f.gate2_gapSeverity,
-                  note:  f.G2_reason      || (typeof f.gate2_gapSeverity === 'string' ? f.gate2_gapSeverity : '')
-                },
-                {
-                  label: 'Gate 3 — Contact Complete',
-                  pass:  f.G3_contactComplete ?? f.gate3_contactComplete,
-                  note:  f.G3_reason          || (typeof f.gate3_contactComplete === 'string' ? f.gate3_contactComplete : '')
-                },
-                {
-                  label: 'Gate 4 — Funding Signal',
-                  pass:  f.G4_fundingSignal ?? (f.gate4_funding === true),
-                  note:  f.G4_reason        || (typeof f.gate4_funding === 'string' ? f.gate4_funding : '')
-                },
+                { label:'Gate 1 — Product Fit',      pass: f.G1_productFit      ?? f.gate1_productFit,      note: f.G1_reason || (typeof f.gate1_productFit==='string' ? f.gate1_productFit : '') },
+                { label:'Gate 2 — Gap Severity',     pass: f.G2_gapSeverity     ?? f.gate2_gapSeverity,     note: f.G2_reason || (typeof f.gate2_gapSeverity==='string' ? f.gate2_gapSeverity : '') },
+                { label:'Gate 3 — Contact Complete', pass: f.G3_contactComplete ?? f.gate3_contactComplete, note: f.G3_reason || (typeof f.gate3_contactComplete==='string' ? f.gate3_contactComplete : '') },
+                { label:'Gate 4 — Funding Signal',   pass: f.G4_fundingSignal   ?? (f.gate4_funding===true), note: f.G4_reason || (typeof f.gate4_funding==='string' ? f.gate4_funding : '') },
               ];
               return gates.map((g,i) => {
                 const cls  = g.pass===true ? 'pass' : g.pass===false ? 'fail' : 'flag';
-                const icon = g.pass===true ? '✓'    : g.pass===false ? '✗'    : '⚠';
+                const icon = g.pass===true ? '✓'   : g.pass===false ? '✗'   : '⚠';
                 const col  = g.pass===true ? '#22c55e' : g.pass===false ? '#ef4444' : '#eab308';
                 return (
                   <div key={i} className={`gate ${cls}`}>
@@ -503,7 +488,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
             )}
           </div>
 
-          {/* COMPANY PROFILE — V7.0 with new fields */}
+          {/* COMPANY PROFILE */}
           <div style={S.card}>
             <div style={S.sHead}>COMPANY PROFILE</div>
             <div style={S.row2}>
@@ -512,11 +497,11 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
                   ['Company',    result.company],
                   ['Funding',    result.fundingStage||'Unknown'],
                   ['Headcount',  result.headcount||'Unknown'],
-                  ['Jurisdiction', result.jurisdiction || result.registrationJurisdiction || '—'],
+                  ['Jurisdiction', result.jurisdiction||result.registrationJurisdiction||'—'],
                   ['Service Jurisdictions', result.serviceJurisdictions||'—'],
                   ['Internal Category', result.internalCategory||'—'],
                   ['External Category', result.externalCategory||'—'],
-                ].map(([k,v])=>(
+                ].map(([k,v]) => (
                   <div key={k} style={{marginBottom:8}}>
                     <span style={{color:'#555',fontSize:10,fontWeight:600,textTransform:'uppercase'}}>{k}: </span>
                     <span style={{color:'var(--marble)',fontSize:12}}>{v}</span>
@@ -524,14 +509,12 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
                 ))}
               </div>
               <div>
-                {/* PRIMARY PRODUCT — new V7.0 */}
                 {result.primaryProduct && (
                   <div style={{marginBottom:12,padding:'10px 12px',background:'rgba(197,160,89,0.05)',border:'1px solid rgba(197,160,89,0.2)',borderRadius:5}}>
                     <div style={{color:'var(--gold)',fontSize:9,fontWeight:700,letterSpacing:'0.1em',marginBottom:5}}>PRIMARY PRODUCT</div>
                     <div style={{color:'var(--marble)',fontSize:11,lineHeight:1.5}}>{result.primaryProduct}</div>
                   </div>
                 )}
-                {/* PRIMARY ARCHETYPE ARRAY — new V7.0 */}
                 {result.primaryArchetype?.length > 0 && (
                   <div style={{marginBottom:12}}>
                     <div style={{color:'#555',fontSize:10,fontWeight:600,textTransform:'uppercase',marginBottom:6}}>Core Archetypes</div>
@@ -541,9 +524,8 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
                     )}
                   </div>
                 )}
-                {/* CORE FEATURES — new V7.0 */}
                 {result.coreFeature && Object.keys(result.coreFeature).length > 0 && (
-                  <div>
+                  <div style={{marginBottom:12}}>
                     <div style={{color:'#555',fontSize:10,fontWeight:600,textTransform:'uppercase',marginBottom:6}}>Core Features</div>
                     {Object.entries(result.coreFeature).map(([intCode, desc]) => (
                       <div key={intCode} style={{marginBottom:8,padding:'8px 10px',background:'#080808',border:'1px solid #1a1a1a',borderRadius:4}}>
@@ -553,8 +535,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
                     ))}
                   </div>
                 )}
-                {/* INTENDED PLAN */}
-                <div style={{marginTop:8}}>
+                <div>
                   <span style={{color:'#555',fontSize:10,fontWeight:600,textTransform:'uppercase'}}>Plan: </span>
                   <span style={{color:'var(--marble)',fontSize:12}}>{result.intendedPlan||'—'}</span>
                 </div>
@@ -562,7 +543,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
             </div>
           </div>
 
-          {/* FEATURE MAP — V7.0 uses featureMap[], V6 legacy used productSignal[] */}
+          {/* FEATURE MAP */}
           {(() => {
             const features = result.featureMap?.length > 0
               ? result.featureMap
@@ -578,12 +559,8 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
                     <div style={{fontSize:12,color:'var(--marble)',fontWeight:600,marginBottom:6}}>"{f.feature}"</div>
                     <div style={{display:'flex',gap:16,flexWrap:'wrap',fontSize:10}}>
                       <span style={{color:'#555'}}>SOURCE: <span style={{color:'var(--gold)'}}>{f.source}</span></span>
-                      {/* V7.0: intCode | V6 legacy: triggersInt */}
-                      <span style={{color:'#555'}}>INT: <span style={{color:'var(--marble)'}}>{f.intCode || f.triggersInt || '—'}</span></span>
-                      {/* V6 legacy extExposures field — not in V7 featureMap but handle gracefully */}
-                      {(f.exposesExt||[]).length > 0 && (
-                        <span style={{color:'#555'}}>EXT: <span style={{color:'#ef4444'}}>{f.exposesExt.join(', ')}</span></span>
-                      )}
+                      <span style={{color:'#555'}}>INT: <span style={{color:'var(--marble)'}}>{f.intCode||f.triggersInt||'—'}</span></span>
+                      {(f.exposesExt||[]).length>0 && <span style={{color:'#555'}}>EXT: <span style={{color:'#ef4444'}}>{f.exposesExt.join(', ')}</span></span>}
                     </div>
                   </div>
                 ))}
@@ -591,7 +568,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
             );
           })()}
 
-          {/* FORENSIC GAPS — V7.0 field names with V6 legacy fallbacks */}
+          {/* FORENSIC GAPS */}
           <div style={S.card}>
             <div style={S.sHead}>
               <span style={{color:'#ef4444'}}>FORENSIC GAPS — {result.forensicGaps?.length||0} EVIDENCE-BACKED</span>
@@ -601,10 +578,8 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
                 <div key={i} className={`gap-card ${(g.severity||'').toLowerCase()}`}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8,gap:8,flexWrap:'wrap'}}>
                     <div style={{flex:1}}>
-                      {/* V7: gapName | V6 legacy: trap */}
                       <span style={{color:'var(--marble)',fontSize:13,fontWeight:700}}>{gapName(g)}</span>
-                      {/* V7: extSurfaces[] | V6 legacy: ext string */}
-                      <span style={{color:'#f97316',fontSize:9,marginLeft:8}}>[{fmtExt(g.extSurfaces || g.ext)}]</span>
+                      <span style={{color:'#f97316',fontSize:9,marginLeft:8}}>[{fmtExt(g.extSurfaces||g.ext)}]</span>
                       <span style={{color:'#555',fontSize:9,marginLeft:8}}>{g.threatId}</span>
                     </div>
                     <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
@@ -613,10 +588,8 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
                     </div>
                   </div>
                   <div style={{fontSize:10,color:'#999',display:'flex',flexDirection:'column',gap:5}}>
-                    {/* V7: intArchetype */}
                     {g.intArchetype && <div><strong style={{color:'#bbb'}}>Archetype:</strong> {g.intArchetype}</div>}
                     <div><strong style={{color:'#bbb'}}>Velocity:</strong> {g.velocity}</div>
-                    {/* V7: feature_to_cite */}
                     {g.feature_to_cite && (
                       <div style={{padding:'6px 8px',background:'rgba(197,160,89,0.04)',border:'1px solid rgba(197,160,89,0.15)',borderRadius:3}}>
                         <strong style={{color:'var(--gold)'}}>Feature: </strong>{g.feature_to_cite}
@@ -625,9 +598,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
                     )}
                     <div><strong style={{color:'#bbb'}}>Pain:</strong> {g.thePain}</div>
                     <div><strong style={{color:'#bbb'}}>Fix:</strong> {g.theFix}</div>
-                    {/* V7: structured evidence | V6: legacy evidence */}
                     {fmtEvidence(g)}
-                    {/* V6 legacy: legalAmmo */}
                     {g.legalAmmo && <div style={{marginTop:3}}><strong style={{color:'#bbb'}}>Legal Ammo:</strong> {g.legalAmmo}</div>}
                   </div>
                 </div>
@@ -635,9 +606,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
             </div>
           </div>
 
-          {/* ══════════════════════════════════════════════════════════════
-              SECTION 3: TARGET & PUSH
-          ══════════════════════════════════════════════════════════════ */}
+          {/* SECTION 3 — TARGET & PUSH */}
           <div className="section-divider"><span>SECTION 3 — TARGET & PUSH</span></div>
           <div style={S.card}>
             <div style={S.sHead}>IDENTITY (auto-filled — verify before push)</div>
@@ -652,14 +621,8 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
               <div style={S.field}><label style={S.label}>Service Jurisdictions</label><input value={inp.serviceJurisdictions} onChange={e=>upd('serviceJurisdictions',e.target.value)} style={S.input} placeholder="US, EU, Global..."/></div>
             </div>
 
-            {/* ── FUNDING — EDITABLE BEFORE PUSH ── */}
-            <div style={{
-              background:'rgba(197,160,89,0.04)',
-              border:'1px solid rgba(197,160,89,0.2)',
-              borderRadius:6,
-              padding:'14px 16px',
-              marginBottom:16
-            }}>
+            {/* FUNDING — EDITABLE GATE BEFORE PUSH */}
+            <div style={{background:'rgba(197,160,89,0.04)',border:'1px solid rgba(197,160,89,0.2)',borderRadius:6,padding:'14px 16px',marginBottom:16}}>
               <div style={{color:'var(--gold)',fontSize:10,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:10}}>
                 ⚠ Verify Before Push
               </div>
@@ -682,13 +645,13 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
                 <div style={{margin:0}}>
                   <label style={S.label}>Detected by Hunter</label>
                   <div style={{padding:'9px 11px',background:'#050505',border:'1px solid #1a1a1a',borderRadius:5,fontSize:12,color:'#888'}}>
-                    {result.fundingStage || 'Not detected — must select manually'}
+                    {result.fundingStage || 'Not detected — select manually'}
                   </div>
                 </div>
               </div>
             </div>
 
-            <div style={{...S.sHead, marginTop:14}}>CRM PUSH SETTINGS</div>
+            <div style={{...S.sHead,marginTop:14}}>CRM PUSH SETTINGS</div>
             <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap'}}>
               <div>
                 <label style={{...S.label,marginBottom:4}}>Pillar</label>
@@ -714,8 +677,8 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
 
             <button
               onClick={pushToCRM}
-              className="btn"
               disabled={!inp.fundingStage}
+              className="btn"
               style={{width:'100%',padding:'16px 0',fontSize:13}}
               title={!inp.fundingStage ? 'Select funding stage before pushing' : ''}
             >
