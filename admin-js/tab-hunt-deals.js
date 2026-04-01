@@ -1308,15 +1308,15 @@ window.copySpearReport = async function(id) {
 
         // V7.0: feature_to_cite — prefer gap's own field, then linked feature
         const featureToCite = g.feature_to_cite || feature?.feature || null;
-        const featureSource = g.product_source  || feature?.source  || null;
+      const featureSource = g.product_source  || feature?.source  || null;
 
         const featureBlock = featureToCite
     ? `Feature to Cite: "${featureToCite}"`
     : `Feature to Cite: null`;
 
-        const sourceOverride = (featureToCite && productSource === 'null')
-            ? `\nSOURCE OVERRIDE: Product Source is null (Tier 1 rule) but Feature to Cite exists.\n  Use Feature Source as product_source in JSON.\n  Use Evidence Source as evidence_source in JSON.`
-            : '';
+       const sourceOverride = (featureToCite && productSource === 'null')
+    ? `\nSOURCE OVERRIDE: Product Source is null (Tier 1 rule) but Feature to Cite exists.\n  Use "${featureSource||'Homepage'}" as product_source in JSON.\n  Use Evidence Source as evidence_source in JSON.`
+    : '';
 
         // V7.0: evidence block — found/trigger/connection first, source/reason fallback
         const evidenceFound      = g.evidence?.found      || g.evidence?.source || '—';
