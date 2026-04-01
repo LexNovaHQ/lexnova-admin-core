@@ -1384,14 +1384,10 @@ ${top3||'None recorded'}`;
     const { tier, rule } = getConsequenceTier(p.fundingStage);
 
     // V7.0: primary product + core archetypes in report header
-    const primaryProductLine = p.primaryProduct
-        ? `\nPrimary Product: ${p.primaryProduct}` : '';
-    const primaryArchLine = (p.primaryArchetype||[]).length
-        ? `\nCore Archetypes: ${p.primaryArchetype.join(', ')}` : '';
-    const coreFeatureBlock = p.coreFeature && Object.keys(p.coreFeature).length
-        ? '\n\nCORE FEATURES:\n' + Object.entries(p.coreFeature)
-            .map(([k,v])=>`  [${k}] ${v}`).join('\n')
-        : '';
+  const primaryProductLine = p.primaryProduct
+    ? `\nPrimary Product: ${p.primaryProduct}` : '';
+const primaryArchLine = (p.primaryArchetype||[]).length
+    ? `\nCore Archetypes: ${p.primaryArchetype.join(', ')}` : '';
 
     const report =
 `═══════════════════════════════════════
@@ -1415,13 +1411,10 @@ Rule:          ${rule}
 ═══════════════════════════════════════
 [PRODUCT INTELLIGENCE]
 ═══════════════════════════════════════${primaryProductLine}${primaryArchLine}
-Lanes:        ${(p.lanes||[]).join(', ').toUpperCase()||'—'}
-All Archetypes: ${(p.intArchetypes||[]).join(', ')||p.internalCategory||'—'}
 EXT Surfaces: ${p.externalCategory||(p.extExposures||[]).join(', ')||'—'}
 Geography:    ${p.jurisdiction||p.registrationJurisdiction||p.geography||'—'}
 Jurisdiction: ${p.serviceJurisdictions||'—'}
 Funding:      ${p.fundingStage||'—'} | Headcount: ${p.headcount||'—'}
-Verdict:      ${p.verdict||'—'}${coreFeatureBlock}
 
 FEATURE MAP:
 ${featuresSection}
