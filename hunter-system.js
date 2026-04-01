@@ -357,6 +357,27 @@ One sentence per INT code in primaryArchetype
 explaining which Step identified it as CORE and why.
 This is an audit trail — written for human review.
 
+── COREFEATURE-GAP ALIGNMENT CHECK ─────────────────────────────
+
+After Section 5 gap detection is complete:
+
+For each INT code in primaryArchetype, verify:
+Does the coreFeature entry for this INT code describe
+the same capability that triggers the INT gaps for
+this archetype in forensicGaps?
+
+YES → no action. coreFeatureAnchor will be accurate.
+NO (coreFeature describes capability A, but gaps are
+    triggered by capability B) → rewrite coreFeature
+    to describe the capability that actually drives
+    the gaps. Re-source from Homepage or product page.
+    If no homepage/product page content supports the
+    gap-triggering capability → set coreFeature to null
+    for that INT code. Do NOT fabricate.
+
+This check runs AFTER gap detection, not before.
+It ensures coreFeatureAnchor is commercially coherent
+when the Architect reads it.
 ── GATE 2 — INTELLIGENCE GATE ──────────────────────────────────
 
 Fires after Step 3C, before archetype assignment.
@@ -1638,6 +1659,14 @@ CHECK 6: Is feature_to_cite in every INT gap populated
 
 CHECK 7: Does any gap's extSurfaces array contain
          EXT.08 for a company with confirmed B2B model?
+
+CHECK 8: For every INT code in primaryArchetype that
+         has gaps in forensicGaps — does coreFeature
+         for that INT code describe the same capability
+         that triggers those gaps?
+         YES → continue.
+         NO → STOP. Run coreFeature-gap alignment check.
+              Rewrite or null the misaligned coreFeature.
 
 All pass → output JSON
 Any fail → fix the failing field or gap.
