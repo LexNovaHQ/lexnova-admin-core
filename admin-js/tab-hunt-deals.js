@@ -1323,25 +1323,26 @@ window.copySpearReport = async function(id) {
         const evidenceTrigger    = g.evidence?.trigger    || '—';
         const evidenceConnection = g.evidence?.connection || g.evidence?.reason || '—';
 
-        return [
-            `── GAP ${i+1} ─────────────────────────────────────────`,
-            `Severity:        ${(g.severity||'').toUpperCase()}`,
-            `Evidence:        ${tierLabel}${dual}`,
-            `Threat ID:       ${g.threatId||'—'}`,
-            `INT Code:        ${intCode||'null (Universal Gap)'}`,
-            `EXT Codes:       ${extArr.join(', ')||'—'}`,
-            `Name:            ${getGapName(g)}`,
-            `Velocity:        ${g.velocity||'—'}`,
-            `Pain:            ${g.thePain||g.plain||'—'}`,
-            `Fix:             ${g.theFix||g.doc||'—'}`,
-            `Product Source:  ${productSource}`,
-            `Evidence Source: ${evidenceSource}`,
-            featureBlock,
-            `Evidence Found:  ${evidenceFound}`,
-            `Evidence Trigger:    ${evidenceTrigger}`,
-            `Evidence Connection: ${evidenceConnection}`,
-            sourceOverride
-        ].filter(Boolean).join('\n');
+return [
+    `── GAP ${i+1} ─────────────────────────────────────────`,
+    `Severity:        ${(g.severity||'').toUpperCase()}`,
+    `Evidence:        ${tierLabel}${dual}`,
+    `Threat ID:       ${g.threatId||'—'}`,
+    `INT Code:        ${intCode||'null (Universal Gap)'}`,
+    `Gap Type:        ${g.gap_type||'UNIVERSAL'}`,
+    `EXT Codes:       ${extArr.join(', ')||'—'}`,
+    `Name:            ${getGapName(g)}`,
+    `Velocity:        ${g.velocity||'—'}`,
+    `Pain:            ${g.thePain||g.plain||'—'}`,
+    `Product Source:  ${productSource}`,
+    `Evidence Source: ${evidenceSource}`,
+    featureBlock,
+    `Core Feature Anchor: ${g.coreFeatureAnchor||'null'}`,
+    `Evidence Found:  ${evidenceFound}`,
+    `Evidence Trigger:    ${evidenceTrigger}`,
+    `Evidence Connection: ${evidenceConnection}`,
+    sourceOverride
+].filter(Boolean).join('\n');
     }).join('\n\n');
 
     // ── FEATURE MAP SECTION ───────────────────────────────────────────
