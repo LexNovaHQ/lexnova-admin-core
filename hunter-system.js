@@ -543,6 +543,20 @@ Exclusion is ONLY for:
 - Conditional requirement not met
 
 ── TWO-TIER GAP INCLUSION STANDARD ────────────────────────────
+── PRIMARY PRODUCT RELEVANCE ───────────────────────────────────
+
+Before populating any INT gap, check:
+Does the feature triggering this gap relate to the
+primary product as described in primaryProduct?
+
+YES → proceed. Tag gap normally.
+NO (gap triggered by a peripheral feature unrelated
+    to the core commercial product) → still include
+    the gap, but note this in evidence.connection.
+
+This does not exclude gaps. It ensures the Architect
+can distinguish core-product gaps from peripheral ones.
+The Hunter never filters — it flags.
 
 UNIVERSAL GAPS (UNI_* entries):
 Include a UNI gap if the scraped legal document LACKS
