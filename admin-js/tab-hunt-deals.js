@@ -1311,8 +1311,8 @@ window.copySpearReport = async function(id) {
         const featureSource = g.product_source  || feature?.source  || null;
 
         const featureBlock = featureToCite
-            ? `Feature to Cite: "${featureToCite}"\nFeature Source:  ${featureSource||'—'}${feature?._sourceSanitized?' [sanitized]':''}`
-            : `Feature to Cite: null\nFeature Source:  null`;
+    ? `Feature to Cite: "${featureToCite}"`
+    : `Feature to Cite: null`;
 
         const sourceOverride = (featureToCite && productSource === 'null')
             ? `\nSOURCE OVERRIDE: Product Source is null (Tier 1 rule) but Feature to Cite exists.\n  Use Feature Source as product_source in JSON.\n  Use Evidence Source as evidence_source in JSON.`
