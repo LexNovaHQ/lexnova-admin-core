@@ -1542,7 +1542,14 @@ No backticks. No code fences.
       "feature_to_cite": "string — gap-specific feature
         from scraped first-party content. null for UNI
         gaps with no product feature trigger.",
-      "product_source": "string — source type|null",
+      "coreFeatureAnchor": "string — the coreFeature entry for
+        this gap's intArchetype. Copy verbatim from coreFeature
+        object using intArchetype as the key. null if intArchetype
+        is null OR if intArchetype is not in primaryArchetype
+        array. For UNI gaps (intArchetype null): use coreFeature
+        entry for the FIRST INT code in primaryArchetype array.
+        Never derive or rewrite — copy verbatim only."
+            "product_source": "string — source type|null",
       "evidence_source": "string — document type|null",
       "thePain": "string — commercial pain, no legal terms",
       "theFix": "string — plain English remediation",
