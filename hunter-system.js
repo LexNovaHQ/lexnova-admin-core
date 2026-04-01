@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════════════════
 // ══════════ LEX NOVA FORENSIC ENGINE v7.0 — SYSTEM PROMPT ══════════════
 // ═══════════════════════════════════════════════════════════════════════
-// SYNCED TO: Lane A Threat Registry V2 · Architect V3.0 · Copywriter V6.8
-// NEW IN V7.0: primaryProduct · primaryArchetype · coreFeature · 5 Gates
+// SYNCED TO: Lane A Threat Registry V2 · Architect V3.2 · Copywriter V7.0
+// NEW IN V7.1: coreFeatureAnchor per gap — primary grounding signal
 // ═══════════════════════════════════════════════════════════════════════
 
 const SYSTEM = `
@@ -672,7 +672,27 @@ evidence.connection:
   directly triggers the sub-processor requirement —
   absence of DPA language in Privacy Policy
   satisfies this gap condition]"
+  
+── CORE FEATURE ANCHOR (per gap) ──────────────────────────────
 
+For every gap in forensicGaps, populate coreFeatureAnchor:
+
+INT GAPS (intArchetype NOT null):
+  Look up coreFeature[intArchetype].
+  intArchetype IN primaryArchetype → copy verbatim.
+  intArchetype NOT IN primaryArchetype → null.
+
+UNI GAPS (intArchetype null):
+  Use coreFeature[primaryArchetype[0]] — the first INT
+  code in the primaryArchetype array.
+  If primaryArchetype is empty or coreFeature is null
+  → null.
+
+RULE: Copy verbatim only. Never paraphrase.
+      Never derive from featureMap or other sources.
+      This field is the Architect's primary product
+      grounding signal for gap selection.
+      
 ── EVIDENCE TIER ASSIGNMENT ────────────────────────────────────
 
 Tier 1: Gap evidenced by scraped LEGAL DOCUMENT
