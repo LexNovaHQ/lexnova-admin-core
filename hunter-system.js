@@ -711,11 +711,33 @@ evidence.connection:
 ── CORE FEATURE ANCHOR (per gap) ──────────────────────────────
 
 For every gap in forensicGaps, populate coreFeatureAnchor:
+── GAP TYPE CLASSIFICATION ─────────────────────────────────────
 
-INT GAPS (intArchetype NOT null):
-  Look up coreFeature[intArchetype].
-  intArchetype IN primaryArchetype → copy verbatim.
-  intArchetype NOT IN primaryArchetype → null.
+For every gap in forensicGaps, classify gap_type:
+
+intArchetype IS in primaryArchetype array
+  → gap_type = "CORE_ARCHETYPE"
+
+intArchetype NOT null AND NOT in primaryArchetype array
+  → gap_type = "SECONDARY_INT"
+
+intArchetype IS null
+  → gap_type = "UNIVERSAL"
+
+This field is the Architect's primary selection signal
+and the Copywriter's Chisel construction routing signal.
+Never derive. Set mechanically from the two conditions above.
+
+CORE_ARCHETYPE gaps:
+  coreFeatureAnchor = coreFeature[intArchetype] — verbatim.
+
+SECONDARY_INT gaps:
+  coreFeatureAnchor = coreFeature[primaryArchetype[0]] — verbatim.
+  This is the fallback anchor for the Copywriter if
+  feature_to_cite is null for this gap.
+
+UNIVERSAL gaps:
+  coreFeatureAnchor = coreFeature[primaryArchetype[0]] — verbatim.
 
 UNI GAPS (intArchetype null):
   Use coreFeature[primaryArchetype[0]] — the first INT
@@ -1590,6 +1612,7 @@ No backticks. No code fences.
       "threatId": "string — e.g. INT01_ROG_002",
       "gapName": "string",
       "intArchetype": "INT.XX|null",
+      "gap_type": "CORE_ARCHETYPE|SECONDARY_INT|UNIVERSAL"
       "extSurfaces": ["EXT.XX", "EXT.YY"],
       "severity": "Nuclear|Critical|High",
       "velocity": "Immediate|High|Upcoming",
@@ -1597,13 +1620,15 @@ No backticks. No code fences.
       "feature_to_cite": "string — gap-specific feature
         from scraped first-party content. null for UNI
         gaps with no product feature trigger.",
-      "coreFeatureAnchor": "string — the coreFeature entry for
-        this gap's intArchetype. Copy verbatim from coreFeature
-        object using intArchetype as the key. null if intArchetype
-        is null OR if intArchetype is not in primaryArchetype
-        array. For UNI gaps (intArchetype null): use coreFeature
-        entry for the FIRST INT code in primaryArchetype array.
-        Never derive or rewrite — copy verbatim only."
+        "coreFeatureAnchor": "string — populated as follows:
+  CORE_ARCHETYPE gap: copy coreFeature[intArchetype] verbatim.
+  SECONDARY_INT gap: copy coreFeature[primaryArchetype[0]] verbatim
+    — the first core archetype's capability. This is the
+    Copywriter's fallback when feature_to_cite is null.
+  UNIVERSAL gap: copy coreFeature[primaryArchetype[0]] verbatim.
+  If primaryArchetype is empty or coreFeature is null → null.
+  Never derive or rewrite — copy verbatim only."
+      
             "product_source": "string — source type|null",
       "evidence_source": "string — document type|null",
       "thePain": "string — commercial pain, no legal terms",
@@ -1667,6 +1692,10 @@ CHECK 8: For every INT code in primaryArchetype that
          YES → continue.
          NO → STOP. Run coreFeature-gap alignment check.
               Rewrite or null the misaligned coreFeature.
+CHECK 9: Does every gap in forensicGaps have gap_type
+         populated as exactly one of:
+         CORE_ARCHETYPE / SECONDARY_INT / UNIVERSAL?
+         Any missing or incorrect → STOP. Fix.
 
 All pass → output JSON
 Any fail → fix the failing field or gap.
