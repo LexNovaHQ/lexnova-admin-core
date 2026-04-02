@@ -1582,6 +1582,8 @@ No backticks. No code fences.
       archetype, product as subject, active verb,
       deployment context, 20-35 words",
     "INT.YY": "string — same format for second core
+      archetype if applicable",
+    "INT.ZZ": "string — same format for third core
       archetype if applicable"
   },
 
