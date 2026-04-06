@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Lex Nova Forensic Engine v7.0</title>
+<title>Lex Nova Forensic Engine v7.2</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -458,28 +458,41 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
           <div style={S.card}>
             <div style={S.sHead}>VIABILITY GATES</div>
             {result.viabilityFlags && (() => {
-              const f = result.viabilityFlags;
-              const gates = [
-                { label:'Gate 1 — Product Fit',      pass: f.G1_productFit      ?? f.gate1_productFit,      note: f.G1_reason || (typeof f.gate1_productFit==='string' ? f.gate1_productFit : '') },
-                { label:'Gate 2 — Gap Severity',     pass: f.G2_gapSeverity     ?? f.gate2_gapSeverity,     note: f.G2_reason || (typeof f.gate2_gapSeverity==='string' ? f.gate2_gapSeverity : '') },
-                { label:'Gate 3 — Contact Complete', pass: f.G3_contactComplete ?? f.gate3_contactComplete, note: f.G3_reason || (typeof f.gate3_contactComplete==='string' ? f.gate3_contactComplete : '') },
-                { label:'Gate 4 — Funding Signal',   pass: f.G4_fundingSignal   ?? (f.gate4_funding===true), note: f.G4_reason || (typeof f.gate4_funding==='string' ? f.gate4_funding : '') },
-              ];
-              return gates.map((g,i) => {
-                const cls  = g.pass===true ? 'pass' : g.pass===false ? 'fail' : 'flag';
-                const icon = g.pass===true ? '✓'   : g.pass===false ? '✗'   : '⚠';
-                const col  = g.pass===true ? '#22c55e' : g.pass===false ? '#ef4444' : '#eab308';
-                return (
-                  <div key={i} className={`gate ${cls}`}>
+    const f = result.viabilityFlags;
+    const toBool = v => (v === true || v === 'true') ? true : (v === false || v === 'false') ? false : null;
+    const gates = [
+        { label:'Gate 1 — Product Fit',      pass: toBool(f.G1_productFit      ?? f.gate1_productFit),      note: f.G1_reason || (typeof f.gate1_productFit==='string' ? f.gate1_productFit : '') },
+        { label:'Gate 2 — Gap Severity',     pass: toBool(f.G2_gapSeverity     ?? f.gate2_gapSeverity),     note: f.G2_reason || (typeof f.gate2_gapSeverity==='string' ? f.gate2_gapSeverity : '') },
+        { label:'Gate 3 — Contact Complete', pass: toBool(f.G3_contactComplete ?? f.gate3_contactComplete), note: f.G3_reason || (typeof f.gate3_contactComplete==='string' ? f.gate3_contactComplete : '') },
+        { label:'Gate 4 — Funding Signal',   pass: toBool(f.G4_fundingSignal   ?? f.gate4_funding),          note: f.G4_reason || (typeof f.gate4_funding==='string' ? f.gate4_funding : '') },
+    ];
+    const catColors = {'DIRECT_LIABILITY':'#22c55e','INDIRECT_LIABILITY':'#eab308','DUAL_EXPOSURE':'#60a5fa'};
+    const catLabels = {'DIRECT_LIABILITY':'⚡ DIRECT LIABILITY','INDIRECT_LIABILITY':'🔗 INDIRECT LIABILITY','DUAL_EXPOSURE':'🔀 DUAL EXPOSURE'};
+    const catColor = catColors[f.G1_category]||'#888';
+    const catLabel = catLabels[f.G1_category]||'';
+    return <>
+        {gates.map((g,i) => {
+            const cls  = g.pass===true ? 'pass' : g.pass===false ? 'fail' : 'flag';
+            const icon = g.pass===true ? '✓'   : g.pass===false ? '✗'   : '⚠';
+            const col  = g.pass===true ? '#22c55e' : g.pass===false ? '#ef4444' : '#eab308';
+            return (
+                <div key={i} className={`gate ${cls}`}>
                     <span style={{color:col,fontWeight:800,fontSize:13,flexShrink:0}}>{icon}</span>
                     <div>
-                      <span style={{color:'var(--marble)',fontWeight:600}}>{g.label}</span>
-                      {g.note && <span style={{color:'#888',marginLeft:8}}>{g.note}</span>}
+                        <span style={{color:'var(--marble)',fontWeight:600}}>{g.label}</span>
+                        {i===0 && catLabel && <span style={{marginLeft:8,fontSize:9,fontWeight:800,color:catColor,padding:'2px 6px',border:`1px solid ${catColor}`,borderRadius:3}}>{catLabel}</span>}
+                        {g.note && <span style={{color:'#888',marginLeft:8}}>{g.note}</span>}
                     </div>
-                  </div>
-                );
-              });
-            })()}
+                </div>
+            );
+        })}
+        {f.G1_flag && (
+            <div style={{background:'rgba(234,179,8,0.06)',border:'1px solid rgba(234,179,8,0.2)',borderRadius:4,padding:'10px 12px',marginBottom:8,fontSize:11,color:'#eab308'}}>
+                ⚠ {f.G1_flag}
+            </div>
+        )}
+    </>;
+})()}
             {result.viabilityFlags?.recommendation && (
               <div style={{marginTop:12,padding:'10px 14px',background:result.viabilityFlags.recommendation==='PUSH'?'rgba(34,197,94,0.06)':'rgba(234,179,8,0.06)',border:`1px solid ${result.viabilityFlags.recommendation==='PUSH'?'rgba(34,197,94,0.2)':'rgba(234,179,8,0.2)'}`,borderRadius:4,fontSize:11,color:result.viabilityFlags.recommendation==='PUSH'?'#22c55e':'#eab308',fontWeight:700}}>
                 RECOMMENDATION: {result.viabilityFlags.recommendation}
@@ -612,7 +625,21 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
             <div style={S.sHead}>IDENTITY (auto-filled — verify before push)</div>
             <div style={S.row3}>
               <div style={S.field}><label style={S.label}>Founder Name</label><input value={inp.founderName} onChange={e=>upd('founderName',e.target.value)} style={S.input}/></div>
-              <div style={S.field}><label style={S.label}>Title</label><input value={inp.founderTitle} onChange={e=>upd('founderTitle',e.target.value)} style={S.input}/></div>
+              <div style={S.field}>
+    <label style={S.label}>Role</label>
+    <select value={inp.founderTitle} onChange={e=>upd('founderTitle',e.target.value)} style={S.input}>
+        <option value="">— Select Role —</option>
+        <option value="CEO">CEO</option>
+        <option value="Founder">Founder</option>
+        <option value="Co-Founder & CEO">Co-Founder & CEO</option>
+        <option value="Co-Founder & CTO">Co-Founder & CTO</option>
+        <option value="CTO">CTO</option>
+        <option value="COO">COO</option>
+        <option value="CPO">CPO</option>
+        <option value="VP Engineering">VP Engineering</option>
+        <option value="Other">Other</option>
+    </select>
+</div>
               <div style={S.field}><label style={S.label}>Email *</label><input value={inp.email} onChange={e=>upd('email',e.target.value)} style={S.input}/></div>
             </div>
             <div style={S.row3}>
@@ -634,12 +661,15 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
                     onChange={e=>upd('fundingStage',e.target.value)}
                     style={{...S.input, borderColor: inp.fundingStage ? 'var(--green)' : 'var(--gold)', color: inp.fundingStage ? 'var(--marble)' : 'var(--gold)'}}
                   >
-                    <option value="">— Select Funding Stage —</option>
-                    <option value="Pre-seed">Pre-seed</option>
-                    <option value="Seed">Seed</option>
-                    <option value="Series A">Series A</option>
-                    <option value="Series B+">Series B+</option>
-                    <option value="Bootstrapped">Bootstrapped</option>
+                   <option value="">— Select Funding Stage —</option>
+<option value="Pre-seed">Pre-seed</option>
+<option value="Seed">Seed</option>
+<option value="Series A">Series A</option>
+<option value="Series B">Series B</option>
+<option value="Series C">Series C</option>
+<option value="Series D+">Series D+</option>
+<option value="Bootstrapped">Bootstrapped</option>
+<option value="Public">Public</option>
                   </select>
                 </div>
                 <div style={{margin:0}}>
