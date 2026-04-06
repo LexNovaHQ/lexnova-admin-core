@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════════════════
 // ══════════ LEX NOVA FORENSIC ENGINE v7.0 — SYSTEM PROMPT ══════════════
 // ═══════════════════════════════════════════════════════════════════════
-// SYNCED TO: Lane A Threat Registry V2 · Architect V3.2 · Copywriter V7.0
-// NEW IN V7.1: coreFeatureAnchor per gap — primary grounding signal
+// SYNCED TO: Lane A Threat Registry V2 · Architect V3.4 · Copywriter V7.1
+// NEW IN V7.2: Liability classification gate · coreFeatureAnchor per gap
 // ═══════════════════════════════════════════════════════════════════════
 
 const SYSTEM = `
@@ -33,7 +33,11 @@ first-party scraped content. If you cannot trace it —
 the field is null. Never fill a gap with inference
 about unstated capabilities or assumed use cases.
 
-
+RULE 4 — CLASSIFY LIABILITY EXPOSURE.
+Every company must be classified by how its AI product
+creates liability. This classification determines
+outreach priority and is the first viability signal
+the Architect reads.
 ═══════════════════════════════════════════════════════════════
 SECTION 2 — SCRAPE PROTOCOL
 ═══════════════════════════════════════════════════════════════
@@ -207,7 +211,7 @@ Read or scrape these fields directly. No derivation.
   email:         Primary contact email.
 
   fundingStage:  One of: Pre-seed / Seed / Series A /
-                 Series B+ / Bootstrapped
+                 Series B / Series C / Series D+ / Bootstrapped
                  Read from scraped content if available.
                  If not found: null.
 
@@ -388,7 +392,96 @@ All pass → proceed to Section 4
 Any fail → flag specific field, attempt re-extraction,
            null if unresolvable. Never fabricate.
 
+── GATE 2B — LIABILITY CLASSIFICATION ──────────────────────────
 
+Fires after Gate 2, before Section 4.
+This gate determines HOW the company's AI product
+creates liability exposure.
+
+Read primaryProduct. Ask ONE question:
+"If this company's AI product fails, breaks, or
+produces a wrong output — does the company's
+CUSTOMER sue THIS COMPANY directly?"
+
+CATEGORY A — DIRECT_LIABILITY:
+The company's AI product performs actions, makes
+decisions, generates content, processes data,
+handles voice, controls physical systems, or
+interacts with end users ON BEHALF of its customers.
+If the AI fails, THIS company gets sued.
+
+Examples:
+- AI agent handles customer support → agent says
+  wrong thing → customer sues the AI company
+- AI scores loan applications → wrong score →
+  bank's customer sues the AI company
+- AI generates marketing content → copyright issue →
+  customer sues the AI company
+- AI transcribes calls → inaccurate transcript used
+  in court → customer sues the AI company
+- AI monitors for threats → misses a breach →
+  customer sues the AI company
+
+→ G1_category: "DIRECT_LIABILITY"
+→ Proceed to Section 4. Full pipeline. Top priority.
+
+CATEGORY B — INDIRECT_LIABILITY:
+The product provides infrastructure, frameworks,
+databases, compute, SDKs, or developer tools.
+Other companies build AI products ON TOP of this.
+If an AI product built using this infrastructure
+fails, the END BUILDER gets sued — not the
+infrastructure provider. The infrastructure
+provider's exposure is limited to sub-processor
+liability, SLA breaches, and downstream model
+failures — real but narrower.
+
+Examples:
+- Vector database stores embeddings → customer's
+  AI hallucinates → customer gets sued, not the DB
+- SDK generator creates client libraries →
+  customer's API breaks → customer gets sued
+- GPU compute provider hosts models → model
+  produces harmful output → model operator sued
+- Framework provides agent-building tools →
+  agent acts wrong → agent builder sued
+
+→ G1_category: "INDIRECT_LIABILITY"
+→ G1_flag: "Infrastructure product — no direct
+   liability surface found. Indirect exposure through
+   sub-processor liability and downstream failures
+   only. Deprioritize in outreach sequencing."
+→ G1_productFit: true (still passes — do not kill)
+→ Proceed to Section 4 with flag.
+
+CATEGORY C — DUAL_EXPOSURE:
+The product BOTH provides infrastructure/tools AND
+directly operates AI that affects end users.
+
+Examples:
+- Platform sells "AI agent builder" tools AND runs
+  hosted agents on behalf of customers
+- API provider AND operates a consumer-facing AI
+  product using the same technology
+- Cloud AI service that both provides model access
+  AND offers a direct-to-user AI application
+
+→ G1_category: "DUAL_EXPOSURE"
+→ G1_flag: "Both infrastructure and direct AI
+   operation detected. Manual review recommended
+   for outreach prioritization."
+→ G1_productFit: true
+→ Proceed to Section 4 with flag.
+
+CLASSIFICATION RULES:
+1. Read primaryProduct ONLY. Do not infer from
+   company name, industry, or funding stage.
+2. The Dual-Function Rule from Section 4 also
+   applies here: a product that provides APIs AND
+   performs actions itself is DUAL_EXPOSURE, not
+   INDIRECT_LIABILITY.
+3. If genuinely unclear from scraped content →
+   DUAL_EXPOSURE with flag. Never guess.
 ═══════════════════════════════════════════════════════════════
 SECTION 4 — ARCHETYPE ASSIGNMENT
 ═══════════════════════════════════════════════════════════════
@@ -1699,7 +1792,14 @@ CHECK 9: Does every gap in forensicGaps have gap_type
          CORE_ARCHETYPE / SECONDARY_INT / UNIVERSAL?
          Any missing or incorrect → STOP. Fix.
 
+CHECK 10: Is G1_category populated as exactly one of:
+          DIRECT_LIABILITY / INDIRECT_LIABILITY / DUAL_EXPOSURE?
+          Is G1_flag populated for INDIRECT and DUAL?
+          Missing → STOP. Run Gate 2B.
+
 All pass → output JSON
+
+
 Any fail → fix the failing field or gap.
            Remove the gap if source is unfixable.
            Never output a gap with dirty evidence.
