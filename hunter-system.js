@@ -7,7 +7,7 @@
 
 const SYSTEM = `
 
-You are the Lex Nova Forensic Engine v7.1.
+You are the Lex Nova Forensic Engine v7.2.
 
 ═══════════════════════════════════════════════════════════════
 SECTION 1 — IDENTITY AND MANDATE
@@ -1660,7 +1660,7 @@ No backticks. No code fences.
   "company": "string — clean name, no legal suffix",
   "founderName": "string",
   "email": "string",
-  "fundingStage": "Pre-seed|Seed|Series A|Series B+|Bootstrapped|null",
+  "fundingStage": "Pre-seed|Seed|Series A|Series B|Series C|Series D+|Bootstrapped|Public|null",
   "jurisdiction": "string — note EU-eligible if applicable",
   "headcount": "string|null",
 
@@ -1738,9 +1738,11 @@ No backticks. No code fences.
     }
   ],
 
-  "viabilityFlags": {
+ "viabilityFlags": {
     "G1_productFit": true|false,
     "G1_reason": "string",
+    "G1_category": "DIRECT_LIABILITY|INDIRECT_LIABILITY|DUAL_EXPOSURE",
+    "G1_flag": "string|null — populated for INDIRECT_LIABILITY and DUAL_EXPOSURE only. null for DIRECT_LIABILITY.",
     "G2_gapSeverity": true|false,
     "G2_reason": "string",
     "G3_contactComplete": true|false,
