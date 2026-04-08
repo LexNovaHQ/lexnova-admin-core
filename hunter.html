@@ -193,7 +193,8 @@ LEGAL PAGES: ${inp.termsPage||'NONE'}`;
         setStatus('Running Canon registry cross-reference...');
         
         const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model.replace('2.5', '1.5')}:generateContent?key=${apiKey}`,
+          // USE THIS NEW LINE:
+`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
           {
             method:'POST',
             headers:{'Content-Type':'application/json'},
@@ -392,12 +393,15 @@ LEGAL PAGES: ${inp.termsPage||'NONE'}`;
             <div style={S.field}>
               <label style={S.label}>Model</label>
               <select value={model} onChange={e=>setModel(e.target.value)} style={{...S.input,borderColor:'var(--gold)',color:'var(--gold)'}}>
-                <option value="gemini-2.5-flash">2.5 Flash (Standard Hunt)</option>
-                <option value="gemini-2.5-pro">2.5 Pro (High Accuracy)</option>
-                <option value="Gemini-3.1-flash">3.1 Flash (Speed)</option>
-                <option value="gemini-3.1-pro-preview">3.1 Pro Preview (Deep Architect)</option>
-                <option value="gemini-3.1-flash-lite">3.1 Flash-Lite (Volume)</option>
-              </select>
+  {/* The 2026 Stable Lineup */}
+  <option value="gemini-2.5-flash">2.5 Flash (Stable Workhorse)</option>
+  <option value="gemini-2.5-pro">2.5 Pro (Stable Architect)</option>
+  
+  {/* The 2026 Frontier Models */}
+  <option value="gemini-3-flash-preview">3.0 Flash (Agentic Speed)</option>
+  <option value="gemini-3.1-pro-preview">3.1 Pro (Deep Reasoning)</option>
+  <option value="gemini-3.1-flash-lite-preview">3.1 Flash-Lite (High Volume)</option>
+</select>
             </div>
             <div style={S.field}>
               <label style={S.label}>Gemini API Key</label>
