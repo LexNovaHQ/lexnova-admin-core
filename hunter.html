@@ -171,27 +171,24 @@
     useEffect(() => { if(apiKey) localStorage.setItem('lnApiKey', apiKey); }, [apiKey]);
 
     // ── RUN AUDIT ──────────────────────────────────────────
-
-  const runAudit = async () => {
-      if (!apiKey) { setError('Gemini API key required.'); return; }
+    const runAudit = async () => {
+      if (!apiKey)                          { setError('Gemini API key required.'); return; }
       if (!inp.companyName && !inp.website) { setError('Company name or website required.'); return; }
       if (!window.SYSTEM || window.SYSTEM.trim().length < 100) {
-        setError('System prompt not loaded. Hard refresh (Ctrl+Shift+R) and retry.');
+        setError('System prompt not loaded — hunter-system.js may be cached. Hard refresh (Ctrl+Shift+R) and retry.');
         return;
       }
-
       setLoading(true); setError(''); setResult(null); setPushMsg('');
-      setStatus('Engaging Forensic Scrape...');
+      setStatus('Initializing agentic scrape...');
 
       const msg = `AUDIT TARGET
 COMPANY: ${inp.companyName||'UNKNOWN'}
-WEBSITE: ${inp.website||'UNKNOWN'}
-PRODUCT CONTEXT: ${inp.productDesc||'NONE'}
-LEGAL PAGES: ${inp.termsPage||'NONE'}`;
+WEBSITE: ${inp.website||'UNKNOWN — SCRAPE REQUIRED'}
+PRODUCT CONTEXT: ${inp.productDesc||'NONE — SCRAPE REQUIRED'}
+LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
 
       try {
-        setStatus('Deploying Dynamic Retrieval across first-party domain...');
-        
+        setStatus('Running Canon registry cross-reference...');
         const res = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
           {
@@ -200,23 +197,10 @@ LEGAL PAGES: ${inp.termsPage||'NONE'}`;
             body: JSON.stringify({
               systemInstruction: { parts:[{ text: window.SYSTEM }] },
               contents: [{ role:'user', parts:[{ text: msg }] }],
-              // ── DYNAMIC RETRIEVAL ENGINE ──
-              // This forces Gemini to search and synthesize in a single turn.
-              tools: [{
-                googleSearchRetrieval: {
-                  dynamicRetrievalConfig: {
-                    mode: "MODE_DYNAMIC",
-                    dynamicThreshold: 0.3 
-                  }
-                }
-              }],
-              generationConfig: { 
-                temperature: 0.1,
-                topP: 0.95,
-                responseMimeType: "application/json" // Forced JSON mode for v2.5+
-              },
+              tools: [{ googleSearch:{} }],
+              generationConfig: { temperature:0.1 },
               safetySettings: [
-                { category:'HARM_CATEGORY_HARASSMENT',    threshold:'BLOCK_NONE' },
+                { category:'HARM_CATEGORY_HARASSMENT',        threshold:'BLOCK_NONE' },
                 { category:'HARM_CATEGORY_HATE_SPEECH',       threshold:'BLOCK_NONE' },
                 { category:'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold:'BLOCK_NONE' },
                 { category:'HARM_CATEGORY_DANGEROUS_CONTENT', threshold:'BLOCK_NONE' }
@@ -227,36 +211,45 @@ LEGAL PAGES: ${inp.termsPage||'NONE'}`;
 
         const data = await res.json();
         if (data.error) throw new Error(data.error.message);
-
-        const candidate = data.candidates?.[0];
-        if (!candidate) throw new Error("Safety Block: Audit content flagged or Model rejected the scrape.");
-
-        setStatus('Extracting Forensic Evidence...');
-        
-        // Use the absolute raw text from the last part of the response
-        const parts = candidate.content?.parts || [];
-        const raw = parts.reduce((acc, part) => acc + (part.text || ""), "");
-
-        if (!raw || raw.length < 50) {
-           throw new Error("Zero-length response. The model failed to generate the report structure.");
+        if (!data.candidates?.length) {
+          const reason = data.promptFeedback?.blockReason||'Unknown block';
+          throw new Error(`Gemini blocked: ${reason}`);
         }
 
-        // ── RAW JSON EXTRACTION ──
+        setStatus('Parsing forensic output...');
+        let raw = data.candidates[0].content.parts[0].text;
+
+        // ── ROBUST JSON EXTRACTION AND CLEANUP ──
+        raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+
         const match = raw.match(/\{[\s\S]*\}/);
-        if (!match) throw new Error('Forensic payload found but JSON is malformed.');
+        if (!match) throw new Error('JSON parse error — no valid JSON object found in response.');
         let jsonStr = match[0];
 
-        // Aggressive Cleanup of AI artifacts
-        jsonStr = jsonStr.replace(/:\s*true\|false/g, ': true')
-                         .replace(/:\s*false\|true/g, ': false')
-                         .replace(/:\s*1\|2\|3\|4/g, ': 1')
-                         .replace(/,\s*([\]}])/g, '$1') 
-                         .replace(/\/\/[^\n]*/g, '')     
-                         .replace(/\/\*[\s\S]*?\*\//g, '');
+        // Fix type-notation artifacts Gemini echoes from schema
+        jsonStr = jsonStr.replace(/:\s*true\|false/g,        ': true');
+        jsonStr = jsonStr.replace(/:\s*false\|true/g,        ': false');
+        jsonStr = jsonStr.replace(/:\s*1\|2\|3\|4/g,         ': 1');
+        jsonStr = jsonStr.replace(/:\s*"INT\.[A-Z0-9.]+\|null"/g, ': null');
+        jsonStr = jsonStr.replace(/:\s*"string\s*—[^"]*"/g,  ': null');
+        jsonStr = jsonStr.replace(/:\s*"string[^"]*"/g,      ': null');
 
-        const parsed = JSON.parse(jsonStr);
+        // Remove trailing commas before } or ]
+        jsonStr = jsonStr.replace(/,\s*([\]}])/g, '$1');
 
-        // UI Auto-fill
+        // Remove JS-style comments
+        jsonStr = jsonStr.replace(/\/\/[^\n]*/g, '');
+        jsonStr = jsonStr.replace(/\/\*[\s\S]*?\*\//g, '');
+
+        let parsed;
+        try {
+          parsed = JSON.parse(jsonStr);
+        } catch(parseErr) {
+          console.error('JSON parse failed. Raw extract (first 800 chars):', jsonStr.substring(0, 800));
+          throw new Error(`JSON parse error — ${parseErr.message}. Raw output logged to console.`);
+        }
+
+        // Auto-fill identity fields — V7.0 field names
         setInp(p => ({
           ...p,
           founderName:          parsed.founderName          || p.founderName,
@@ -269,12 +262,10 @@ LEGAL PAGES: ${inp.termsPage||'NONE'}`;
         }));
 
         setResult(parsed);
-      } catch(e) { 
-        console.error('CRITICAL ENGINE FAILURE:', e);
-        setError('Audit failed: ' + e.message); 
-      }
+      } catch(e) { setError('Audit failed: ' + e.message); }
       setLoading(false); setStatus('');
     };
+
     // ── PUSH TO CRM ────────────────────────────────────────
     const pushToCRM = async () => {
       if (!result) return;
@@ -408,15 +399,12 @@ LEGAL PAGES: ${inp.termsPage||'NONE'}`;
             <div style={S.field}>
               <label style={S.label}>Model</label>
               <select value={model} onChange={e=>setModel(e.target.value)} style={{...S.input,borderColor:'var(--gold)',color:'var(--gold)'}}>
-  {/* The 2026 Stable Lineup */}
-  <option value="gemini-2.5-flash">2.5 Flash (Stable Workhorse)</option>
-  <option value="gemini-2.5-pro">2.5 Pro (Stable Architect)</option>
-  
-  {/* The 2026 Frontier Models */}
-  <option value="gemini-3-flash-preview">3.0 Flash (Agentic Speed)</option>
-  <option value="gemini-3.1-pro-preview">3.1 Pro (Deep Reasoning)</option>
-  <option value="gemini-3.1-flash-lite-preview">3.1 Flash-Lite (High Volume)</option>
-</select>
+                <option value="gemini-2.5-flash">2.5 Flash (Standard Hunt)</option>
+                <option value="gemini-2.5-pro">2.5 Pro (High Accuracy)</option>
+                <option value="Gemini-3.1-flash">3.1 Flash (Speed)</option>
+                <option value="gemini-3.1-pro-preview">3.1 Pro Preview (Deep Architect)</option>
+                <option value="gemini-3.1-flash-lite">3.1 Flash-Lite (Volume)</option>
+              </select>
             </div>
             <div style={S.field}>
               <label style={S.label}>Gemini API Key</label>
