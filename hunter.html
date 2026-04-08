@@ -172,93 +172,75 @@
 
     // ── RUN AUDIT ──────────────────────────────────────────
     // ── RUN AUDIT (FIXED VERSION) ──────────────────────────
-    const runAudit = async () => {
-      if (!apiKey) { setError('Gemini API key required.'); return; }
-      if (!inp.companyName && !inp.website) { setError('Company name or website required.'); return; }
-      
-      setLoading(true); setError(''); setResult(null); setPushMsg('');
-      setStatus('Initializing agentic scrape...');
+   const runAudit = async () => {
+      if (!apiKey) { setError('Gemini API key required.'); return; }
+      if (!inp.companyName && !inp.website) { setError('Company name or website required.'); return; }
+      if (!window.SYSTEM || window.SYSTEM.trim().length < 100) {
+        setError('System prompt not loaded. Hard refresh (Ctrl+Shift+R) and retry.');
+        return;
+      }
 
-      const msg = `AUDIT TARGET
+      setLoading(true); setError(''); setResult(null); setPushMsg('');
+      setStatus('Initializing agentic scrape...');
+
+      const msg = `AUDIT TARGET
 COMPANY: ${inp.companyName||'UNKNOWN'}
 WEBSITE: ${inp.website||'UNKNOWN'}
 PRODUCT CONTEXT: ${inp.productDesc||'NONE'}
 LEGAL PAGES: ${inp.termsPage||'NONE'}`;
 
-      try {
-        setStatus('Running Canon registry cross-reference...');
+      try {
+        setStatus('Running Canon registry cross-reference...');
         
-        // Note: Use gemini-1.5-flash or gemini-2.0-flash. 2.5 does not exist.
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model.replace('2.5', '1.5')}:generateContent?key=${apiKey}`,
-          {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
-              systemInstruction: { parts:[{ text: window.SYSTEM }] },
-              contents: [{ role:'user', parts:[{ text: msg }] }],
-              // REMOVED search tool because it requires a multi-turn loop in REST
-              generationConfig: { temperature:0.1 },
-              safetySettings: [
-                { category:'HARM_CATEGORY_HARASSMENT',        threshold:'BLOCK_NONE' },
-                { category:'HARM_CATEGORY_HATE_SPEECH',       threshold:'BLOCK_NONE' },
-                { category:'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold:'BLOCK_NONE' },
-                { category:'HARM_CATEGORY_DANGEROUS_CONTENT', threshold:'BLOCK_NONE' }
-              ]
-            })
-          }
-        );
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model.replace('2.5', '1.5')}:generateContent?key=${apiKey}`,
+          {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              systemInstruction: { parts:[{ text: window.SYSTEM }] },
+              contents: [{ role:'user', parts:[{ text: msg }] }],
+              generationConfig: { temperature:0.1 },
+              safetySettings: [
+                { category:'HARM_CATEGORY_HARASSMENT',    threshold:'BLOCK_NONE' },
+                { category:'HARM_CATEGORY_HATE_SPEECH',       threshold:'BLOCK_NONE' },
+                { category:'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold:'BLOCK_NONE' },
+                { category:'HARM_CATEGORY_DANGEROUS_CONTENT', threshold:'BLOCK_NONE' }
+              ]
+            })
+          }
+        );
 
-        const data = await res.json();
-        if (data.error) throw new Error(data.error.message);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error.message);
 
-        // SAFE CANDIDATE CHECK
-        const candidate = data.candidates?.[0];
-        if (!candidate || !candidate.content?.parts?.[0]) {
-          throw new Error("Gemini returned an empty response. This usually happens due to safety filters on legal content.");
-        }
-
-        setStatus('Parsing forensic output...');
-        let raw = candidate.content.parts[0].text;
-        
-        if (!raw) {
-           throw new Error("Model returned a Tool Call or non-text response. Check if Google Search tool is correctly configured for your environment.");
+        const candidate = data.candidates?.[0];
+        if (!candidate || !candidate.content?.parts?.[0]) {
+          throw new Error("Gemini returned an empty response. Check safety filters or API quota.");
         }
 
-        // ── ROBUST JSON EXTRACTION ──
-        raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-        const match = raw.match(/\{[\s\S]*\}/);
-        if (!match) throw new Error('No valid JSON object found in response.');
-        let jsonStr = match[0];
+        setStatus('Parsing forensic output...');
+        let raw = candidate.content.parts[0].text;
+        
+        if (!raw) throw new Error("No text content returned from model.");
 
-        // ... (The rest of your JSON cleanup and parsing code is fine)
+        // ── ROBUST JSON EXTRACTION & CLEANUP ──
+        raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+        const match = raw.match(/\{[\s\S]*\}/);
+        if (!match) throw new Error('No valid JSON object found in response.');
+        let jsonStr = match[0];
+
+        // Clean up common AI artifacts
+        jsonStr = jsonStr.replace(/:\s*true\|false/g, ': true')
+                         .replace(/:\s*false\|true/g, ': false')
+                         .replace(/:\s*1\|2\|3\|4/g, ': 1')
+                         .replace(/,\s*([\]}])/g, '$1') // Trailing commas
+                         .replace(/\/\/[^\n]*/g, '')     // Comments
+                         .replace(/\/\*[\s\S]*?\*\//g, '');
+
         const parsed = JSON.parse(jsonStr);
-        setResult(parsed);
 
-        // Fix type-notation artifacts Gemini echoes from schema
-        jsonStr = jsonStr.replace(/:\s*true\|false/g,        ': true');
-        jsonStr = jsonStr.replace(/:\s*false\|true/g,        ': false');
-        jsonStr = jsonStr.replace(/:\s*1\|2\|3\|4/g,         ': 1');
-        jsonStr = jsonStr.replace(/:\s*"INT\.[A-Z0-9.]+\|null"/g, ': null');
-        jsonStr = jsonStr.replace(/:\s*"string\s*—[^"]*"/g,  ': null');
-        jsonStr = jsonStr.replace(/:\s*"string[^"]*"/g,      ': null');
-
-        // Remove trailing commas before } or ]
-        jsonStr = jsonStr.replace(/,\s*([\]}])/g, '$1');
-
-        // Remove JS-style comments
-        jsonStr = jsonStr.replace(/\/\/[^\n]*/g, '');
-        jsonStr = jsonStr.replace(/\/\*[\s\S]*?\*\//g, '');
-
-        let parsed;
-        try {
-          parsed = JSON.parse(jsonStr);
-        } catch(parseErr) {
-          console.error('JSON parse failed. Raw extract (first 800 chars):', jsonStr.substring(0, 800));
-          throw new Error(`JSON parse error — ${parseErr.message}. Raw output logged to console.`);
-        }
-
-        // Auto-fill identity fields — V7.0 field names
+        // Auto-fill identity fields for the UI
         setInp(p => ({
           ...p,
           founderName:          parsed.founderName          || p.founderName,
@@ -271,10 +253,12 @@ LEGAL PAGES: ${inp.termsPage||'NONE'}`;
         }));
 
         setResult(parsed);
-      } catch(e) { setError('Audit failed: ' + e.message); }
+      } catch(e) { 
+        console.error('Audit Error:', e);
+        setError('Audit failed: ' + e.message); 
+      }
       setLoading(false); setStatus('');
     };
-
     // ── PUSH TO CRM ────────────────────────────────────────
     const pushToCRM = async () => {
       if (!result) return;
