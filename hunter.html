@@ -172,7 +172,7 @@
 
     // ── RUN AUDIT ──────────────────────────────────────────
 
-   const runAudit = async () => {
+  const runAudit = async () => {
       if (!apiKey) { setError('Gemini API key required.'); return; }
       if (!inp.companyName && !inp.website) { setError('Company name or website required.'); return; }
       if (!window.SYSTEM || window.SYSTEM.trim().length < 100) {
@@ -181,7 +181,7 @@
       }
 
       setLoading(true); setError(''); setResult(null); setPushMsg('');
-      setStatus('Initializing Agentic Scrape...');
+      setStatus('Engaging Forensic Scrape...');
 
       const msg = `AUDIT TARGET
 COMPANY: ${inp.companyName||'UNKNOWN'}
@@ -190,7 +190,7 @@ PRODUCT CONTEXT: ${inp.productDesc||'NONE'}
 LEGAL PAGES: ${inp.termsPage||'NONE'}`;
 
       try {
-        setStatus('Scouring first-party sources via Google Search...');
+        setStatus('Deploying Dynamic Retrieval across first-party domain...');
         
         const res = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -200,11 +200,20 @@ LEGAL PAGES: ${inp.termsPage||'NONE'}`;
             body: JSON.stringify({
               systemInstruction: { parts:[{ text: window.SYSTEM }] },
               contents: [{ role:'user', parts:[{ text: msg }] }],
-              // ── THE GRUNT WORK ENGINE ──
-              tools: [{ google_search: {} }], 
+              // ── DYNAMIC RETRIEVAL ENGINE ──
+              // This forces Gemini to search and synthesize in a single turn.
+              tools: [{
+                googleSearchRetrieval: {
+                  dynamicRetrievalConfig: {
+                    mode: "MODE_DYNAMIC",
+                    dynamicThreshold: 0.3 
+                  }
+                }
+              }],
               generationConfig: { 
                 temperature: 0.1,
-                topP: 0.95
+                topP: 0.95,
+                responseMimeType: "application/json" // Forced JSON mode for v2.5+
               },
               safetySettings: [
                 { category:'HARM_CATEGORY_HARASSMENT',    threshold:'BLOCK_NONE' },
@@ -220,33 +229,24 @@ LEGAL PAGES: ${inp.termsPage||'NONE'}`;
         if (data.error) throw new Error(data.error.message);
 
         const candidate = data.candidates?.[0];
-        if (!candidate) throw new Error("No response. Safety filters likely blocked the forensic analysis.");
+        if (!candidate) throw new Error("Safety Block: Audit content flagged or Model rejected the scrape.");
 
-        setStatus('Synthesizing search results...');
+        setStatus('Extracting Forensic Evidence...');
         
-        // ── SMART TEXT EXTRACTION ──
-        // Tool responses often contain multiple parts (thought, tool call, then text).
-        // We loop through all parts to find the one containing the JSON report.
-        let raw = "";
+        // Use the absolute raw text from the last part of the response
         const parts = candidate.content?.parts || [];
-        for (const part of parts) {
-          if (part.text) {
-             raw = part.text;
-             break; 
-          }
+        const raw = parts.reduce((acc, part) => acc + (part.text || ""), "");
+
+        if (!raw || raw.length < 50) {
+           throw new Error("Zero-length response. The model failed to generate the report structure.");
         }
 
-        if (!raw) {
-           throw new Error("Search completed but no report was generated. Try providing more specific product context.");
-        }
-
-        // ── ROBUST JSON EXTRACTION ──
-        raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+        // ── RAW JSON EXTRACTION ──
         const match = raw.match(/\{[\s\S]*\}/);
-        if (!match) throw new Error('Forensic report found but JSON structure is invalid.');
+        if (!match) throw new Error('Forensic payload found but JSON is malformed.');
         let jsonStr = match[0];
 
-        // Clean up AI artifacts
+        // Aggressive Cleanup of AI artifacts
         jsonStr = jsonStr.replace(/:\s*true\|false/g, ': true')
                          .replace(/:\s*false\|true/g, ': false')
                          .replace(/:\s*1\|2\|3\|4/g, ': 1')
@@ -256,7 +256,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE'}`;
 
         const parsed = JSON.parse(jsonStr);
 
-        // Map identity fields back to the input UI
+        // UI Auto-fill
         setInp(p => ({
           ...p,
           founderName:          parsed.founderName          || p.founderName,
@@ -270,7 +270,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE'}`;
 
         setResult(parsed);
       } catch(e) { 
-        console.error('Audit Engine Failure:', e);
+        console.error('CRITICAL ENGINE FAILURE:', e);
         setError('Audit failed: ' + e.message); 
       }
       setLoading(false); setStatus('');
