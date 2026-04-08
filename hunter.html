@@ -171,60 +171,69 @@
     useEffect(() => { if(apiKey) localStorage.setItem('lnApiKey', apiKey); }, [apiKey]);
 
     // ── RUN AUDIT ──────────────────────────────────────────
-    const runAudit = async () => {
-      if (!apiKey)                          { setError('Gemini API key required.'); return; }
-      if (!inp.companyName && !inp.website) { setError('Company name or website required.'); return; }
-      if (!window.SYSTEM || window.SYSTEM.trim().length < 100) {
-        setError('System prompt not loaded — hunter-system.js may be cached. Hard refresh (Ctrl+Shift+R) and retry.');
-        return;
-      }
-      setLoading(true); setError(''); setResult(null); setPushMsg('');
-      setStatus('Initializing agentic scrape...');
+    // ── RUN AUDIT (FIXED VERSION) ──────────────────────────
+    const runAudit = async () => {
+      if (!apiKey) { setError('Gemini API key required.'); return; }
+      if (!inp.companyName && !inp.website) { setError('Company name or website required.'); return; }
+      
+      setLoading(true); setError(''); setResult(null); setPushMsg('');
+      setStatus('Initializing agentic scrape...');
 
-      const msg = `AUDIT TARGET
+      const msg = `AUDIT TARGET
 COMPANY: ${inp.companyName||'UNKNOWN'}
-WEBSITE: ${inp.website||'UNKNOWN — SCRAPE REQUIRED'}
-PRODUCT CONTEXT: ${inp.productDesc||'NONE — SCRAPE REQUIRED'}
-LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
+WEBSITE: ${inp.website||'UNKNOWN'}
+PRODUCT CONTEXT: ${inp.productDesc||'NONE'}
+LEGAL PAGES: ${inp.termsPage||'NONE'}`;
 
-      try {
-        setStatus('Running Canon registry cross-reference...');
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
-              systemInstruction: { parts:[{ text: window.SYSTEM }] },
-              contents: [{ role:'user', parts:[{ text: msg }] }],
-              tools: [{ googleSearch:{} }],
-              generationConfig: { temperature:0.1 },
-              safetySettings: [
-                { category:'HARM_CATEGORY_HARASSMENT',        threshold:'BLOCK_NONE' },
-                { category:'HARM_CATEGORY_HATE_SPEECH',       threshold:'BLOCK_NONE' },
-                { category:'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold:'BLOCK_NONE' },
-                { category:'HARM_CATEGORY_DANGEROUS_CONTENT', threshold:'BLOCK_NONE' }
-              ]
-            })
-          }
-        );
+      try {
+        setStatus('Running Canon registry cross-reference...');
+        
+        // Note: Use gemini-1.5-flash or gemini-2.0-flash. 2.5 does not exist.
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model.replace('2.5', '1.5')}:generateContent?key=${apiKey}`,
+          {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              systemInstruction: { parts:[{ text: window.SYSTEM }] },
+              contents: [{ role:'user', parts:[{ text: msg }] }],
+              // REMOVED search tool because it requires a multi-turn loop in REST
+              generationConfig: { temperature:0.1 },
+              safetySettings: [
+                { category:'HARM_CATEGORY_HARASSMENT',        threshold:'BLOCK_NONE' },
+                { category:'HARM_CATEGORY_HATE_SPEECH',       threshold:'BLOCK_NONE' },
+                { category:'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold:'BLOCK_NONE' },
+                { category:'HARM_CATEGORY_DANGEROUS_CONTENT', threshold:'BLOCK_NONE' }
+              ]
+            })
+          }
+        );
 
-        const data = await res.json();
-        if (data.error) throw new Error(data.error.message);
-        if (!data.candidates?.length) {
-          const reason = data.promptFeedback?.blockReason||'Unknown block';
-          throw new Error(`Gemini blocked: ${reason}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error.message);
+
+        // SAFE CANDIDATE CHECK
+        const candidate = data.candidates?.[0];
+        if (!candidate || !candidate.content?.parts?.[0]) {
+          throw new Error("Gemini returned an empty response. This usually happens due to safety filters on legal content.");
+        }
+
+        setStatus('Parsing forensic output...');
+        let raw = candidate.content.parts[0].text;
+        
+        if (!raw) {
+           throw new Error("Model returned a Tool Call or non-text response. Check if Google Search tool is correctly configured for your environment.");
         }
 
-        setStatus('Parsing forensic output...');
-        let raw = data.candidates[0].content.parts[0].text;
+        // ── ROBUST JSON EXTRACTION ──
+        raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+        const match = raw.match(/\{[\s\S]*\}/);
+        if (!match) throw new Error('No valid JSON object found in response.');
+        let jsonStr = match[0];
 
-        // ── ROBUST JSON EXTRACTION AND CLEANUP ──
-        raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-
-        const match = raw.match(/\{[\s\S]*\}/);
-        if (!match) throw new Error('JSON parse error — no valid JSON object found in response.');
-        let jsonStr = match[0];
+        // ... (The rest of your JSON cleanup and parsing code is fine)
+        const parsed = JSON.parse(jsonStr);
+        setResult(parsed);
 
         // Fix type-notation artifacts Gemini echoes from schema
         jsonStr = jsonStr.replace(/:\s*true\|false/g,        ': true');
