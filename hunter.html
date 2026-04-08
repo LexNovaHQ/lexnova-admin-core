@@ -198,7 +198,10 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
               systemInstruction: { parts:[{ text: window.SYSTEM }] },
               contents: [{ role:'user', parts:[{ text: msg }] }],
               tools: [{ googleSearch:{} }],
-              generationConfig: { temperature:0.1 },
+              generationConfig: { 
+  temperature: 0.1,
+  responseMimeType: "application/json" 
+},
               safetySettings: [
                 { category:'HARM_CATEGORY_HARASSMENT',        threshold:'BLOCK_NONE' },
                 { category:'HARM_CATEGORY_HATE_SPEECH',       threshold:'BLOCK_NONE' },
@@ -217,15 +220,19 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
         }
 
         setStatus('Parsing forensic output...');
-        let raw = data.candidates[0].content.parts[0].text;
+        const raw = (data.candidates[0].content.parts || [])
+            .map(p => p.text || "")
+            .join("");
 
         // ── ROBUST JSON EXTRACTION AND CLEANUP ──
-        raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  const match = raw.match(/\{[\s\S]*\}/);
+if (!match) throw new Error('Forensic payload not found in scrape results.');
+let jsonStr = match[0];
 
-        const match = raw.match(/\{[\s\S]*\}/);
-        if (!match) throw new Error('JSON parse error — no valid JSON object found in response.');
-        let jsonStr = match[0];
-
+// Immediate cleanup of common break-points
+jsonStr = jsonStr.replace(/\/\/[^\n]*/g, '') // Removes any // comments
+                 .replace(/:\s*true\|false/g, ': true')
+                 .replace(/,\s*([\]}])/g, '$1'); // Removes trailing commas
         // Fix type-notation artifacts Gemini echoes from schema
         jsonStr = jsonStr.replace(/:\s*true\|false/g,        ': true');
         jsonStr = jsonStr.replace(/:\s*false\|true/g,        ': false');
