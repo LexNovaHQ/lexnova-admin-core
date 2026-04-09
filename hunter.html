@@ -198,9 +198,7 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
               systemInstruction: { parts:[{ text: window.SYSTEM }] },
               contents: [{ role:'user', parts:[{ text: msg }] }],
               tools: [{ googleSearch:{} }],
-             generationConfig: { 
-  temperature: 0.1
-},
+              generationConfig: { temperature:0.1 },
               safetySettings: [
                 { category:'HARM_CATEGORY_HARASSMENT',        threshold:'BLOCK_NONE' },
                 { category:'HARM_CATEGORY_HATE_SPEECH',       threshold:'BLOCK_NONE' },
@@ -218,43 +216,49 @@ LEGAL PAGES: ${inp.termsPage||'NONE — SCRAPE REQUIRED'}`;
           throw new Error(`Gemini blocked: ${reason}`);
         }
 
-        setStatus('Synthesizing forensic evidence...');
-        
-        // 1. THE COLLECTOR: Fixes "Cannot read properties of undefined (reading '0')"
-        // We join all parts into one string because Gemini often puts search data in part 0
-        // and the actual report in part 1 or 2.
-        const candidate = data.candidates?.[0];
-        const raw = (candidate?.content?.parts || []).map(p => p.text || "").join("");
+        setStatus('Parsing forensic output...');
+        let raw = data.candidates[0].content.parts[0].text;
 
-        if (!raw || raw.length < 20) {
-           throw new Error("The engine completed the search but generated no report text. Check safety filters.");
-        }
+        // ── ROBUST JSON EXTRACTION AND CLEANUP ──
+        raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
 
-        // 2. THE HUNT: Find the JSON object inside the conversational text
-        // This looks for the first '{' and the last '}'
         const match = raw.match(/\{[\s\S]*\}/);
-        if (!match) throw new Error('No forensic JSON payload found in the scrape results.');
+        if (!match) throw new Error('JSON parse error — no valid JSON object found in response.');
         let jsonStr = match[0];
 
-        // 3. THE CLEAN: Restores your original "undiluted" regex cleanup
-        // This removes comments and schema artifacts (like true|false) that break JSON.parse
-        jsonStr = jsonStr.replace(/\/\/[^\n]*/g, '')     // Remove // comments
-                         .replace(/\/\*[\s\S]*?\*\//g, '') // Remove /* */ comments
-                         .replace(/:\s*true\|false/g, ': true')
-                         .replace(/:\s*false\|true/g, ': false')
-                         .replace(/:\s*1\|2\|3\|4/g, ': 1')
-                         .replace(/,\s*([\]}])/g, '$1'); // Remove trailing commas
+        // Fix type-notation artifacts Gemini echoes from schema
+        jsonStr = jsonStr.replace(/:\s*true\|false/g,        ': true');
+        jsonStr = jsonStr.replace(/:\s*false\|true/g,        ': false');
+        jsonStr = jsonStr.replace(/:\s*1\|2\|3\|4/g,         ': 1');
+        jsonStr = jsonStr.replace(/:\s*"INT\.[A-Z0-9.]+\|null"/g, ': null');
+        jsonStr = jsonStr.replace(/:\s*"string\s*—[^"]*"/g,  ': null');
+        jsonStr = jsonStr.replace(/:\s*"string[^"]*"/g,      ': null');
 
-        // 4. THE PARSE: Final conversion to data
-        const parsed = JSON.parse(jsonStr);
+        // Remove trailing commas before } or ]
+        jsonStr = jsonStr.replace(/,\s*([\]}])/g, '$1');
 
-        // Re-sync UI fields
+        // Remove JS-style comments
+        jsonStr = jsonStr.replace(/\/\/[^\n]*/g, '');
+        jsonStr = jsonStr.replace(/\/\*[\s\S]*?\*\//g, '');
+
+        let parsed;
+        try {
+          parsed = JSON.parse(jsonStr);
+        } catch(parseErr) {
+          console.error('JSON parse failed. Raw extract (first 800 chars):', jsonStr.substring(0, 800));
+          throw new Error(`JSON parse error — ${parseErr.message}. Raw output logged to console.`);
+        }
+
+        // Auto-fill identity fields — V7.0 field names
         setInp(p => ({
           ...p,
           founderName:          parsed.founderName          || p.founderName,
+          founderTitle:         parsed.founderTitle         || p.founderTitle,
           email:                parsed.email                || parsed.founderEmail || p.email,
-          fundingStage:         parsed.fundingStage         || p.fundingStage,
+          linkedinUrl:          parsed.linkedinUrl          || p.linkedinUrl,
           regJurisdiction:      parsed.jurisdiction         || parsed.registrationJurisdiction || p.regJurisdiction,
+          serviceJurisdictions: parsed.serviceJurisdictions || p.serviceJurisdictions,
+          fundingStage:         parsed.fundingStage         || p.fundingStage,
         }));
 
         setResult(parsed);
