@@ -1705,7 +1705,7 @@ No backticks. No code fences.
   "forensicGaps": [
     {
       "threatId": "string — e.g. INT01_ROG_002",
-      "gapName": "string",
+      "gapName": "string — copy the EXACT title of the gap from the Threat Registry (e.g., 'UNCAPPED AUTONOMOUS LIABILITY'). Do not paraphrase.",
       "intArchetype": "INT.XX|null",
       "gap_type": "CORE_ARCHETYPE|SECONDARY_INT|UNIVERSAL"
       "extSurfaces": ["EXT.XX", "EXT.YY"],
@@ -1725,7 +1725,7 @@ No backticks. No code fences.
   Never derive or rewrite — copy verbatim only.",
       
             "product_source": "string — source type|null",
-      "evidence_source": "string — document type|null",
+      "evidence_source": "string — Exact name of the document ONLY (e.g., 'Privacy Policy', 'Terms of Service', 'Homepage'). Do NOT include URLs or extra text.",
       "thePain": "string — strictly copy the exact 'thePain' text from the Threat Registry in Sections 5A/5B verbatim. Do not paraphrase.",
       "theFix": "string — plain English remediation",
       "evidence": {
