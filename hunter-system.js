@@ -1726,7 +1726,7 @@ No backticks. No code fences.
       
             "product_source": "string — source type|null",
       "evidence_source": "string — document type|null",
-      "thePain": "string — commercial pain, no legal terms",
+      "thePain": "string — strictly copy the exact 'thePain' text from the Threat Registry in Sections 5A/5B verbatim. Do not paraphrase.",
       "theFix": "string — plain English remediation",
       "evidence": {
         "found": "string — quoted/paraphrased scraped text
