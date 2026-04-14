@@ -2166,12 +2166,21 @@ window.advanceSequence = async function() {
     document.getElementById('hunt-prospect-modal').style.display='none';
 };
 
+window.openPP = (id) => HuntUI.openProspectModal(id);
+window.filterProspects = () => HuntUI.renderMainDash();
+window.openAddProspect = () => HuntUI.openNewICPModal();
+window.saveProspect = () => HuntUI.saveModalChanges(window.currentProspect?.id);
+window.copySpearReport = (id) => HuntExport.copySpear(id);
+window.triggerV5Update = (id) => HuntUI.triggerV5Update(id);
+
 window.loadOutreach = function() {
     console.log("[Boot] V5.0 Hunt Engine Active");
     const pa = document.getElementById('pageActions');
     if (pa) pa.innerHTML = '';
     
-    // Check if we need to boot or just refresh
+    const container = document.getElementById('tab-hunt');
+    if (!container) return console.error("#tab-hunt missing");
+
     if (!HuntCore.state.isLoaded) {
         HuntCore.init();
     } else {
