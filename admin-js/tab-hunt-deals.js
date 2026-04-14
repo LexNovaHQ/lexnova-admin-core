@@ -1545,17 +1545,18 @@ const HuntUI = {
 
     // 3. Selection & Filter Panel
     buildSelectionPanel: function() {
+        const inputStyle = "padding: 8px; background: #111; border: 1px solid #333; color: #fff; border-radius: 4px;";
         return `
-        <div class="hunt-selection-panel" style="padding: 15px; background: #f9f9f9; border: 1px solid #eee; display: flex; gap: 15px; align-items: center;">
-            <input type="text" id="hunt-search" placeholder="Search Target..." style="padding: 8px; flex: 1;">
+        <div class="hunt-selection-panel" style="padding: 15px; background: #0a0a0a; border: 1px solid #222; display: flex; gap: 15px; align-items: center;">
+            <input type="text" id="hunt-search" placeholder="Search Target..." style="flex: 1; ${inputStyle}" oninput="HuntUI.renderMainDash()">
             
-            <select id="hunt-filter-batch" style="padding: 8px;">
+            <select id="hunt-filter-batch" style="${inputStyle}" onchange="HuntUI.renderMainDash()">
                 <option value="ALL">All Batches</option>
                 <option value="04A">04A</option>
                 <option value="04B">04B</option>
             </select>
 
-            <select id="hunt-filter-status" style="padding: 8px;">
+            <select id="hunt-filter-status" style="${inputStyle}" onchange="HuntUI.renderMainDash()">
                 <option value="ALL">All Statuses</option>
                 <option value="QUEUED">QUEUED</option>
                 <option value="SEQUENCE">SEQUENCE</option>
@@ -1563,14 +1564,14 @@ const HuntUI = {
                 <option value="NEGOTIATING">NEGOTIATING</option>
             </select>
 
-            <select id="hunt-filter-confidence" style="padding: 8px;">
+            <select id="hunt-filter-confidence" style="${inputStyle}" onchange="HuntUI.renderMainDash()">
                 <option value="ALL">Any Confidence</option>
                 <option value="LOW">LOW Alibi (Target)</option>
                 <option value="MEDIUM">MEDIUM Alibi</option>
                 <option value="HIGH">HIGH Alibi</option>
             </select>
 
-            <button onclick="HuntUI.openNewICPModal()" style="padding: 8px 15px; background: #000; color: #fff; cursor:pointer;">+ Add New ICP</button>
+            <button onclick="window.openAddProspect()" style="padding: 8px 15px; background: #fff; color: #000; font-weight:bold; border:none; cursor:pointer; border-radius:4px;">+ Add New ICP</button>
         </div>`;
     },
 
