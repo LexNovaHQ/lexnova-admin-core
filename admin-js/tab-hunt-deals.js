@@ -1455,112 +1455,409 @@ const HuntIngestion = {
 };
 
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ MODULE 3: HUNT UI (TEMPLATES & RENDERING) ════════════════════
+// ═════════ MODULE 3: HUNT UI (VIEW CONTROLLER & RENDERING) ══════════════
 // ════════════════════════════════════════════════════════════════════════
 
 const HuntUI = {
-    renderMainDash: function() {
+    // ── THE MIGRATION MAP (Dual-Read Translation Layer) ─────────────────
+    migrationMap: {
+        "UNI_CON_001": "UNI_CNS_001", "UNI_CON_002": "UNI_CNS_002", "UNI_CON_003": "UNI_CNS_003", 
+        "UNI_CON_004": "UNI_CNS_004", "UNI_CON_005": "UNI_CNS_005", "UNI_CON_006": "UNI_CNS_006",
+        "UNI_SEC_001": "UNI_PRV_001", "UNI_SEC_002": "UNI_PRV_002", "UNI_SEC_003": "UNI_PRV_003",
+        "INT01_AGT_001": "UNI_LIA_007", "INT01_AGT_002": "UNI_CNS_007", "INT02_DIS_001": "I02_DEC_001",
+        "INT02_MED_001": "I02_HRM_001", "INT02_CRA_001": "I02_DEC_002", "INT02_MED_002": "I02_DEC_003",
+        "INT02_AUD_001": "I02_DEC_004", "INT02_AUD_002": "I02_DEC_005", "INT02_REG_001": "I02_DEC_006",
+        "INT02_REG_002": "I02_DEC_007", "INT02_AUT_001": "I02_DEC_008", "INT02_MED_003": "I02_HRM_002",
+        "INT02_EVD_001": "I02_FRD_001", "INT02_EMP_001": "I02_DEC_009", "INT02_EMP_002": "I02_DEC_010",
+        "INT03_COM_001": "I03_HRM_001", "INT03_COM_002": "I03_HRM_002", "INT03_COM_003": "I03_HRM_003"
+        // (The system will gracefully fallback if an old trap isn't in this abbreviated map)
+    },
+
+    currentFilter: {
+        search: "",
+        batch: "ALL",
+        status: "ALL", // QUEUED, SEQUENCE, ENGAGED, NEGOTIATING, etc.
+        confidence: "ALL"
+    },
+
+    // 1. Core Render Entry Point
+   renderMainDash: function() {
         const container = document.getElementById('tab-hunt');
+
+ // Root div in your admin panel
         if (!container) return;
 
-        // Build Skeleton if missing
-        if (!document.getElementById('hunt-controls')) {
-            container.innerHTML = `
-                <div id="hunt-controls" class="dashboard-header" style="padding: 20px; border-bottom: 1px solid #eee;">
-                    <div style="display:flex; gap:10px; margin-bottom:15px;">
-                        <input type="text" id="hunt-search" placeholder="Search Company or PID..." class="fi" style="flex:1" onkeyup="window.filterProspects()">
-                        <select id="hunt-status-filter" class="fi" style="width:150px" onchange="window.filterProspects()">
-                            <option value="ALL">All Status</option>
-                            <option value="QUEUED">Queued</option>
-                            <option value="SEQUENCE">Sequence</option>
-                            <option value="ENGAGED">Engaged</option>
-                            <option value="DEAD">Dead</option>
-                        </select>
-                        <button class="btn btn-primary" onclick="window.openAddProspect()">+ Add ICP</button>
-                    </div>
-                </div>
-                <div class="table-container" style="padding:0 20px;">
-                    <table style="width:100%; border-collapse:collapse;">
-                        <thead>
-                            <tr style="text-align:left; border-bottom: 2px solid #eee;">
-                                <th style="padding:12px;">PID</th>
-                                <th>Company / Founder</th>
-                                <th>Intel</th>
-                                <th>Status</th>
-                                <th>Next Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="hunt-tbody"></tbody>
-                    </table>
-                </div>`;
-        }
-        this.renderTableRows();
+        const prospects = HuntCore.state.prospects;
+        
+        // Render the 3-part Main Dash layout
+        container.innerHTML = `
+            ${this.buildMetricsDash(prospects)}
+            ${this.buildSelectionPanel()}
+            <div class="hunt-tables-container" style="margin-top: 20px;">
+                ${this.buildScheduledTable(prospects)}
+                ${this.buildUnscheduledTable(prospects)}
+                ${this.buildNegotiationTable(prospects)}
+            </div>
+        `;
+        
+        this.attachDashListeners();
     },
 
-    renderTableRows: function() {
-        const tbody = document.getElementById('hunt-tbody');
-        if (!tbody) return;
+    // 2. ICP & Scanner Telemetry Dash
+    buildMetricsDash: function(prospects) {
+        const total = prospects.length;
+        const inSequence = prospects.filter(p => p.status === 'SEQUENCE').length;
+        const v5Count = prospects.filter(p => p.intelStatus === 'V5.0').length;
+        const unscheduled = prospects.filter(p => p.status === 'QUEUED').length;
+        const archived = prospects.filter(p => p.status === 'ARCHIVED').length;
+        
+        // Action Needed Bottleneck: e.g., Next Action date is past due
+        const now = new Date().toISOString().split('T')[0];
+        const actionNeeded = prospects.filter(p => 
+            p.status !== 'DEAD' && p.status !== 'ARCHIVED' && p.status !== 'CONVERTED' && 
+            p.nextActionDate && p.nextActionDate < now
+        ).length;
 
-        const searchTerm = document.getElementById('hunt-search')?.value.toLowerCase() || "";
-        const filterStatus = document.getElementById('hunt-status-filter')?.value || "ALL";
+        const clicked = prospects.filter(p => p.scannerClicked).length;
+        const completed = prospects.filter(p => p.scannerCompleted).length;
 
-        const filtered = HuntCore.state.prospects.filter(p => {
-            const matchSearch = (p.company || "").toLowerCase().includes(searchTerm) || (p.prospectId || "").toLowerCase().includes(searchTerm);
-            const matchStatus = (filterStatus === "ALL") || (p.status === filterStatus);
-            return matchSearch && matchStatus;
-        });
+        return `
+        <div class="hunt-metrics-row" style="display: flex; gap: 20px; margin-bottom: 20px;">
+            <div class="hunt-card" style="flex: 2; padding: 15px; border: 1px solid #ddd; background: #fff;">
+                <h3 style="margin-top:0;">ICP Pipeline</h3>
+                <div style="display: flex; justify-content: space-between; text-align: center;">
+                    <div><b>${total}</b><br><small>Total</small></div>
+                    <div><b>${inSequence}</b><br><small>Sequence</small></div>
+                    <div><b>${v5Count}</b><br><small>V5.0 Intel</small></div>
+                    <div><b>${unscheduled}</b><br><small>Unscheduled</small></div>
+                    <div style="color: red;"><b>${actionNeeded}</b><br><small>Action Needed</small></div>
+                </div>
+            </div>
+            <div class="hunt-card" style="flex: 1; padding: 15px; border: 1px solid #ddd; background: #fff;">
+                <h3 style="margin-top:0;">Scanner Telemetry</h3>
+                <div style="display: flex; justify-content: space-between; text-align: center;">
+                    <div><b>${clicked}</b><br><small>Clicked</small></div>
+                    <div><b>${clicked - completed}</b><br><small>Dropped</small></div>
+                    <div style="color: green;"><b>${completed}</b><br><small>Completed</small></div>
+                </div>
+            </div>
+        </div>`;
+    },
 
-        if (filtered.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:40px; color:#999;">No matching prospects.</td></tr>`;
-            return;
-        }
+    // 3. Selection & Filter Panel
+    buildSelectionPanel: function() {
+        return `
+        <div class="hunt-selection-panel" style="padding: 15px; background: #f9f9f9; border: 1px solid #eee; display: flex; gap: 15px; align-items: center;">
+            <input type="text" id="hunt-search" placeholder="Search Target..." style="padding: 8px; flex: 1;">
+            
+            <select id="hunt-filter-batch" style="padding: 8px;">
+                <option value="ALL">All Batches</option>
+                <option value="04A">04A</option>
+                <option value="04B">04B</option>
+            </select>
 
-        tbody.innerHTML = filtered.map(p => `
-            <tr style="border-bottom:1px solid #f9f9f9; cursor:pointer;" onclick="window.openPP('${p.id}')">
-                <td style="padding:12px; font-family:monospace; font-size:12px;">${p.prospectId}</td>
-                <td>
-                    <div style="font-weight:bold;">${p.company || 'Unknown'}</div>
-                    <div style="font-size:11px; color:#666;">${p.founderName || p.email}</div>
-                </td>
-                <td><span class="badge">${p.intelStatus || 'V5.0'}</span></td>
-                <td>${p.status}</td>
-                <td style="font-size:12px;">${p.nextActionDate || '--'}</td>
+            <select id="hunt-filter-status" style="padding: 8px;">
+                <option value="ALL">All Statuses</option>
+                <option value="QUEUED">QUEUED</option>
+                <option value="SEQUENCE">SEQUENCE</option>
+                <option value="ENGAGED">ENGAGED</option>
+                <option value="NEGOTIATING">NEGOTIATING</option>
+            </select>
+
+            <select id="hunt-filter-confidence" style="padding: 8px;">
+                <option value="ALL">Any Confidence</option>
+                <option value="LOW">LOW Alibi (Target)</option>
+                <option value="MEDIUM">MEDIUM Alibi</option>
+                <option value="HIGH">HIGH Alibi</option>
+            </select>
+
+            <button onclick="HuntUI.openNewICPModal()" style="padding: 8px 15px; background: #000; color: #fff; cursor:pointer;">+ Add New ICP</button>
+        </div>`;
+    },
+
+    // 4. Tables Generation (SCHEDULED)
+    buildScheduledTable: function(prospects) {
+        const filtered = this.applyFilters(prospects.filter(p => p.status === 'SEQUENCE' || p.status === 'ENGAGED'));
+        let rows = filtered.map((p, i) => `
+            <tr onclick="HuntUI.openProspectModal('${p.id}')" style="cursor: pointer; border-bottom: 1px solid #eee;">
+                <td>${i+1}</td>
+                <td><b>${p.founderName}</b><br><small>${p.founderRole}</small></td>
+                <td>${p.company}<br><small>${p.prospectId}</small></td>
+                <td>${p.batchNumber}</td>
+                <td>${this.renderIntelBadge(p)}</td>
+                <td>${p.outreachStatus} - ${p.sequenceStep}</td>
+                <td>${p.scannerCompleted ? 'Completed' : (p.scannerClicked ? 'Clicked' : 'Unopened')}</td>
+                <td>${p.ceDate || 'N/A'}</td>
             </tr>
         `).join('');
+
+        return this.wrapTableCard("Scheduled & In-Sequence", rows, "S.No|Founder|Company|Batch|Intel|Outreach|Scanner|CE Date");
     },
 
-    openProspectModal: function(id) {
-        const p = HuntCore.getProspectById(id);
+    // 5. Tables Generation (UNSCHEDULED / QUEUED)
+    buildUnscheduledTable: function(prospects) {
+        const filtered = this.applyFilters(prospects.filter(p => p.status === 'QUEUED'));
+        const now = new Date();
+
+        let rows = filtered.map((p, i) => {
+            const addedDate = p.addedAt ? new Date(p.addedAt) : new Date();
+            const daysInQueue = Math.floor((now - addedDate) / (1000 * 60 * 60 * 24));
+            
+            return `
+            <tr onclick="HuntUI.openProspectModal('${p.id}')" style="cursor: pointer; border-bottom: 1px solid #eee;">
+                <td>${i+1}</td>
+                <td><b>${p.founderName}</b></td>
+                <td>${p.company}<br><small>${p.prospectId}</small></td>
+                <td>${p.batchNumber}</td>
+                <td>${this.renderIntelBadge(p)}</td>
+                <td>${p.updatedAt ? p.updatedAt.split('T')[0] : 'N/A'}</td>
+                <td style="color: ${daysInQueue > 7 ? 'red' : 'black'};"><b>${daysInQueue} Days</b></td>
+                <td><button onclick="event.stopPropagation(); window.alert('Schedule UI trigger')">Schedule</button></td>
+            </tr>`;
+        }).join('');
+
+        return this.wrapTableCard("Unscheduled (Queued)", rows, "S.No|Founder|Company|Batch|Intel|Last Update|Aging|Action");
+    },
+
+    // 6. Tables Generation (NEGOTIATING)
+    buildNegotiationTable: function(prospects) {
+        const filtered = this.applyFilters(prospects.filter(p => p.status === 'NEGOTIATING'));
+        
+        let rows = filtered.map((p, i) => `
+            <tr onclick="HuntUI.openProspectModal('${p.id}')" style="cursor: pointer; border-bottom: 1px solid #eee;">
+                <td>${i+1}</td>
+                <td><b>${p.founderName}</b><br>${p.company}</td>
+                <td>Score: ${p.scannerScore || 'N/A'}</td>
+                <td>${p.true_gaps && p.true_gaps[0] ? p.true_gaps[0].Threat_Name : 'Review Pending'}</td>
+                <td>${p.updatedAt ? p.updatedAt.split('T')[0] : 'N/A'}</td>
+                <td><input type="text" value="${p.frictionNote || ''}" placeholder="Note..." onclick="event.stopPropagation();" onblur="HuntCore.saveProspect({id: '${p.id}', frictionNote: this.value})"></td>
+            </tr>
+        `).join('');
+
+        return this.wrapTableCard("Negotiation Pipeline", rows, "S.No|Target|Scanner|Top Threat|Last Touch|Friction Note");
+    },
+
+    wrapTableCard: function(title, rowsHtml, headersStr) {
+        const headers = headersStr.split('|').map(h => `<th>${h}</th>`).join('');
+        return `
+        <div class="hunt-table-card" style="background:#fff; border:1px solid #ddd; margin-bottom: 20px;">
+            <div style="background:#f4f4f4; padding:10px 15px; font-weight:bold; border-bottom:1px solid #ddd;">${title}</div>
+            <table style="width: 100%; text-align: left; border-collapse: collapse;">
+                <thead><tr style="background: #fafafa;">${headers}</tr></thead>
+                <tbody>${rowsHtml || '<tr><td colspan="8" style="text-align:center; padding:15px;">No targets in this view.</td></tr>'}</tbody>
+            </table>
+        </div>`;
+    },
+
+    // 7. Badge Rendering Logic
+    renderIntelBadge: function(prospect) {
+        if (prospect.intelStatus !== 'V5.0') return `<span style="background:#ccc; padding:3px 6px; border-radius:3px; font-size:10px;">LEGACY</span>`;
+        
+        const tier = prospect.ghost_protection_profile?.confidence_tier || 'N/A';
+        const liab = prospect.legal_viability?.G1_category || '';
+        let liabColor = liab === 'DIRECT_LIABILITY' ? 'red' : (liab === 'DUAL_EXPOSURE' ? 'orange' : 'black');
+        let tierColor = tier === 'LOW' ? 'green' : (tier === 'HIGH' ? 'red' : 'black'); // Low alibi = good for us
+        
+        return `<span style="color:${liabColor}; font-weight:bold; font-size:11px;">${liab.replace('_', ' ')}</span><br>
+                <span style="color:${tierColor}; font-size:10px;">ALIBI: ${tier}</span>`;
+    },
+
+    // 8. Filters
+    applyFilters: function(arr) {
+        // Implementation of search/dropdown logic tied to this.currentFilter
+        return arr; // Placeholder for exact string matching logic
+    },
+
+    attachDashListeners: function() {
+        // Hook up search boxes to this.currentFilter and re-render
+    },
+
+    // ════════════════════════════════════════════════════════════════════════
+    // ═════════ THE PROSPECT MODAL (ICP UI) ══════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════════
+
+    openProspectModal: function(docId) {
+        const p = HuntCore.getProspectById(docId);
         if (!p) return;
-        window.currentProspect = p;
-        if (window.renderProspectPanel) window.renderProspectPanel(p);
+
+        let modal = document.getElementById('hunt-prospect-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'hunt-prospect-modal';
+            modal.style.cssText = "position:fixed; top:0; right:0; width:85%; height:100%; background:#f9f9f9; box-shadow:-5px 0 15px rgba(0,0,0,0.2); z-index:9999; overflow-y:auto; padding:20px; box-sizing:border-box;";
+            document.body.appendChild(modal);
+        }
+
+        modal.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2>Forensic Dossier: ${p.company}</h2>
+                <button onclick="document.getElementById('hunt-prospect-modal').style.display='none'" style="padding:10px;">Close X</button>
+            </div>
+            
+            <div style="background:#fff; padding:15px; border:1px solid #ddd; margin-bottom:15px; display:flex; gap:20px;">
+                <div><b>Company:</b> ${p.company}</div>
+                <div><b>PID:</b> ${p.prospectId}</div>
+                <div><b>Founder:</b> ${p.founderName} (${p.founderRole})</div>
+                <div><b>Email:</b> ${p.email}</div>
+                <div><b>Jurisdiction:</b> ${p.jurisdiction}</div>
+            </div>
+
+            <div style="background:#000; padding:10px 15px; margin-bottom:20px; color:#fff; display:flex; gap:15px; align-items:center;">
+                <a href="${p.scannerLink}" target="_blank" style="color:#0f0;">Open Scanner Link</a>
+                <span style="flex:1;"></span>
+                <button onclick="HuntUI.triggerV5Update('${p.id}')" style="background:#444; color:#fff; padding:5px 10px; border:none; cursor:pointer;">JSON Update</button>
+                <button onclick="HuntExport.copySpear('${p.id}')" style="background:#007bff; color:#fff; padding:5px 10px; border:none; cursor:pointer;">Copy Spear</button>
+                <button onclick="HuntUI.saveModalChanges('${p.id}')" style="background:#28a745; color:#fff; padding:5px 10px; border:none; cursor:pointer;">Save Dossier</button>
+                <button onclick="if(confirm('Permanently Delete?')) HuntCore.deleteProspect('${p.id}')" style="background:#dc3545; color:#fff; padding:5px 10px; border:none; cursor:pointer;">Delete</button>
+            </div>
+
+            <div style="display:flex; gap:20px;">
+                <div style="flex:2;">
+                    ${this.renderIntelligenceColumn(p)}
+                </div>
+
+                <div style="flex:1; background:#fff; padding:15px; border:1px solid #ddd;">
+                    ${this.renderLogisticsColumn(p)}
+                </div>
+            </div>
+        `;
+        modal.style.display = 'block';
     },
 
-    openNewICPModal: function() {
-        // Triggers the standard system prompt for new V5 intake
-        const founder = prompt("Founder Name:");
-        const email = prompt("Email:");
-        const batch = prompt("Batch (e.g. 04A):");
-        const json = prompt("Paste V5 Hunter JSON:");
-        if (founder && email && batch && json) {
-            HuntIngestion.processNewICP(founder, email, batch, json);
+    // Dual-Read Router
+    renderIntelligenceColumn: function(p) {
+        if (p.intelStatus === 'V5.0' && p.true_gaps) {
+            return this.renderV5Forensics(p);
+        } else {
+            return this.renderLegacyForensics(p);
         }
     },
 
-    saveModalChanges: async function(id) {
-        if (!id) return;
-        // Logic to grab values from your Modal DOM elements
+    renderV5Forensics: function(p) {
+        const profile = p.ghost_protection_profile || {};
+        const gaps = p.true_gaps || [];
+        
+        let gapsHtml = gaps.map(g => `
+            <div style="border:1px solid ${g.Pain_Tier === 'T1' ? 'red' : (g.Pain_Tier === 'T2' ? 'orange' : '#ccc')}; border-left:5px solid ${g.Pain_Tier === 'T1' ? 'red' : (g.Pain_Tier === 'T2' ? 'orange' : '#ccc')}; padding:10px; margin-bottom:10px; background:#fff;">
+                <h4 style="margin:0 0 10px 0;">${g.Threat_ID}: ${g.Threat_Name} [${g.Pain_Tier}]</h4>
+                <div style="font-size:12px;">
+                    <b>Mechanism:</b> ${g.FP_Mechanism}<br>
+                    <b>Absence Hook:</b> "${g.structural_absence}"<br>
+                    <b>Predator:</b> "${g.predator_signature}"<br>
+                    <b>Self-Indictment:</b> <a href="${g.evidence_source}" target="_blank">Source</a> - "${g.proof_citation}"<br>
+                    <hr style="margin:5px 0; border:0; border-top:1px dashed #eee;">
+                    <b>Pain:</b> ${g.Legal_Pain}<br>
+                    <b>Lex Nova Fix:</b> <i>${g.Lex_Nova_Fix}</i>
+                </div>
+            </div>
+        `).join('');
+
+        let indictmentsHtml = (profile.self_indictments || []).map(ind => `
+            <li style="margin-bottom:5px; font-size:12px;">
+                <b>Quote:</b> "${ind.quote}"<br>
+                <span style="color:red;"><b>Contradicts:</b> ${ind.contradicts}</span>
+            </li>
+        `).join('');
+
+        return `
+            <div style="background:#fff; border:1px solid #ddd; padding:15px; margin-bottom:20px;">
+                <h3 style="margin-top:0;">Ghost Protection Profile</h3>
+                <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+                    <div style="font-size:18px;"><b>Confidence:</b> ${profile.confidence_tier} (${profile.confidence_score})</div>
+                    <div><b>Velocity:</b> ${profile.velocity_signal_score}</div>
+                </div>
+                <div style="background:#f4f4f4; padding:10px; border-left:3px solid #000; margin-bottom:15px;">
+                    <b>Vector Hook:</b> ${profile.ghost_protection_vector}<br>
+                    <b>Alibi Teardown:</b> ${profile.posture_alibi_argument}
+                </div>
+                <h4>Self-Indictments</h4>
+                <ul style="padding-left:20px; margin:0;">${indictmentsHtml}</ul>
+            </div>
+            
+            <h3 style="margin-bottom:10px;">Threat Matrix (${gaps.length} Gaps)</h3>
+            ${gapsHtml}
+        `;
+    },
+
+    renderLegacyForensics: function(p) {
+        // Fallback for old pipeline targets
+        const oldTraps = p.trapHits || [];
+        let html = `<div style="background:#ffeeba; border:1px solid #ffc107; padding:15px; margin-bottom:20px;">
+            <h3 style="margin-top:0; color:#856404;">⚠️ Legacy Data Structure Detected</h3>
+            <p>This prospect is running on pre-V5.0 intelligence. Paste a new Hunter JSON payload to unlock the Ghost Protection Profile and Hydrated Gaps.</p>
+        </div>`;
+        
+        if (oldTraps.length > 0) {
+            html += `<h4>Legacy Traps Found:</h4><ul>` + 
+                oldTraps.map(t => {
+                    const newId = this.migrationMap[t] || "Unknown Mapping";
+                    return `<li>${t} <i>(Maps to: ${newId})</i></li>`;
+                }).join('') + `</ul>`;
+        }
+        return html;
+    },
+
+    renderLogisticsColumn: function(p) {
+        return `
+            <h3 style="margin-top:0;">CRM Controls</h3>
+            <label>Status</label>
+            <select id="modal-status" style="width:100%; margin-bottom:15px; padding:5px;">
+                ${['QUEUED','SEQUENCE','ENGAGED','NEGOTIATING','CONVERTED','ARCHIVED','DEAD'].map(s => `<option value="${s}" ${p.status===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+
+            <label>Sequence Step</label>
+            <select id="modal-step" style="width:100%; margin-bottom:15px; padding:5px;">
+                ${['C','FU1','FU2','FU3','FU4'].map(s => `<option value="${s}" ${p.sequenceStep===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+
+            <label>Cold Email Date</label>
+            <input type="date" id="modal-ceDate" value="${p.ceDate || ''}" style="width:100%; margin-bottom:15px; padding:5px; box-sizing:border-box;">
+
+            <label>LinkedIn URL</label>
+            <input type="text" id="modal-linkedin" value="${p.linkedinUrl || ''}" style="width:100%; margin-bottom:15px; padding:5px; box-sizing:border-box;">
+            
+            <hr>
+            <h4>Scanner Telemetry</h4>
+            <div style="font-size:12px;">
+                <b>Clicked:</b> ${p.scannerClicked ? 'Yes' : 'No'}<br>
+                <b>Completed:</b> ${p.scannerCompleted ? 'Yes' : 'No'}<br>
+                <b>Score:</b> ${p.scannerScore || 'N/A'}<br>
+            </div>
+        `;
+    },
+
+    // 9. Input & Output UI Triggers
+    openNewICPModal: function() {
+        const batch = prompt("Enter Batch Code (e.g., 04A):", "04A");
+        if (!batch) return;
+        const founder = prompt("Enter Founder Name:");
+        const email = prompt("Enter Target Email:");
+        if (!email) return;
+        const jsonStr = prompt("Paste V5.0 Hunter JSON:");
+        if (!jsonStr) return;
+
+        HuntIngestion.processNewICP(founder, email, batch, jsonStr);
+    },
+
+    triggerV5Update: function(docId) {
+        const jsonStr = prompt("Paste the fresh V5.0 Hunter JSON payload to upgrade this prospect:");
+        if (jsonStr) {
+            HuntIngestion.updateExistingICP(docId, jsonStr);
+        }
+    },
+
+    saveModalChanges: function(docId) {
         const updates = {
-            id: id,
-            company: document.getElementById('pp-company')?.value,
-            status: document.getElementById('pp-status')?.value,
+            id: docId,
+            status: document.getElementById('modal-status').value,
+            sequenceStep: document.getElementById('modal-step').value,
+            ceDate: document.getElementById('modal-ceDate').value,
+            linkedinUrl: document.getElementById('modal-linkedin').value,
             updatedAt: new Date().toISOString()
         };
-        await HuntCore.saveProspect(updates);
-        if (window.toast) window.toast("Changes Saved");
+        HuntCore.saveProspect(updates);
     }
 };
-
 
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ MODULE 4: HUNT OPS (SEQUENCE & AUTOMATION DRIVE) ═════════════
