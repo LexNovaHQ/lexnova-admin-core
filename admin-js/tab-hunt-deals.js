@@ -26,26 +26,28 @@ const HuntCore = {
 
         // Connects to existing Firestore window.db and feeds both isolated state and global state
         this.state.unsubscribe = window.db.collection('prospects').onSnapshot(snap => {
-            this.state.prospects = [];
-            window.allProspects = []; 
-            
-            snap.forEach(doc => {
-                const data = { id: doc.id, ...doc.data() };
-                this.state.prospects.push(data);
-                window.allProspects.push(data);
-            });
-            
-            this.state.isLoaded = true;
-            console.log(`[HuntCore] Pipeline Synchronized. ${this.state.prospects.length} targets loaded.`);
-            
-            if (typeof HuntUI !== 'undefined' && HuntUI.renderMainDash) {
-                HuntUI.renderMainDash();
-            }
-        }, error => {
-            console.error("[HuntCore] FATAL: Firebase Sync Failed.", error);
-            if (window.toast) window.toast('Outreach sync failed', 'error');
-        });
-    },
+    this.state.prospects = [];
+    snap.forEach(doc => {
+        const data = { id: doc.id, ...doc.data() };
+        this.state.prospects.push(data);
+        if (window.allProspects) window.allProspects.push(data); [cite: 377, 378]
+    });
+
+    this.state.isLoaded = true;
+    
+    // BRIDGE: Trigger the legacy system-wide renderers
+    try { if(window.renderDealsBoard) window.renderDealsBoard(); } catch(e){} [cite: 98, 139]
+    try { if(window.renderHotQueue) window.renderHotQueue(); } catch(e){} [cite: 99, 101]
+    try { if(window.populateCommandCenter) window.populateCommandCenter(); } catch(e){} [cite: 98, 106]
+    try { if(window.refreshCalendar) window.refreshCalendar(); } catch(e){} [cite: 100]
+
+    // New V5 UI update
+    if (typeof HuntUI !== 'undefined' && HuntUI.renderMainDash) {
+        HuntUI.renderMainDash(); [cite: 379, 851]
+    }
+}, error => {
+    console.error("[HuntCore] Sync Failed.", error);
+});
 
     saveProspect: async function(prospectObject) {
         try {
@@ -1765,23 +1767,25 @@ window.ppRecalcFUDates = async function() {
 };
 
 window.loadOutreach = function() {
-    const pa = $h('pageActions');
-    if (pa) pa.innerHTML = '';
-    buildHuntTabHTML();
-    window.db.collection('settings').doc('config').get()
-        .then(snap => { if(snap.exists) caseStudyUrl = snap.data().caseStudyVideoUrl||''; })
-        .catch(()=>{});
-    if (outreachListener) outreachListener();
-    outreachListener = window.db.collection('prospects').onSnapshot(snap => {
-        window.allProspects = [];
-        snap.forEach(d => window.allProspects.push({ id:d.id, ...d.data() }));
-        try { populateCommandCenter(); }                      catch(e){ console.error('CC',e); }
-        try { window.renderDealsBoard(); }                    catch(e){ console.error('Deals',e); }
-        try { renderHotQueue(); }                             catch(e){ console.error('HQ',e); }
-        try { window.filterProspects(); }                     catch(e){ console.error('Hunt',e); }
-        try { populateBatchFilter(); }                        catch(e){ console.error('Batch',e); }
-        try { if(typeof window.refreshCalendar==='function') window.refreshCalendar(); } catch(e){ console.error('Cal',e); }
-    }, e => { console.error(e); if(window.toast) window.toast('Outreach sync failed','error'); });
-};
+    console.log("[Boot] Starting Lex Nova V5.0 Hunt Engine...");
+    
+    // Bridge: Clear page actions and ensure the hunt tab exists
+    const pa = document.getElementById('pageActions');
+    if (pa) pa.innerHTML = ''; [cite: 96]
+    
+    const container = document.getElementById('tab-hunt');
+    if (container && !container.innerHTML.trim()) {
+        // Build the skeleton if it's empty so HuntUI has targets to render into
+        HuntUI.renderMainDash(); [cite: 851, 853]
+    }
 
+    if (typeof HuntCore !== 'undefined') {
+        HuntCore.init(); [cite: 375, 992]
+    }
+};
+// Add these mappings at the bottom of your NEW file to keep legacy links alive
+window.openPP = function(id) { HuntUI.openProspectModal(id); }; [cite: 154, 890]
+window.filterProspects = function() { HuntUI.renderMainDash(); }; [cite: 99, 851]
+window.openAddProspect = function() { HuntUI.openNewICPModal(); }; [cite: 78, 920]
+window.saveProspect = function() { HuntUI.saveModalChanges(window.currentProspect?.id); }; [cite: 236, 923]
 
