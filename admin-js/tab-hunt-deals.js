@@ -24,62 +24,65 @@ const HuntCore = {
             this.state.unsubscribe();
         }
 
-        // Connects to existing Firestore window.db and feeds both isolated state and global state
+        // Use a local reference to state to avoid 'this' scope issues in the listener
+        const state = this.state;
+
         this.state.unsubscribe = window.db.collection('prospects').onSnapshot(snap => {
-    this.state.prospects = [];
-    snap.forEach(doc => {
-        const data = { id: doc.id, ...doc.data() };
-        this.state.prospects.push(data);
-        if (window.allProspects) window.allProspects.push(data); [cite: 377, 378]
-    });
+            state.prospects = [];
+            // Clear global array to prevent duplicates on sync
+            window.allProspects = []; 
+            
+            snap.forEach(doc => {
+                const data = { id: doc.id, ...doc.data() };
+                state.prospects.push(data);
+                window.allProspects.push(data);
+            });
 
-    this.state.isLoaded = true;
-    
-    // BRIDGE: Trigger the legacy system-wide renderers
-    try { if(window.renderDealsBoard) window.renderDealsBoard(); } catch(e){} [cite: 98, 139]
-    try { if(window.renderHotQueue) window.renderHotQueue(); } catch(e){} [cite: 99, 101]
-    try { if(window.populateCommandCenter) window.populateCommandCenter(); } catch(e){} [cite: 98, 106]
-    try { if(window.refreshCalendar) window.refreshCalendar(); } catch(e){} [cite: 100]
+            state.isLoaded = true;
+            
+            // BRIDGE: Trigger legacy system-wide renderers
+            try { if(window.renderDealsBoard) window.renderDealsBoard(); } catch(e){}
+            try { if(window.renderHotQueue) window.renderHotQueue(); } catch(e){}
+            try { if(window.populateCommandCenter) window.populateCommandCenter(); } catch(e){}
+            try { if(window.refreshCalendar) window.refreshCalendar(); } catch(e){}
 
-    // New V5 UI update
-    if (typeof HuntUI !== 'undefined' && HuntUI.renderMainDash) {
-        HuntUI.renderMainDash(); [cite: 379, 851]
-    }
-}, error => {
-    console.error("[HuntCore] Sync Failed.", error);
-});
+            // V5 UI update
+            if (typeof HuntUI !== 'undefined' && HuntUI.renderMainDash) {
+                HuntUI.renderMainDash();
+            }
+        }, error => {
+            console.error("[HuntCore] Sync Failed.", error);
+        });
+    }, // Added missing comma
 
     saveProspect: async function(prospectObject) {
         try {
             const docId = prospectObject.prospectId || prospectObject.id;
             await window.db.collection('prospects').doc(docId).set(prospectObject, { merge: true });
-            console.log(`[HuntCore] Prospect ${docId} successfully committed to database.`);
+            console.log(`[HuntCore] Prospect ${docId} committed.`);
             return true;
         } catch (error) {
-            console.error(`[HuntCore] Save Failed for ${prospectObject.prospectId}:`, error);
+            console.error(`[HuntCore] Save Failed:`, error);
             if (window.toast) window.toast('Save failed', 'error');
             return false;
         }
-    },
+    }, // Added missing comma
 
     deleteProspect: async function(docId) {
         try {
             await window.db.collection('prospects').doc(docId).delete();
-            console.log(`[HuntCore] Prospect ${docId} permanently deleted from pipeline.`);
             return true;
         } catch (error) {
-            console.error(`[HuntCore] Delete Failed for ${docId}:`, error);
             if (window.toast) window.toast('Delete failed', 'error');
             return false;
         }
-    },
+    }, // Added missing comma
 
     getProspectById: function(id) {
         const source = (window.allProspects && window.allProspects.length > 0) ? window.allProspects : this.state.prospects;
         return source.find(p => p.id === id || p.prospectId === id);
     }
 };
-
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ MODULE 2: HUNT INGESTION (PARSER & HYDRATOR) ═════════════════
 // ════════════════════════════════════════════════════════════════════════
@@ -1767,20 +1770,27 @@ window.ppRecalcFUDates = async function() {
 };
 
 window.loadOutreach = function() {
-    console.log("[Boot] Starting Lex Nova V5.0 Hunt Engine...");
+    console.log("[Boot] Initializing Outreach Tab...");
     
-    // Bridge: Clear page actions and ensure the hunt tab exists
+    // 1. Clear legacy action bars
     const pa = document.getElementById('pageActions');
-    if (pa) pa.innerHTML = ''; [cite: 96]
+    if (pa) pa.innerHTML = '';
     
+    // 2. Ensure the UI Skeleton exists
     const container = document.getElementById('tab-hunt');
-    if (container && !container.innerHTML.trim()) {
-        // Build the skeleton if it's empty so HuntUI has targets to render into
-        HuntUI.renderMainDash(); [cite: 851, 853]
+    if (container) {
+        // If the tab is empty, we must render the base HTML (Search, Filters, Table Headers)
+        if (!container.innerHTML.trim() && typeof HuntUI !== 'undefined') {
+            HuntUI.renderMainDash(); 
+        }
+    } else {
+        console.error("[Boot] Target #tab-hunt not found in DOM.");
+        return;
     }
 
+    // 3. Connect the Data Engine
     if (typeof HuntCore !== 'undefined') {
-        HuntCore.init(); [cite: 375, 992]
+        HuntCore.init();
     }
 };
 // Add these mappings at the bottom of your NEW file to keep legacy links alive
