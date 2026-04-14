@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-<title>Lex Nova Forensic Harvester v1.2 (Lossless)</title>
+<title>Lex Nova Forensic Harvester v1.2.1 (Lossless)</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -223,7 +223,7 @@
           <div>
             <div style={{color:'var(--gold)',fontSize:9,fontWeight:700,letterSpacing:'0.18em',textTransform:'uppercase',marginBottom:6}}>LEX NOVA HQ · EXTRACTION TERMINAL</div>
             <h1 style={{color:'#fff',fontSize:22,fontWeight:800,margin:'0 0 4px 0'}}>
-              Forensic Harvester <span style={{background:'rgba(197,160,89,0.1)',color:'var(--gold)',fontSize:10,padding:'2px 8px',borderRadius:4,marginLeft:8,verticalAlign:'middle'}}>v1.2</span>
+              Forensic Harvester <span style={{background:'rgba(197,160,89,0.1)',color:'var(--gold)',fontSize:10,padding:'2px 8px',borderRadius:4,marginLeft:8,verticalAlign:'middle'}}>v1.2.1</span>
             </h1>
             <p style={{color:'#555',fontSize:11,margin:0}}>Autonomous Spidering · Lossless Proxy Extraction</p>
           </div>
@@ -237,14 +237,31 @@
         <div className="section-divider"><span>SECTION 1 — TARGET ACQUISITION</span></div>
         <div style={S.card}>
           <div style={S.field}>
-            <label style={S.label}>Target URLs (Separate by commas or spaces)</label>
-            <input 
+            <label style={S.label}>Target URLs (Separate by commas, spaces, or lines)</label>
+            <textarea 
+              rows={4}
               value={inp.website} 
               onChange={e=>upd('website', e.target.value)} 
-              style={{...S.input, fontSize:'16px', padding:'14px', borderColor:'var(--gold)', color:'var(--gold)'}} 
-              placeholder="e.g., dyaniahealth.com, dyaniahealth.com/terms"
-              onKeyDown={e=>e.key==='Enter'&&runAudit()}
+              style={{
+                ...S.input, 
+                fontSize:'14px', 
+                padding:'14px', 
+                borderColor:'var(--gold)', 
+                color:'var(--gold)', 
+                resize:'vertical', 
+                lineHeight: '1.5'
+              }} 
+              placeholder="e.g.,&#10;https://dyaniahealth.com&#10;https://dyaniahealth.com/terms"
+              onKeyDown={e => {
+                if(e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  runAudit();
+                }
+              }}
             />
+            <div style={{fontSize:'10px', color:'#666', marginTop:'6px'}}>
+              * Press <strong>Enter</strong> to harvest. Press <strong>Shift + Enter</strong> for a new line.
+            </div>
           </div>
           
           <button onClick={runAudit} disabled={loading} className="btn" style={{width:'100%', padding:'16px 0', fontSize:'14px', marginTop:'8px'}}>
