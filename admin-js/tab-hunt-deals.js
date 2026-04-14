@@ -1477,6 +1477,10 @@ const HuntUI = {
     // 1. Core Render Entry Point
    renderMainDash: function() {
         const container = document.getElementById('tab-hunt');
+        if (!container) return;
+        
+        container.style.backgroundColor = "#000";
+        container.style.color = "#fff";
 
  // Root div in your admin panel
         if (!container) return;
@@ -1517,25 +1521,26 @@ const HuntUI = {
 
         return `
         <div class="hunt-metrics-row" style="display: flex; gap: 20px; margin-bottom: 20px;">
-            <div class="hunt-card" style="flex: 2; padding: 15px; border: 1px solid #ddd; background: #fff;">
-                <h3 style="margin-top:0;">ICP Pipeline</h3>
+            <div class="hunt-card" style="flex: 2; padding: 15px; border: 1px solid #222; background: #0a0a0a; color:#fff;">
+                <h3 style="margin-top:0; color:#888;">ICP Pipeline</h3>
                 <div style="display: flex; justify-content: space-between; text-align: center;">
                     <div><b>${total}</b><br><small>Total</small></div>
                     <div><b>${inSequence}</b><br><small>Sequence</small></div>
                     <div><b>${v5Count}</b><br><small>V5.0 Intel</small></div>
                     <div><b>${unscheduled}</b><br><small>Unscheduled</small></div>
-                    <div style="color: red;"><b>${actionNeeded}</b><br><small>Action Needed</small></div>
+                    <div style="color: #ff4d4d;"><b>${actionNeeded}</b><br><small>Action Needed</small></div>
                 </div>
             </div>
-            <div class="hunt-card" style="flex: 1; padding: 15px; border: 1px solid #ddd; background: #fff;">
-                <h3 style="margin-top:0;">Scanner Telemetry</h3>
+            <div class="hunt-card" style="flex: 1; padding: 15px; border: 1px solid #222; background: #0a0a0a; color:#fff;">
+                <h3 style="margin-top:0; color:#888;">Scanner Telemetry</h3>
                 <div style="display: flex; justify-content: space-between; text-align: center;">
                     <div><b>${clicked}</b><br><small>Clicked</small></div>
                     <div><b>${clicked - completed}</b><br><small>Dropped</small></div>
-                    <div style="color: green;"><b>${completed}</b><br><small>Completed</small></div>
+                    <div style="color: #00ff00;"><b>${completed}</b><br><small>Completed</small></div>
                 </div>
             </div>
         </div>`;
+           
     },
 
     // 3. Selection & Filter Panel
@@ -1632,13 +1637,13 @@ const HuntUI = {
     },
 
     wrapTableCard: function(title, rowsHtml, headersStr) {
-        const headers = headersStr.split('|').map(h => `<th>${h}</th>`).join('');
+        const headers = headersStr.split('|').map(h => `<th style="padding:10px; color:#666; border-bottom:1px solid #222;">${h}</th>`).join('');
         return `
-        <div class="hunt-table-card" style="background:#fff; border:1px solid #ddd; margin-bottom: 20px;">
-            <div style="background:#f4f4f4; padding:10px 15px; font-weight:bold; border-bottom:1px solid #ddd;">${title}</div>
-            <table style="width: 100%; text-align: left; border-collapse: collapse;">
-                <thead><tr style="background: #fafafa;">${headers}</tr></thead>
-                <tbody>${rowsHtml || '<tr><td colspan="8" style="text-align:center; padding:15px;">No targets in this view.</td></tr>'}</tbody>
+        <div class="hunt-table-card" style="background:#000; border:1px solid #222; margin-bottom: 20px; border-radius:4px; overflow:hidden;">
+            <div style="background:#0a0a0a; padding:10px 15px; font-weight:bold; border-bottom:1px solid #222; color:#aaa;">${title}</div>
+            <table style="width: 100%; text-align: left; border-collapse: collapse; color:#fff;">
+                <thead><tr style="background: #050505;">${headers}</tr></thead>
+                <tbody>${rowsHtml || '<tr><td colspan="10" style="text-align:center; padding:15px; color:#444;">No targets.</td></tr>'}</tbody>
             </table>
         </div>`;
     },
@@ -1696,7 +1701,7 @@ const HuntUI = {
         if (!modal) {
             modal = document.createElement('div');
             modal.id = 'hunt-prospect-modal';
-            modal.style.cssText = "position:fixed; top:0; right:0; width:85%; height:100%; background:#f9f9f9; box-shadow:-5px 0 15px rgba(0,0,0,0.2); z-index:9999; overflow-y:auto; padding:20px; box-sizing:border-box;";
+            modal.style.cssText = "position:fixed; top:0; right:0; width:85%; height:100%; background:#000; color:#fff; border-left:1px solid #333; box-shadow:-10px 0 30px rgba(0,0,0,0.5); z-index:9999; overflow-y:auto; padding:30px; box-sizing:border-box;";
             document.body.appendChild(modal);
         }
 
@@ -1810,31 +1815,20 @@ const HuntUI = {
     },
 
     renderLogisticsColumn: function(p) {
+        const labelStyle = "display:block; color:#666; font-size:11px; margin-bottom:5px; text-transform:uppercase;";
+        const inputStyle = "width:100%; background:#111; border:1px solid #333; color:#fff; padding:8px; margin-bottom:15px; border-radius:4px;";
         return `
-            <h3 style="margin-top:0;">CRM Controls</h3>
-            <label>Status</label>
-            <select id="modal-status" style="width:100%; margin-bottom:15px; padding:5px;">
-                ${['QUEUED','SEQUENCE','ENGAGED','NEGOTIATING','CONVERTED','ARCHIVED','DEAD'].map(s => `<option value="${s}" ${p.status===s?'selected':''}>${s}</option>`).join('')}
+            <h3 style="margin-top:0; color:#fff;">CRM Controls</h3>
+            <label style="${labelStyle}">Status</label>
+            <select id="modal-status" style="${inputStyle}">
+                ${['QUEUED','SEQUENCE','ENGAGED','NEGOTIATING','DEAD'].map(s => `<option value="${s}" ${p.status===s?'selected':''}>${s}</option>`).join('')}
             </select>
-
-            <label>Sequence Step</label>
-            <select id="modal-step" style="width:100%; margin-bottom:15px; padding:5px;">
+            <label style="${labelStyle}">Sequence Step</label>
+            <select id="modal-step" style="${inputStyle}">
                 ${['C','FU1','FU2','FU3','FU4'].map(s => `<option value="${s}" ${p.sequenceStep===s?'selected':''}>${s}</option>`).join('')}
             </select>
-
-            <label>Cold Email Date</label>
-            <input type="date" id="modal-ceDate" value="${p.ceDate || ''}" style="width:100%; margin-bottom:15px; padding:5px; box-sizing:border-box;">
-
-            <label>LinkedIn URL</label>
-            <input type="text" id="modal-linkedin" value="${p.linkedinUrl || ''}" style="width:100%; margin-bottom:15px; padding:5px; box-sizing:border-box;">
-            
-            <hr>
-            <h4>Scanner Telemetry</h4>
-            <div style="font-size:12px;">
-                <b>Clicked:</b> ${p.scannerClicked ? 'Yes' : 'No'}<br>
-                <b>Completed:</b> ${p.scannerCompleted ? 'Yes' : 'No'}<br>
-                <b>Score:</b> ${p.scannerScore || 'N/A'}<br>
-            </div>
+            <label style="${labelStyle}">Cold Email Date</label>
+            <input type="date" id="modal-ceDate" value="${p.ceDate || ''}" style="${inputStyle}">
         `;
     },
 
