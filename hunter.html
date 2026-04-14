@@ -121,19 +121,17 @@
 
     useEffect(() => { if(apiKey) localStorage.setItem('lnApiKey', apiKey); }, [apiKey]);
 
-    // ── RUN DEEP HARVEST ──────────────────────────────────────────
+    // ── RUN DEEP HARVEST (ZERO-LOSS VERSION) ──────────────────────────────────────────
     const runAudit = async () => {
-      if (!apiKey) { setError('Gemini API key required.'); return; }
       if (!inp.website) { setError('Target URL(s) required to initiate harvest.'); return; }
 
       setLoading(true); setError(''); setResult(null); setPushMsg('');
-      let rawFootprint = '';
+      
+      const inputUrls = inp.website.split(/[\s,]+/).filter(u => u.trim() !== '');
+      let finalFootprint = `FOOTPRINT: ${inputUrls.join(', ')}\n\n`;
 
       try {
         const proxy = 'https://r.jina.ai/';
-        
-        // UPGRADE: Check if user pasted multiple URLs separated by commas or spaces
-        const inputUrls = inp.website.split(/[\s,]+/).filter(u => u.trim() !== '');
         
         if (inputUrls.length > 1) {
           // MANUAL OVERRIDE MODE: Scrape exactly what the user provided
@@ -145,7 +143,9 @@
             try {
               const res = await fetch(proxy + tUrl);
               const text = await res.text();
-              rawFootprint += `\n\n--- TARGET: ${tUrl} ---\n${text}`;
+              finalFootprint += `\n═══════════════════════════════════════════════════════════\n`;
+              finalFootprint += `--- TARGET: ${tUrl} ---\n`;
+              finalFootprint += `═══════════════════════════════════════════════════════════\n\n${text}\n\n`;
             } catch(e) {
               console.warn("Failed to fetch:", tUrl);
             }
@@ -156,7 +156,10 @@
           setStatus('[sys] Target locked. Ingesting root domain...');
           const rootRes = await fetch(proxy + rootUrl);
           const rootText = await rootRes.text();
-          rawFootprint += `\n\n--- ZONE 2 (COMMERCIAL): HOMEPAGE ---\n${rootText}`;
+          
+          finalFootprint += `\n═══════════════════════════════════════════════════════════\n`;
+          finalFootprint += `--- ZONE 2 (COMMERCIAL): HOMEPAGE ---\n`;
+          finalFootprint += `═══════════════════════════════════════════════════════════\n\n${rootText}\n\n`;
 
           setStatus('[sys] Parsing site map for Zone-specific links...');
           const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/g;
@@ -172,11 +175,9 @@
             }
           }
 
-          // UPGRADED ZONE ROUTING: Prioritize Mechanical and Governance over Press
           const targets = [];
           links.forEach((text, href) => {
             const str = (text + " " + href).toLowerCase();
-            // Reject useless pages to save space
             if (/press|news|blog|article|publication/i.test(str)) return; 
             
             if (/platform|product|tech|how it works|feature|api|system/i.test(str)) targets.push({url: href, zone: 'ZONE 1 (MECHANICAL)'});
@@ -185,7 +186,7 @@
             else if (/about|team/i.test(str)) targets.push({url: href, zone: 'ZONE 4 (CONTEXT)'});
           });
 
-          // Deduplicate
+          // Deduplicate and limit
           const uniqueTargets = targets.filter((v,i,a) => a.findIndex(t => (t.url === v.url)) === i).slice(0, 8);
 
           for (let i = 0; i < uniqueTargets.length; i++) {
@@ -194,42 +195,17 @@
             try {
               const res = await fetch(proxy + t.url);
               const text = await res.text();
-              rawFootprint += `\n\n--- ${t.zone}: ${t.url} ---\n${text}`;
+              finalFootprint += `\n═══════════════════════════════════════════════════════════\n`;
+              finalFootprint += `--- ${t.zone}: ${t.url} ---\n`;
+              finalFootprint += `═══════════════════════════════════════════════════════════\n\n${text}\n\n`;
             } catch(e) {
               console.warn("Failed to fetch target:", t.url);
             }
           }
         }
 
-        setStatus('[sys] Scrubbing raw footprint with Gemini 2.5 Flash...');
-        
-        const geminiPrompt = `You are the Lex Nova Forensic Harvester. I am providing you with raw scraped markdown from multiple pages of a target website. 
-        Your ONLY job is to clean this data. Remove all navigational menus, footer links, social media links, and irrelevant fluff. 
-        Keep all descriptive text, mechanical features, marketing claims, and verbatim legal clauses. 
-        Format it cleanly by the 4 Zones.
-        START your output exactly with the string "FOOTPRINT: ${inputUrls.join(', ')}" and nothing else.
-        
-        RAW DATA:
-        ${rawFootprint}`;
-
-        const aiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
-              contents: [{ role:'user', parts:[{ text: geminiPrompt }] }],
-              generationConfig: { temperature: 0.1 }
-            })
-          }
-        );
-
-        const data = await aiRes.json();
-        if (data.error) throw new Error(data.error.message);
-
-        const finalFootprint = data.candidates[0].content.parts[0].text;
+        setStatus('[sys] Compilation Complete. Payload ready.');
         setResult(finalFootprint);
-        setStatus('[sys] Harvest Complete. Payload ready.');
 
       } catch(e) { setError('Harvest failed: ' + e.message); }
       setLoading(false);
