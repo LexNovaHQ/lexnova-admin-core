@@ -20,16 +20,17 @@ const HuntCore = {
         console.log("[HuntCore] Booting Lex Nova State Engine...");
         if (this.state.unsubscribe) { this.state.unsubscribe(); }
 
-        const self = this; // Maintain context for the listener
+        const self = this; 
         this.state.unsubscribe = window.db.collection('prospects').onSnapshot(snap => {
-            this.state.unsubscribe = window.db.collection('prospects').onSnapshot(snap => {
-    this.state.prospects = [];
-    window.allProspects = []; // <--- MUST CLEAR THE GLOBAL ARRAY FIRST
-    snap.forEach(doc => {
-        const data = { id: doc.id, ...doc.data() };
-        this.state.prospects.push(data);
-        window.allProspects.push(data); 
-    });
+            self.state.prospects = [];
+            window.allProspects = []; // Clear to prevent duplication
+            
+            snap.forEach(doc => {
+                const data = { id: doc.id, ...doc.data() };
+                self.state.prospects.push(data);
+                window.allProspects.push(data);
+            });
+
             self.state.isLoaded = true;
             
             // Legacy Bridges
@@ -37,13 +38,13 @@ const HuntCore = {
             try { if(window.renderHotQueue) window.renderHotQueue(); } catch(e){}
             try { if(window.populateCommandCenter) window.populateCommandCenter(); } catch(e){}
 
-            if (typeof HuntUI !== 'undefined' && HuntUI.renderMainDash) {
+            if (typeof HuntUI !== 'undefined') {
                 HuntUI.renderMainDash();
             }
         }, error => {
             console.error("[HuntCore] Sync Failed.", error);
         });
-    }, // <--- THIS COMMA WAS MISSING
+    },
 
     saveProspect: async function(prospectObject) {
         try {
@@ -54,7 +55,7 @@ const HuntCore = {
             console.error("[HuntCore] Save Failed:", error);
             return false;
         }
-    }, // <--- THIS COMMA WAS MISSING
+    },
 
     deleteProspect: async function(docId) {
         try {
@@ -63,7 +64,7 @@ const HuntCore = {
         } catch (error) {
             return false;
         }
-    }, // <--- THIS COMMA WAS MISSING
+    },
 
     getProspectById: function(id) {
         const source = (window.allProspects && window.allProspects.length > 0) ? window.allProspects : this.state.prospects;
@@ -1462,45 +1463,37 @@ const HuntUI = {
         const container = document.getElementById('tab-hunt');
         if (!container) return;
 
-        console.log("[HuntUI] Rendering V5.0 Main Dashboard...");
-
-        // 1. Build the Skeleton (Search, Filters, and Table Header)
-        // This ensures the page is NOT blank even before data arrives.
+        // Build Skeleton if missing
         if (!document.getElementById('hunt-controls')) {
             container.innerHTML = `
                 <div id="hunt-controls" class="dashboard-header" style="padding: 20px; border-bottom: 1px solid #eee;">
                     <div style="display:flex; gap:10px; margin-bottom:15px;">
-                        <input type="text" id="hunt-search" placeholder="Search Prospects..." class="fi" style="flex:1" onkeyup="window.filterProspects()">
+                        <input type="text" id="hunt-search" placeholder="Search Company or PID..." class="fi" style="flex:1" onkeyup="window.filterProspects()">
                         <select id="hunt-status-filter" class="fi" style="width:150px" onchange="window.filterProspects()">
                             <option value="ALL">All Status</option>
                             <option value="QUEUED">Queued</option>
                             <option value="SEQUENCE">Sequence</option>
                             <option value="ENGAGED">Engaged</option>
+                            <option value="DEAD">Dead</option>
                         </select>
                         <button class="btn btn-primary" onclick="window.openAddProspect()">+ Add ICP</button>
                     </div>
                 </div>
                 <div class="table-container" style="padding:0 20px;">
-                    <table id="hunt-table" style="width:100%; border-collapse:collapse;">
+                    <table style="width:100%; border-collapse:collapse;">
                         <thead>
                             <tr style="text-align:left; border-bottom: 2px solid #eee;">
                                 <th style="padding:12px;">PID</th>
                                 <th>Company / Founder</th>
-                                <th>Forensics</th>
+                                <th>Intel</th>
                                 <th>Status</th>
                                 <th>Next Action</th>
-                                <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody id="hunt-tbody">
-                            <tr><td colspan="6" style="text-align:center; padding:40px; color:#999;">Loading Lex Nova Intelligence...</td></tr>
-                        </tbody>
+                        <tbody id="hunt-tbody"></tbody>
                     </table>
-                </div>
-            `;
+                </div>`;
         }
-
-        // 2. Populate the Rows from HuntCore State
         this.renderTableRows();
     },
 
@@ -1508,42 +1501,63 @@ const HuntUI = {
         const tbody = document.getElementById('hunt-tbody');
         if (!tbody) return;
 
-        const prospects = HuntCore.state.prospects || [];
-        if (prospects.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px;">No prospects found.</td></tr>`;
+        const searchTerm = document.getElementById('hunt-search')?.value.toLowerCase() || "";
+        const filterStatus = document.getElementById('hunt-status-filter')?.value || "ALL";
+
+        const filtered = HuntCore.state.prospects.filter(p => {
+            const matchSearch = (p.company || "").toLowerCase().includes(searchTerm) || (p.prospectId || "").toLowerCase().includes(searchTerm);
+            const matchStatus = (filterStatus === "ALL") || (p.status === filterStatus);
+            return matchSearch && matchStatus;
+        });
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:40px; color:#999;">No matching prospects.</td></tr>`;
             return;
         }
 
-        // Simple row renderer - customize with your V5 forensic icons/badges
-        tbody.innerHTML = prospects.map(p => `
+        tbody.innerHTML = filtered.map(p => `
             <tr style="border-bottom:1px solid #f9f9f9; cursor:pointer;" onclick="window.openPP('${p.id}')">
                 <td style="padding:12px; font-family:monospace; font-size:12px;">${p.prospectId}</td>
                 <td>
                     <div style="font-weight:bold;">${p.company || 'Unknown'}</div>
-                    <div style="font-size:12px; color:#666;">${p.founderName || p.email}</div>
+                    <div style="font-size:11px; color:#666;">${p.founderName || p.email}</div>
                 </td>
                 <td><span class="badge">${p.intelStatus || 'V5.0'}</span></td>
-                <td><span class="status-dot status-${p.status.toLowerCase()}"></span> ${p.status}</td>
-                <td style="color:${this.getActionColor(p.nextActionDate)}">${p.nextActionDate || '--'}</td>
-                <td><button class="btn btn-sm" onclick="event.stopPropagation(); window.openPP('${p.id}')">Open</button></td>
+                <td>${p.status}</td>
+                <td style="font-size:12px;">${p.nextActionDate || '--'}</td>
             </tr>
         `).join('');
     },
 
-    getActionColor: function(dateStr) {
-        if (!dateStr) return '#ccc';
-        const d = new Date(dateStr);
-        const now = new Date();
-        return d <= now ? '#ff4d4d' : '#222';
-    },
-
-    // Legacy Bridge: This is the function called by your window.openPP mapping
     openProspectModal: function(id) {
         const p = HuntCore.getProspectById(id);
         if (!p) return;
-        console.log("Opening Prospect:", p);
-        // Your legacy window.renderProspectPanel(p) or similar goes here
+        window.currentProspect = p;
         if (window.renderProspectPanel) window.renderProspectPanel(p);
+    },
+
+    openNewICPModal: function() {
+        // Triggers the standard system prompt for new V5 intake
+        const founder = prompt("Founder Name:");
+        const email = prompt("Email:");
+        const batch = prompt("Batch (e.g. 04A):");
+        const json = prompt("Paste V5 Hunter JSON:");
+        if (founder && email && batch && json) {
+            HuntIngestion.processNewICP(founder, email, batch, json);
+        }
+    },
+
+    saveModalChanges: async function(id) {
+        if (!id) return;
+        // Logic to grab values from your Modal DOM elements
+        const updates = {
+            id: id,
+            company: document.getElementById('pp-company')?.value,
+            status: document.getElementById('pp-status')?.value,
+            updatedAt: new Date().toISOString()
+        };
+        await HuntCore.saveProspect(updates);
+        if (window.toast) window.toast("Changes Saved");
     }
 };
 
@@ -1823,63 +1837,55 @@ const HuntExport = {
 };
 
 // ════════════════════════════════════════════════════════════════════════
-// ═════════ V5.0 CONNECTORS & BOOT LOADER ════════════════════════════════
+// ═════════ V5.0 SYSTEM CONNECTORS ═══════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════════
 
-window.copySpearReport = function(id) {
-    HuntExport.copySpear(id);
-};
+window.openPP = (id) => HuntUI.openProspectModal(id);
+window.filterProspects = () => HuntUI.renderTableRows();
+window.openAddProspect = () => HuntUI.openNewICPModal();
+window.saveProspect = () => HuntUI.saveModalChanges(window.currentProspect?.id);
+
+window.copySpearReport = (id) => HuntExport.copySpear(id);
 
 window.triggerV5Update = function(id) {
-    const jsonStr = prompt("Paste the fresh V5.0 Hunter JSON payload to upgrade this prospect:");
-    if (jsonStr) {
-        HuntIngestion.updateExistingICP(id, jsonStr);
-    }
+    const jsonStr = prompt("Paste the fresh V5.0 Hunter JSON payload:");
+    if (jsonStr) HuntIngestion.updateExistingICP(id, jsonStr);
 };
 
 window.advanceSequence = async function() {
-    const p = window.currentProspect;
-    if (!p) return;
-    await HuntOps.advanceSequence(p.id);
-    if (window.closePP) window.closePP();
+    if (!window.currentProspect) return;
+    await HuntOps.advanceSequence(window.currentProspect.id);
+    if (window.closePP) window.closePP();
 };
 
 window.ppRecalcFUDates = async function() {
-    const p = window.currentProspect;
-    if (!p) return;
-    const cd = document.getElementById('pp-ce-date')?.value || p.ceDate;
-    if (!cd) { if(window.toast) window.toast('Set CE date first','error'); return; }
-    await HuntOps.scheduleProspect(p.id, cd);
-    if (window.closePP) window.closePP();
+    if (!window.currentProspect) return;
+    const cd = document.getElementById('pp-ce-date')?.value || window.currentProspect.ceDate;
+    if (!cd) { if(window.toast) window.toast('Set CE date first','error'); return; }
+    await HuntOps.scheduleProspect(window.currentProspect.id, cd);
+    if (window.closePP) window.closePP();
 };
+
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ V5.0 MAIN BOOTSTRAP ══════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 
 window.loadOutreach = function() {
     console.log("[Boot] Initializing Outreach Tab...");
     
-    // 1. Clear legacy action bars
+    // Clear page actions (Legacy Header)
     const pa = document.getElementById('pageActions');
     if (pa) pa.innerHTML = '';
     
-    // 2. Ensure the UI Skeleton exists
     const container = document.getElementById('tab-hunt');
-    if (container) {
-        // If the tab is empty, we must render the base HTML (Search, Filters, Table Headers)
-        if (!container.innerHTML.trim() && typeof HuntUI !== 'undefined') {
-            HuntUI.renderMainDash(); 
-        }
-    } else {
-        console.error("[Boot] Target #tab-hunt not found in DOM.");
+    if (!container) {
+        console.error("[Boot] #tab-hunt not found.");
         return;
     }
 
-    // 3. Connect the Data Engine
-    if (typeof HuntCore !== 'undefined') {
-        HuntCore.init();
-    }
-};
+    // 1. Render UI Skeleton
+    HuntUI.renderMainDash();
 
-// Add these mappings at the bottom of your NEW file to keep legacy links alive
-window.openPP = function(id) { HuntUI.openProspectModal(id); };
-window.filterProspects = function() { HuntUI.renderMainDash(); };
-window.openAddProspect = function() { HuntUI.openNewICPModal(); };
-window.saveProspect = function() { HuntUI.saveModalChanges(window.currentProspect?.id); };
+    // 2. Start Data Sync
+    HuntCore.init();
+};
