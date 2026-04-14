@@ -11,37 +11,32 @@ window.allProspects = window.allProspects || [];
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ MODULE 1: HUNT CORE (STATE & SYNC) ═══════════════════════════
 // ════════════════════════════════════════════════════════════════════════
-
 const HuntCore = {
     state: { prospects: [], isLoaded: false, unsubscribe: null },
 
     init: function() {
+        if (this.state.unsubscribe) this.state.unsubscribe();
         console.log("[HuntCore] Booting Lex Nova State Engine...");
-        if (this.state.unsubscribe) { this.state.unsubscribe(); }
-
-        const self = this; 
+        
+        const self = this;
         this.state.unsubscribe = window.db.collection('prospects').onSnapshot(snap => {
-            // 1. Clear local and global state to prevent infinite duplication
             self.state.prospects = [];
-            window.allProspects = []; 
+            window.allProspects = []; // Clear global to prevent duplication
             
             snap.forEach(doc => {
                 const data = { id: doc.id, ...doc.data() };
                 self.state.prospects.push(data);
-                window.allProspects.push(data); 
+                window.allProspects.push(data);
             });
 
             self.state.isLoaded = true;
             console.log(`[HuntCore] Pipeline Sync: ${self.state.prospects.length} targets.`);
             
-            // 2. Trigger legacy system-wide renderers
+            // Trigger system-wide updates
             try { if(window.renderDealsBoard) window.renderDealsBoard(); } catch(e){}
             try { if(window.populateCommandCenter) window.populateCommandCenter(); } catch(e){}
 
-            // 3. Update V5 UI
-            if (typeof HuntUI !== 'undefined') {
-                HuntUI.renderMainDash();
-            }
+            if (typeof HuntUI !== 'undefined') HuntUI.renderMainDash();
         }, error => {
             console.error("[HuntCore] Sync Failed.", error);
         });
@@ -1467,8 +1462,16 @@ const HuntUI = {
     currentFilter: {
         search: "",
         batch: "ALL",
-        status: "ALL", // QUEUED, SEQUENCE, ENGAGED, NEGOTIATING, etc.
+        status: "ALL", 
         confidence: "ALL"
+    },
+
+    // Safe Date Formatter for Strings and Firebase Timestamps
+    formatDate: function(val) {
+        if (!val) return 'N/A';
+        let date = val.toDate ? val.toDate() : new Date(val);
+        if (isNaN(date.getTime())) return 'N/A';
+        return date.toISOString().split('T')[0];
     },
 
     // 1. Core Render Entry Point
@@ -1601,7 +1604,7 @@ const HuntUI = {
                 <td>${p.company}<br><small>${p.prospectId}</small></td>
                 <td>${p.batchNumber}</td>
                 <td>${this.renderIntelBadge(p)}</td>
-                <td>${p.updatedAt ? p.updatedAt.split('T')[0] : 'N/A'}</td>
+                <td>${this.formatDate(p.updatedAt)}</td>
                 <td style="color: ${daysInQueue > 7 ? 'red' : 'black'};"><b>${daysInQueue} Days</b></td>
                 <td><button onclick="event.stopPropagation(); window.alert('Schedule UI trigger')">Schedule</button></td>
             </tr>`;
@@ -1620,7 +1623,7 @@ const HuntUI = {
                 <td><b>${p.founderName}</b><br>${p.company}</td>
                 <td>Score: ${p.scannerScore || 'N/A'}</td>
                 <td>${p.true_gaps && p.true_gaps[0] ? p.true_gaps[0].Threat_Name : 'Review Pending'}</td>
-                <td>${p.updatedAt ? p.updatedAt.split('T')[0] : 'N/A'}</td>
+                <td>${this.formatDate(p.updatedAt)}</td>
                 <td><input type="text" value="${p.frictionNote || ''}" placeholder="Note..." onclick="event.stopPropagation();" onblur="HuntCore.saveProspect({id: '${p.id}', frictionNote: this.value})"></td>
             </tr>
         `).join('');
@@ -1653,6 +1656,7 @@ const HuntUI = {
                 <span style="color:${tierColor}; font-size:10px;">ALIBI: ${tier}</span>`;
     },
 
+    // 8. Filters
     applyFilters: function(arr) {
         const searchTerm = document.getElementById('hunt-search')?.value.toLowerCase() || "";
         const batchFilter = document.getElementById('hunt-filter-batch')?.value || "ALL";
@@ -1671,7 +1675,7 @@ const HuntUI = {
         });
     },
 
-    // Update listeners to trigger re-render on type
+
     attachDashListeners: function() {
         ['hunt-search', 'hunt-filter-batch', 'hunt-filter-status'].forEach(id => {
             const el = document.getElementById(id);
