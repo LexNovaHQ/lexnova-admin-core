@@ -1056,7 +1056,11 @@ window.toggleAdvFilters = function(btn) {
 <!-- APPLICATION SCRIPTS — load order is critical               -->
 <!-- ══════════════════════════════════════════════════════════ -->
 <script src="admin-js/admin-core.js"></script>
-<script src="admin-js/tab-hunt-deals.js"></script>  <!-- owns window.allProspects + onSnapshot listener -->
+<script src="admin-js/hunt-core.js"></script>
+<script src="admin-js/hunt-ingestion.js"></script>
+<script src="admin-js/hunt-ops.js"></script>
+<script src="admin-js/hunt-export.js"></script>
+<script src="admin-js/hunt-ui.js"></script>  
 <script src="admin-js/tab-calendar.js"></script>     <!-- reads window.allProspects -->
 <script src="admin-js/tab-analytics.js"></script>    <!-- reads window.allProspects -->
 <script src="admin-js/tab-factory.js"></script>
