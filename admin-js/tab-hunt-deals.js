@@ -9,7 +9,6 @@ window.allProspects = window.allProspects || [];
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ MODULE 1: HUNT CORE (STATE & SYNC) ═══════════════════════════
 // ════════════════════════════════════════════════════════════════════════
-
 const HuntCore = {
     state: {
         prospects: [],
@@ -19,76 +18,65 @@ const HuntCore = {
 
     init: function() {
         console.log("[HuntCore] Booting Lex Nova State Engine...");
-        
-        if (this.state.unsubscribe) {
-            this.state.unsubscribe();
-        }
+        if (this.state.unsubscribe) { this.state.unsubscribe(); }
 
-        // Use a local reference to state to avoid 'this' scope issues in the listener
-        const state = this.state;
-
+        const self = this; // Maintain context for the listener
         this.state.unsubscribe = window.db.collection('prospects').onSnapshot(snap => {
-            state.prospects = [];
-            // Clear global array to prevent duplicates on sync
-            window.allProspects = []; 
-            
+            self.state.prospects = [];
             snap.forEach(doc => {
                 const data = { id: doc.id, ...doc.data() };
-                state.prospects.push(data);
-                window.allProspects.push(data);
+                self.state.prospects.push(data);
+                if (window.allProspects) window.allProspects.push(data);
             });
 
-            state.isLoaded = true;
+            self.state.isLoaded = true;
             
-            // BRIDGE: Trigger legacy system-wide renderers
+            // Legacy Bridges
             try { if(window.renderDealsBoard) window.renderDealsBoard(); } catch(e){}
             try { if(window.renderHotQueue) window.renderHotQueue(); } catch(e){}
             try { if(window.populateCommandCenter) window.populateCommandCenter(); } catch(e){}
-            try { if(window.refreshCalendar) window.refreshCalendar(); } catch(e){}
 
-            // V5 UI update
             if (typeof HuntUI !== 'undefined' && HuntUI.renderMainDash) {
                 HuntUI.renderMainDash();
             }
         }, error => {
             console.error("[HuntCore] Sync Failed.", error);
         });
-    }, // Added missing comma
+    }, // <--- THIS COMMA WAS MISSING
 
     saveProspect: async function(prospectObject) {
         try {
             const docId = prospectObject.prospectId || prospectObject.id;
             await window.db.collection('prospects').doc(docId).set(prospectObject, { merge: true });
-            console.log(`[HuntCore] Prospect ${docId} committed.`);
             return true;
         } catch (error) {
-            console.error(`[HuntCore] Save Failed:`, error);
-            if (window.toast) window.toast('Save failed', 'error');
+            console.error("[HuntCore] Save Failed:", error);
             return false;
         }
-    }, // Added missing comma
+    }, // <--- THIS COMMA WAS MISSING
 
     deleteProspect: async function(docId) {
         try {
             await window.db.collection('prospects').doc(docId).delete();
             return true;
         } catch (error) {
-            if (window.toast) window.toast('Delete failed', 'error');
             return false;
         }
-    }, // Added missing comma
+    }, // <--- THIS COMMA WAS MISSING
 
     getProspectById: function(id) {
         const source = (window.allProspects && window.allProspects.length > 0) ? window.allProspects : this.state.prospects;
         return source.find(p => p.id === id || p.prospectId === id);
     }
 };
+
+
+
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ MODULE 2: HUNT INGESTION (PARSER & HYDRATOR) ═════════════════
 // ════════════════════════════════════════════════════════════════════════
-
+ // ── THE STATIC DICTIONARY ───────────────────────────────────────────
 const HuntIngestion = {
-    // ── THE STATIC DICTIONARY ───────────────────────────────────────────
     staticDictionary: {
         "UNI_CNS_001": {
             "Threat_Name": "Browsewrap Invalidity",
@@ -1793,9 +1781,9 @@ window.loadOutreach = function() {
         HuntCore.init();
     }
 };
-// Add these mappings at the bottom of your NEW file to keep legacy links alive
-window.openPP = function(id) { HuntUI.openProspectModal(id); }; [cite: 154, 890]
-window.filterProspects = function() { HuntUI.renderMainDash(); }; [cite: 99, 851]
-window.openAddProspect = function() { HuntUI.openNewICPModal(); }; [cite: 78, 920]
-window.saveProspect = function() { HuntUI.saveModalChanges(window.currentProspect?.id); }; [cite: 236, 923]
 
+// Add these mappings at the bottom of your NEW file to keep legacy links alive
+window.openPP = function(id) { HuntUI.openProspectModal(id); };
+window.filterProspects = function() { HuntUI.renderMainDash(); };
+window.openAddProspect = function() { HuntUI.openNewICPModal(); };
+window.saveProspect = function() { HuntUI.saveModalChanges(window.currentProspect?.id); };
