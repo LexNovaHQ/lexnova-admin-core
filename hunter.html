@@ -2,14 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-<title>Lex Nova Forensic Harvester v1.1</title>
+<title>Lex Nova Forensic Harvester v1.2 (Lossless)</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="hunter-system.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root { --gold:#C5A059; --void:#050505; --surf:#0c0c0c; --border:#1e1e1e; --marble:#e5e5e5; --red:#ef4444; --orange:#f97316; --yellow:#eab308; --green:#22c55e; }
@@ -108,8 +107,6 @@
   // FORENSIC HARVESTER ENGINE
   // ═══════════════════════════════════════════════════════════
   function ForensicEngine({ user }) {
-    const [apiKey,  setApiKey]  = useState(() => localStorage.getItem('lnApiKey')||'');
-    const [model,   setModel]   = useState('gemini-2.5-flash');
     const [loading, setLoading] = useState(false);
     const [status,  setStatus]  = useState('');
     const [error,   setError]   = useState('');
@@ -118,8 +115,6 @@
 
     const [inp, setInp] = useState({ website: '' });
     const upd = (k,v) => setInp(p=>({...p,[k]:v}));
-
-    useEffect(() => { if(apiKey) localStorage.setItem('lnApiKey', apiKey); }, [apiKey]);
 
     // ── RUN DEEP HARVEST (ZERO-LOSS VERSION) ──────────────────────────────────────────
     const runAudit = async () => {
@@ -216,10 +211,8 @@
       root:  { padding:'28px 20px', maxWidth:820, margin:'0 auto' },
       card:  { background:'#0c0c0c', border:'1px solid #1e1e1e', borderRadius:8, padding:'20px', marginBottom:14 },
       label: { color:'#666', fontSize:10, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:5, display:'block' },
-      sHead: { color:'var(--gold)', fontSize:10, fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:14 },
       input: { width:'100%', background:'#080808', border:'1px solid #252525', borderRadius:5, padding:'9px 11px', color:'var(--marble)', fontSize:12, outline:'none' },
-      field: { marginBottom:13 },
-      row2:  { display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 14px' },
+      field: { marginBottom:13 }
     };
 
     return (
@@ -230,31 +223,13 @@
           <div>
             <div style={{color:'var(--gold)',fontSize:9,fontWeight:700,letterSpacing:'0.18em',textTransform:'uppercase',marginBottom:6}}>LEX NOVA HQ · EXTRACTION TERMINAL</div>
             <h1 style={{color:'#fff',fontSize:22,fontWeight:800,margin:'0 0 4px 0'}}>
-              Forensic Harvester <span style={{background:'rgba(197,160,89,0.1)',color:'var(--gold)',fontSize:10,padding:'2px 8px',borderRadius:4,marginLeft:8,verticalAlign:'middle'}}>v1.1</span>
+              Forensic Harvester <span style={{background:'rgba(197,160,89,0.1)',color:'var(--gold)',fontSize:10,padding:'2px 8px',borderRadius:4,marginLeft:8,verticalAlign:'middle'}}>v1.2</span>
             </h1>
-            <p style={{color:'#555',fontSize:11,margin:0}}>Autonomous Spidering · Jina Proxy · Zone Scrubbing</p>
+            <p style={{color:'#555',fontSize:11,margin:0}}>Autonomous Spidering · Lossless Proxy Extraction</p>
           </div>
           <div style={{textAlign:'right'}}>
             <div style={{color:'#555',fontSize:10,marginBottom:4}}>{user.email}</div>
             <button onClick={()=>auth.signOut()} style={{background:'none',border:'none',color:'#666',fontSize:10,cursor:'pointer',textTransform:'uppercase',letterSpacing:'0.1em'}}>Sign Out</button>
-          </div>
-        </div>
-
-        {/* ENGINE SETUP */}
-        <div style={S.card}>
-          <div style={S.row2}>
-            <div style={S.field}>
-              <label style={S.label}>Scrubbing Model</label>
-              <select value={model} onChange={e=>setModel(e.target.value)} style={{...S.input,borderColor:'var(--gold)',color:'var(--gold)'}}>
-                <option value="gemini-2.5-flash">2.5 Flash (Recommended)</option>
-                <option value="gemini-2.5-pro">2.5 Pro (High Accuracy)</option>
-                <option value="gemini-3.1-flash">3.1 Flash (Speed)</option>
-              </select>
-            </div>
-            <div style={S.field}>
-              <label style={S.label}>Gemini API Key</label>
-              <input type="password" value={apiKey} onChange={e=>setApiKey(e.target.value)} style={S.input} placeholder="AIzaSy..." />
-            </div>
           </div>
         </div>
 
