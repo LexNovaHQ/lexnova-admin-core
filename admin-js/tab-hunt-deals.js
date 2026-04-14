@@ -40,8 +40,8 @@ const HuntCore = {
             console.log(`[HuntCore] Pipeline Synchronized. ${this.state.prospects.length} targets loaded.`);
             
             // Trigger View Controller updates once HuntUI is built
-            if (typeof HuntUI !== 'undefined' && HuntUI.renderMainDash) {
-                HuntUI.renderMainDash();
+            if (typeof HuntUI !== 'undefined' && typeof HuntUI.openProspectModal === 'function') {
+                 HuntUI.openProspectModal(updatedProspect.id);
             }
         }, error => {
             console.error("[HuntCore] FATAL: Firebase Sync Failed.", error);
@@ -89,9 +89,9 @@ const HuntCore = {
 // ═════════ MODULE 2: HUNT INGESTION (PARSER & HYDRATOR) ═════════════════
 // ════════════════════════════════════════════════════════════════════════
 
-const HuntIngestion = {
-    // ── THE STATIC DICTIONARY ───────────────────────────────────────────
+// ── THE STATIC DICTIONARY ───────────────────────────────────────────
 
+const HuntIngestion = {
  staticDictionary: { "UNI_CNS_001": {
         "Threat_Name": "Browsewrap Invalidity",
         "Pain_Tier": "T3",
@@ -1232,7 +1232,7 @@ const HuntIngestion = {
         "Pain_Depth": "Criminal",
         "Legal_Ammo": "California AB 325 / Sherman Act §1 / DOJ AI Pricing Coordination Guidance"
     }
-}
+},
 
     // 1. Immutable PID Generator (Ported exactly from legacy code)
     generatePID: async function(batchCode) {
@@ -1778,8 +1778,9 @@ const HuntUI = {
                     <div><b>Velocity:</b> ${profile.velocity_signal_score}</div>
                 </div>
                 <div style="background:#f4f4f4; padding:10px; border-left:3px solid #000; margin-bottom:15px;">
-                    <b>Vector Hook:</b> ${profile.ghost_protection_vector}<br>
-                    <b>Alibi Teardown:</b> ${profile.posture_alibi_argument}
+                    <b>Vector Hook:</b> ${profile.ghost_protection_vector || 'N/A'}<br>
+                    <b>Operational Alibi:</b> ${profile.posture_alibi?.argument || 'N/A'}<br>
+                    <b>Paper Alibi:</b> ${profile.legal_stack_alibi?.overall_inadequacy || 'N/A'}
                 </div>
                 <h4>Self-Indictments</h4>
                 <ul style="padding-left:20px; margin:0;">${indictmentsHtml}</ul>
