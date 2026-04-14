@@ -22,13 +22,14 @@ const HuntCore = {
 
         const self = this; // Maintain context for the listener
         this.state.unsubscribe = window.db.collection('prospects').onSnapshot(snap => {
-            self.state.prospects = [];
-            snap.forEach(doc => {
-                const data = { id: doc.id, ...doc.data() };
-                self.state.prospects.push(data);
-                if (window.allProspects) window.allProspects.push(data);
-            });
-
+            this.state.unsubscribe = window.db.collection('prospects').onSnapshot(snap => {
+    this.state.prospects = [];
+    window.allProspects = []; // <--- MUST CLEAR THE GLOBAL ARRAY FIRST
+    snap.forEach(doc => {
+        const data = { id: doc.id, ...doc.data() };
+        this.state.prospects.push(data);
+        window.allProspects.push(data); 
+    });
             self.state.isLoaded = true;
             
             // Legacy Bridges
@@ -1451,6 +1452,101 @@ const HuntIngestion = {
         return false;
     }
 };
+
+// ════════════════════════════════════════════════════════════════════════
+// ═════════ MODULE 3: HUNT UI (TEMPLATES & RENDERING) ════════════════════
+// ════════════════════════════════════════════════════════════════════════
+
+const HuntUI = {
+    renderMainDash: function() {
+        const container = document.getElementById('tab-hunt');
+        if (!container) return;
+
+        console.log("[HuntUI] Rendering V5.0 Main Dashboard...");
+
+        // 1. Build the Skeleton (Search, Filters, and Table Header)
+        // This ensures the page is NOT blank even before data arrives.
+        if (!document.getElementById('hunt-controls')) {
+            container.innerHTML = `
+                <div id="hunt-controls" class="dashboard-header" style="padding: 20px; border-bottom: 1px solid #eee;">
+                    <div style="display:flex; gap:10px; margin-bottom:15px;">
+                        <input type="text" id="hunt-search" placeholder="Search Prospects..." class="fi" style="flex:1" onkeyup="window.filterProspects()">
+                        <select id="hunt-status-filter" class="fi" style="width:150px" onchange="window.filterProspects()">
+                            <option value="ALL">All Status</option>
+                            <option value="QUEUED">Queued</option>
+                            <option value="SEQUENCE">Sequence</option>
+                            <option value="ENGAGED">Engaged</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="window.openAddProspect()">+ Add ICP</button>
+                    </div>
+                </div>
+                <div class="table-container" style="padding:0 20px;">
+                    <table id="hunt-table" style="width:100%; border-collapse:collapse;">
+                        <thead>
+                            <tr style="text-align:left; border-bottom: 2px solid #eee;">
+                                <th style="padding:12px;">PID</th>
+                                <th>Company / Founder</th>
+                                <th>Forensics</th>
+                                <th>Status</th>
+                                <th>Next Action</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hunt-tbody">
+                            <tr><td colspan="6" style="text-align:center; padding:40px; color:#999;">Loading Lex Nova Intelligence...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        // 2. Populate the Rows from HuntCore State
+        this.renderTableRows();
+    },
+
+    renderTableRows: function() {
+        const tbody = document.getElementById('hunt-tbody');
+        if (!tbody) return;
+
+        const prospects = HuntCore.state.prospects || [];
+        if (prospects.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px;">No prospects found.</td></tr>`;
+            return;
+        }
+
+        // Simple row renderer - customize with your V5 forensic icons/badges
+        tbody.innerHTML = prospects.map(p => `
+            <tr style="border-bottom:1px solid #f9f9f9; cursor:pointer;" onclick="window.openPP('${p.id}')">
+                <td style="padding:12px; font-family:monospace; font-size:12px;">${p.prospectId}</td>
+                <td>
+                    <div style="font-weight:bold;">${p.company || 'Unknown'}</div>
+                    <div style="font-size:12px; color:#666;">${p.founderName || p.email}</div>
+                </td>
+                <td><span class="badge">${p.intelStatus || 'V5.0'}</span></td>
+                <td><span class="status-dot status-${p.status.toLowerCase()}"></span> ${p.status}</td>
+                <td style="color:${this.getActionColor(p.nextActionDate)}">${p.nextActionDate || '--'}</td>
+                <td><button class="btn btn-sm" onclick="event.stopPropagation(); window.openPP('${p.id}')">Open</button></td>
+            </tr>
+        `).join('');
+    },
+
+    getActionColor: function(dateStr) {
+        if (!dateStr) return '#ccc';
+        const d = new Date(dateStr);
+        const now = new Date();
+        return d <= now ? '#ff4d4d' : '#222';
+    },
+
+    // Legacy Bridge: This is the function called by your window.openPP mapping
+    openProspectModal: function(id) {
+        const p = HuntCore.getProspectById(id);
+        if (!p) return;
+        console.log("Opening Prospect:", p);
+        // Your legacy window.renderProspectPanel(p) or similar goes here
+        if (window.renderProspectPanel) window.renderProspectPanel(p);
+    }
+};
+
 
 // ════════════════════════════════════════════════════════════════════════
 // ═════════ MODULE 4: HUNT OPS (SEQUENCE & AUTOMATION DRIVE) ═════════════
