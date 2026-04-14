@@ -18,55 +18,72 @@ const HuntCore = {
 
     init: function() {
         console.log("[HuntCore] Booting Lex Nova State Engine...");
-        if (this.state.unsubscribe) { this.state.unsubscribe(); }
+        
+        if (this.state.unsubscribe) {
+            this.state.unsubscribe();
+        }
 
-        const self = this; 
+        // Capture reference to state to avoid 'this' context loss in the callback
+        const state = this.state;
+
         this.state.unsubscribe = window.db.collection('prospects').onSnapshot(snap => {
-            self.state.prospects = [];
-            window.allProspects = []; // Clear to prevent duplication
+            // 1. Reset both local and global state to prevent infinite duplication
+            state.prospects = [];
+            window.allProspects = []; 
             
             snap.forEach(doc => {
                 const data = { id: doc.id, ...doc.data() };
-                self.state.prospects.push(data);
+                state.prospects.push(data);
                 window.allProspects.push(data);
             });
 
-            self.state.isLoaded = true;
+            state.isLoaded = true;
+            console.log(`[HuntCore] Pipeline Synchronized. ${state.prospects.length} targets loaded.`);
             
-            // Legacy Bridges
+            // 2. BRIDGE: Trigger legacy system-wide renderers to keep other tabs in sync
             try { if(window.renderDealsBoard) window.renderDealsBoard(); } catch(e){}
             try { if(window.renderHotQueue) window.renderHotQueue(); } catch(e){}
             try { if(window.populateCommandCenter) window.populateCommandCenter(); } catch(e){}
+            try { if(window.refreshCalendar) window.refreshCalendar(); } catch(e){}
 
-            if (typeof HuntUI !== 'undefined') {
+            // 3. New V5 UI update
+            if (typeof HuntUI !== 'undefined' && HuntUI.renderMainDash) {
                 HuntUI.renderMainDash();
             }
         }, error => {
             console.error("[HuntCore] Sync Failed.", error);
+            if (window.toast) window.toast('Outreach sync failed', 'error');
         });
     },
 
     saveProspect: async function(prospectObject) {
         try {
             const docId = prospectObject.prospectId || prospectObject.id;
+            if (!docId) throw new Error("No ID provided for save operation.");
+            
             await window.db.collection('prospects').doc(docId).set(prospectObject, { merge: true });
+            console.log(`[HuntCore] Prospect ${docId} committed.`);
             return true;
         } catch (error) {
-            console.error("[HuntCore] Save Failed:", error);
+            console.error(`[HuntCore] Save Failed:`, error);
+            if (window.toast) window.toast('Save failed', 'error');
             return false;
         }
     },
 
     deleteProspect: async function(docId) {
         try {
+            if (!confirm("Are you sure? This is a permanent purge.")) return false;
             await window.db.collection('prospects').doc(docId).delete();
             return true;
         } catch (error) {
+            console.error(`[HuntCore] Delete Failed:`, error);
             return false;
         }
     },
 
     getProspectById: function(id) {
+        // Fallback search across global and local state
         const source = (window.allProspects && window.allProspects.length > 0) ? window.allProspects : this.state.prospects;
         return source.find(p => p.id === id || p.prospectId === id);
     }
