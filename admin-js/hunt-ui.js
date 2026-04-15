@@ -34,8 +34,19 @@ window.loadOutreach = function() { LexNova.UI.renderTables(); };
 LexNova.UI.renderTables = function() {
     const container = document.getElementById('v5-crm-app') || document.getElementById('tab-body') || document.getElementById('tab-hunt');
     if (!container) return;
+    const container = document.getElementById('v5-crm-app') || document.getElementById('tab-body') || document.getElementById('tab-hunt');
+    if (!container) return;
 
-    // Pull metrics (defaulting to 0 if missing)
+    // --- ADD THIS TO SAVE CURSOR FOCUS ---
+    const activeEl = document.activeElement;
+    const activeId = activeEl ? activeEl.id : null;
+    let cursorStart = null, cursorEnd = null;
+    if (activeId && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+        cursorStart = activeEl.selectionStart;
+        cursorEnd = activeEl.selectionEnd;
+    }
+    // -------------------------------------
+
     // Pull metrics (defaulting to 0 if missing)
     const m = LexNova.State.metrics || { total: 0, inSequence: 0, v5Intel: 0, unscheduled: 0, archived: 0, bottleneck: 0, scansClicked: 0, scansDropped: 0, scansCompleted: 0 };
     const pList = LexNova.State.allProspects ? [...LexNova.State.allProspects] : [];
@@ -57,16 +68,18 @@ LexNova.UI.renderTables = function() {
         filtered = filtered.filter(p => p.status === statusVal);
     } else if (scanVal || painVal || archVal || fundVal || searchVal) {
         // Using Advanced Filters or Omni-Search -> GLOBAL SEARCH (Bypasses the Tab bouncer)
-        // No filter applied here, it leaves the entire pList intact for the next steps
+        // Leaves the entire pList intact for the next steps
     } else {
         // Normal tab browsing -> Restrict to current tab
         filtered = filtered.filter(p => {
             if (LexNova.UI.State.currentTab === 'QUEUED') return p.status === 'QUEUED' || !p.ceDate;
+            // MERGE ENGAGED TARGETS INTO THE SEQUENCE TAB SO THEY DON'T VANISH
+            if (LexNova.UI.State.currentTab === 'SEQUENCE') return p.status === 'SEQUENCE' || p.status === 'ENGAGED';
             return p.status === LexNova.UI.State.currentTab;
         });
     }
 
-    // 3. APPLY OMNI-SEARCH (Free search across all flat text values)
+    // 3. APPLY OMNI-SEARCH
     if (searchVal) {
         filtered = filtered.filter(p => {
             const allValues = Object.values(p).map(v => typeof v === 'string' ? v.toLowerCase() : '').join(' ');
@@ -74,10 +87,10 @@ LexNova.UI.renderTables = function() {
         });
     }
 
-    // 4. APPLY BATCH FILTER (Status is already applied in step 2)
+    // 4. APPLY BATCH FILTER
     if (batchVal) filtered = filtered.filter(p => (p.batch || p.batchNumber) === batchVal);
 
-    // 4. APPLY ADVANCED FILTERS
+    // 5. APPLY ADVANCED FILTERS
     if (painVal) {
         filtered = filtered.filter(p => {
             const pTier = p.ghost_protection_global?.pain_tier || 'T9';
@@ -99,7 +112,8 @@ LexNova.UI.renderTables = function() {
     }
     if (fundVal) filtered = filtered.filter(p => p.fundingStage === fundVal);
     if (confVal) filtered = filtered.filter(p => (p.ghost_protection_global?.confidence_tier || 'N/A') === confVal);
-    // NATIVE SORTING ENGINE (Driven by Central Dropdown, Directed by Header Toggle)
+
+    // NATIVE SORTING ENGINE
     filtered.sort((a, b) => {
         let valA = a[LexNova.UI.State.sortCol] || a[LexNova.UI.State.sortCol + 'Number'] || a[LexNova.UI.State.sortCol + 'Name'] || '';
         let valB = b[LexNova.UI.State.sortCol] || b[LexNova.UI.State.sortCol + 'Number'] || b[LexNova.UI.State.sortCol + 'Name'] || '';
@@ -252,7 +266,7 @@ LexNova.UI.renderTables = function() {
                         <th style="padding:12px;">Aging / Days</th>
                         <th style="padding:12px;">Scanner Status</th>
                         <th style="padding:12px; cursor:pointer; color:var(--gold);" onclick="LexNova.UI.toggleSortDir()">Toggle ASC/DSC ${LexNova.UI.getSortIcon()}</th>
-                    ` : LexNova.UI.State.currentTab === 'NEGOTIATING' ? ` `
+                    ` : LexNova.UI.State.currentTab === 'NEGOTIATING' ? `
                         <th style="padding:12px;">Scanner Score</th>
                         <th style="padding:12px;">Lethal Threat Summary</th>
                         <th style="padding:12px;">Last Touch</th>
@@ -274,7 +288,20 @@ LexNova.UI.renderTables = function() {
 
     container.innerHTML = html;
 };
+container.innerHTML = html;
 
+    // --- ADD THIS TO RESTORE CURSOR FOCUS ---
+    if (activeId) {
+        const restoredEl = document.getElementById(activeId);
+        if (restoredEl) {
+            restoredEl.focus();
+            if (cursorStart !== null && cursorEnd !== null && (restoredEl.tagName === 'INPUT' || restoredEl.tagName === 'TEXTAREA')) {
+                restoredEl.setSelectionRange(cursorStart, cursorEnd);
+            }
+        }
+    }
+    // ----------------------------------------
+};
 /**
  * ==========================================
  * SECTION 2: TABLE ROW GENERATOR (DUAL-READ)
@@ -318,26 +345,26 @@ LexNova.UI.buildRow = function(p, index) {
         }
     }
 
+    // UNIFIED NAMING CHECK FOR TELEMETRY
+    const isClicked = p.scannerClicked === true || p.scanner_clicked === true;
+    const isCompleted = p.scannerCompleted === true || p.scanner_completed === true;
+    const scanStep = p.scannerStep || p.scanner_step || '';
+
+    let scanFlag = "⚪ None";
+    if (isCompleted) {
+        scanFlag = "✅ Completed";
+    } else if (isClicked && scanStep && scanStep !== 'page_loaded') {
+        scanFlag = `🔴 Dropped (${scanStep})`;
+    } else if (isClicked) {
+        scanFlag = "🟡 Clicked";
+    }
+
     // 3. Conditional Column Rendering (By Tab)
     let dynamicCols = '';
     
     if (LexNova.UI.State.currentTab === 'QUEUED') {
         const dateAdd = new Date(p.date_added || p.createdAt || Date.now());
         const daysInQueue = Math.floor((Date.now() - dateAdd) / (1000 * 60 * 60 * 24));
-
-        // UNIFIED NAMING CHECK
-        const isClicked = p.scannerClicked === true || p.scanner_clicked === true;
-        const isCompleted = p.scannerCompleted === true || p.scanner_completed === true;
-        const scanStep = p.scannerStep || p.scanner_step || '';
-
-        let scanFlag = "⚪ None";
-        if (isCompleted) {
-            scanFlag = "✅ Completed";
-        } else if (isClicked && scanStep && scanStep !== 'page_loaded') {
-            scanFlag = `🔴 Dropped (${scanStep})`;
-        } else if (isClicked) {
-            scanFlag = "🟡 Clicked";
-        }
         
         dynamicCols = `
             <td style="padding:12px;">
@@ -349,24 +376,15 @@ LexNova.UI.buildRow = function(p, index) {
             </td>
         `;
     } else if (LexNova.UI.State.currentTab === 'NEGOTIATING') {
-        // UNIFIED NAMING CHECK
-        const isClicked = p.scannerClicked === true || p.scanner_clicked === true;
-        const isCompleted = p.scannerCompleted === true || p.scanner_completed === true;
-        const scanStep = p.scannerStep || p.scanner_step || '';
-
-        let scanFlag = "⚪ NO SCAN";
-        if (isCompleted) {
-            scanFlag = "✅ DUAL CONFIRMED";
-        } else if (isClicked && scanStep && scanStep !== 'page_loaded') {
-            scanFlag = "🔴 DROPPED";
-        } else if (isClicked) {
-            scanFlag = "🟡 ENGAGED";
-        }
+        let negFlag = "⚪ NO SCAN";
+        if (isCompleted) negFlag = "✅ DUAL CONFIRMED";
+        else if (isClicked && scanStep && scanStep !== 'page_loaded') negFlag = "🔴 DROPPED";
+        else if (isClicked) negFlag = "🟡 ENGAGED";
         
         dynamicCols = `
             <td style="padding:12px;">
                 <span style="font-family:'Cormorant Garamond',serif; font-size:16px; color:var(--gold);">Score: ${p.scanner_score || p.scannerScore || 'N/A'}</span><br>
-                <span style="font-size:9px; color:var(--marble-dim);">${scanFlag}</span>
+                <span style="font-size:9px; color:var(--marble-dim);">${negFlag}</span>
             </td>
             <td style="padding:12px; color:var(--marble); font-weight:bold;">${lethalThreat}</td>
             <td style="padding:12px; color:var(--gold);">${p.last_touch || 'N/A'}</td>
@@ -379,20 +397,6 @@ LexNova.UI.buildRow = function(p, index) {
         `;
     } else {
         // DEFAULT IN SEQUENCE
-        // UNIFIED NAMING CHECK
-        const isClicked = p.scannerClicked === true || p.scanner_clicked === true;
-        const isCompleted = p.scannerCompleted === true || p.scanner_completed === true;
-        const scanStep = p.scannerStep || p.scanner_step || '';
-
-        let scanFlag = "⚪ None";
-        if (isCompleted) {
-            scanFlag = "✅ Completed";
-        } else if (isClicked && scanStep && scanStep !== 'page_loaded') {
-            scanFlag = `🔴 Dropped (${scanStep})`;
-        } else if (isClicked) {
-            scanFlag = "🟡 Clicked";
-        }
-        
         dynamicCols = `
             <td style="padding:12px;">
                 <span class="badge b-seq-active">${p.outreach_step || 'FU1'}</span><br>
