@@ -32,8 +32,7 @@ LexNova.UI.renderDashboards = function() {
 
 window.loadOutreach = function() { LexNova.UI.renderTables(); };
 LexNova.UI.renderTables = function() {
-    const container = document.getElementById('v5-crm-app') || document.getElementById('tab-body') || document.getElementById('tab-hunt');
-    if (!container) return;
+    
     const container = document.getElementById('v5-crm-app') || document.getElementById('tab-body') || document.getElementById('tab-hunt');
     if (!container) return;
 
@@ -287,8 +286,6 @@ LexNova.UI.renderTables = function() {
     `;
 
     container.innerHTML = html;
-};
-container.innerHTML = html;
 
     // --- ADD THIS TO RESTORE CURSOR FOCUS ---
     if (activeId) {
@@ -302,6 +299,8 @@ container.innerHTML = html;
     }
     // ----------------------------------------
 };
+
+
 /**
  * ==========================================
  * SECTION 2: TABLE ROW GENERATOR (DUAL-READ)
