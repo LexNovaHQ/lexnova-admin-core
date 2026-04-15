@@ -253,7 +253,7 @@ LexNova.UI.renderTables = function() {
 
         </div>
 
-    <div class="card" style="overflow-x:auto; padding:0;">
+    </div><div class="card" style="overflow-x:auto; padding:0;">
         <table style="width:100%; text-align:left; border-collapse:collapse; font-size:11px;">
             <thead style="background:var(--surface2);">
                 <tr style="border-bottom:1px solid var(--border); color:var(--marble-dim); font-size:9px; letter-spacing:0.1em; text-transform:uppercase;">
