@@ -13,6 +13,7 @@ LexNova.UI.State = {
     currentTab: 'SEQUENCE',
     sortCol: 'last_updated',
     sortDesc: true
+    batchFilter: ''
 };
 
 /**
@@ -45,20 +46,31 @@ LexNova.UI.renderTables = function() {
         filtered = pList.filter(p => p.status === 'QUEUED' || !p.ceDate);
     }
 
-    // NEW: Apply Search & Status Filter
+    // Read current UI values
     const searchVal = document.getElementById('cc-search')?.value.toLowerCase() || '';
     const statusVal = document.getElementById('cc-status-filter')?.value || '';
+    const batchFilterVal = document.getElementById('cc-batch-filter')?.value || '';
 
+    // Apply Free Text Search (Name/Company only)
     if (searchVal) {
         filtered = filtered.filter(p => 
             (p.founderName || p.name || '').toLowerCase().includes(searchVal) || 
-            (p.company || '').toLowerCase().includes(searchVal) ||
-            (p.batch || '').toLowerCase().includes(searchVal)
+            (p.company || '').toLowerCase().includes(searchVal)
         );
     }
+    
+    // Apply Pipeline Status Filter
     if (statusVal) {
         filtered = filtered.filter(p => p.status === statusVal);
     }
+
+    // Apply Batch Dropdown Filter
+    if (batchFilterVal) {
+        filtered = filtered.filter(p => p.batch === batchFilterVal);
+    }
+    
+    // Extract unique batches for the dropdown
+    const uniqueBatches = [...new Set(pList.map(p => p.batch).filter(b => b))].sort();
 
     // NATIVE SORTING ENGINE (Driven by Central Dropdown, Directed by Header Toggle)
     filtered.sort((a, b) => {
@@ -78,17 +90,35 @@ LexNova.UI.renderTables = function() {
     const scanPct = m.inSequence > 0 ? Math.round((m.scansClicked / m.inSequence) * 100) : 0;
 
     let html = `
-    <div style="display:flex; gap:15px; margin-bottom: 15px;">
-        <div class="card" style="flex:2;">
-            <div style="font-size:10px; color:var(--gold); letter-spacing:0.1em; text-transform:uppercase;">PIPELINE HEALTH</div>
-            <div style="display:flex; justify-content:space-between; margin-top:10px;">
-                <div><span style="font-size:24px;">${m.total}</span><br><span style="font-size:9px; color:var(--marble-dim);">Total Targets</span></div>
-                <div><span style="font-size:24px; color:var(--green);">${m.inSequence}</span><br><span style="font-size:9px; color:var(--marble-dim);">In Sequence</span></div>
-                <div><span style="font-size:24px;">${m.v5Intel}</span><br><span style="font-size:9px; color:var(--marble-dim);">V5.0 Intel</span></div>
-                <div><span style="font-size:24px;">${m.unscheduled}</span><br><span style="font-size:9px; color:var(--marble-dim);">Unscheduled</span></div>
-                <div><span style="font-size:24px;">${m.archived}</span><br><span style="font-size:9px; color:var(--marble-dim);">Archived</span></div>
-                <div><span style="font-size:24px; color:var(--red);">${m.bottleneck}</span><br><span style="font-size:9px; color:var(--marble-dim);">Bottleneck / Action Needed</span></div>
-            </div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <input type="text" class="fi" id="cc-search" value="${searchVal}" placeholder="Search Name or Company..." style="width:200px;" oninput="LexNova.UI.renderTables()">
+            
+            <select class="fi" id="cc-status-filter" style="width:140px;" onchange="LexNova.UI.renderTables()">
+                <option value="">All Statuses</option>
+                <option value="QUEUED" ${statusVal === 'QUEUED' ? 'selected' : ''}>QUEUED</option>
+                <option value="SEQUENCE" ${statusVal === 'SEQUENCE' ? 'selected' : ''}>SEQUENCE</option>
+                <option value="ENGAGED" ${statusVal === 'ENGAGED' ? 'selected' : ''}>ENGAGED</option>
+                <option value="NEGOTIATING" ${statusVal === 'NEGOTIATING' ? 'selected' : ''}>NEGOTIATING</option>
+                <option value="CONVERTED" ${statusVal === 'CONVERTED' ? 'selected' : ''}>CONVERTED</option>
+                <option value="ARCHIVED" ${statusVal === 'ARCHIVED' ? 'selected' : ''}>ARCHIVED</option>
+                <option value="DEAD" ${statusVal === 'DEAD' ? 'selected' : ''}>DEAD</option>
+            </select>
+
+            <select class="fi" id="cc-batch-filter" style="width:120px;" onchange="LexNova.UI.renderTables()">
+                <option value="">All Batches</option>
+                ${uniqueBatches.map(b => `<option value="${b}" ${b === batchFilterVal ? 'selected' : ''}>${b}</option>`).join('')}
+            </select>
+
+            <select class="fi" style="width:160px;" onchange="LexNova.UI.setSortCol(this.value)">
+                <option value="last_updated" ${LexNova.UI.State.sortCol === 'last_updated' ? 'selected' : ''}>Sort: Last Update Date</option>
+                <option value="ceDate" ${LexNova.UI.State.sortCol === 'ceDate' ? 'selected' : ''}>Sort: CE Date</option>
+                <option value="date_added" ${LexNova.UI.State.sortCol === 'date_added' ? 'selected' : ''}>Sort: Date Added</option>
+                <option value="batch" ${LexNova.UI.State.sortCol === 'batch' ? 'selected' : ''}>Sort: Batch</option>
+                <option value="company" ${LexNova.UI.State.sortCol === 'company' ? 'selected' : ''}>Sort: Company</option>
+                <option value="confidence" ${LexNova.UI.State.sortCol === 'confidence' ? 'selected' : ''}>Sort: Confidence Score</option>
+            </select>
+
+            <button class="adv-toggle" onclick="window.toggleAdvFilters(this)">▾ Advanced Filters</button>
         </div>
         
         <div class="card" style="flex:1;">
