@@ -21,6 +21,7 @@ LexNova.UI.State = {
  * SECTION 1: THE MAIN DASHBOARD & TABLES
  * ==========================================
  */
+window.loadOutreach = function() { LexNova.UI.renderTables(); };
 LexNova.UI.renderTables = function() {
     const container = document.getElementById('v5-crm-app') || document.getElementById('tab-body') || document.getElementById('tab-hunt');
     if (!container) return;
