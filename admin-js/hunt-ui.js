@@ -199,7 +199,15 @@ LexNova.UI.renderTables = function() {
                 <option value="confidence" ${LexNova.UI.State.sortCol === 'confidence' ? 'selected' : ''}>Sort: Confidence Score</option>
             </select>
 
-            <button class="adv-toggle" onclick="window.toggleAdvFilters(this)">▾ Advanced Filters</button>
+            window.toggleAdvFilters = function(btn) {
+    const panel = document.getElementById('adv-filters-inner');
+    if (!panel) return;
+    
+    const isHidden = panel.style.display === 'none';
+    panel.style.display = isHidden ? 'flex' : 'none';
+    panel.classList.toggle('hidden', !isHidden);
+    btn.innerText = isHidden ? '▴ Hide Filters' : '▾ Advanced Filters';
+};
         </div>
 
        <div id="adv-filters-inner" class="adv-filters-inner hidden" style="margin-top:10px; border-top:1px dashed var(--border); padding-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
