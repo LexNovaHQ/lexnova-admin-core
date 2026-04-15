@@ -6,9 +6,12 @@
  * single source of truth for the entire prospect database.
  */
 
-window.LexNova = {
-    // 1. Master State
-    State: {
+// 1. Establish Safe Namespace
+window.LexNova = window.LexNova || {};
+
+// 2. Safe Property Assignment (Prevents wiping out Ingestion, Ops, or UI modules)
+Object.assign(window.LexNova, {
+    State: window.LexNova.State || {
         allProspects: [], // The single source of truth
         metrics: {
             total: 0,
@@ -22,6 +25,12 @@ window.LexNova = {
             scansCompleted: 0
         }
     },
+    Core: window.LexNova.Core || {},
+    Ingestion: window.LexNova.Ingestion || {},
+    Ops: window.LexNova.Ops || {},
+    Export: window.LexNova.Export || {},
+    UI: window.LexNova.UI || {}
+});
 
     // 2. Module Namespaces
     Core: {},       // State and Firebase Listeners (This file)
