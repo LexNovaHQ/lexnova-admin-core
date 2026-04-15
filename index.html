@@ -1076,38 +1076,9 @@ window.setDashView = function(view, el) {
     }
 };
 
-// 2. Global Modal Controller (Required for Add/Update ICP)
-window.openModal = function(title, body, footer) {
-    const modal = document.getElementById('modal');
-    const overlay = document.getElementById('overlay');
-    if (!modal || !overlay) return;
-    
-    document.getElementById('modalTitle').innerText = title;
-    document.getElementById('modalBody').innerHTML = body;
-    document.getElementById('modalFooter').innerHTML = footer;
-    
-    modal.style.display = 'flex';
-    modal.classList.add('open');
-    overlay.style.display = 'block';
-    overlay.classList.add('open');
-};
 
-window.closeModal = function() {
-    const modal = document.getElementById('modal');
-    const overlay = document.getElementById('overlay');
-    if (modal) modal.style.display = 'none';
-    if (overlay) overlay.style.display = 'none';
-};
 
-// 3. Feedback Toast (Required for Copy Spear feedback)
-window.toast = function(msg, type = 'success') {
-    const t = document.getElementById('toast');
-    if (!t) return;
-    t.innerText = msg;
-    t.className = type; 
-    t.style.display = 'block';
-    setTimeout(() => { t.style.display = 'none'; }, 3000);
-};
+
 
 // 4. Prospect Panel Controller (Required for Save/Delete Dossier)
 window.closePP = function() {
