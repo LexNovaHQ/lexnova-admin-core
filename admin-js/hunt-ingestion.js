@@ -21,7 +21,7 @@ LexNova.Ingestion = LexNova.Ingestion || {};
  */
 
 LexNova.Ingestion.MIGRATION_MAP = {
-    {
+    
     "UNI_CON_001": "UNI_CNS_001", 
     "UNI_CON_002": "UNI_CNS_002", 
     "UNI_CON_003": "UNI_CNS_003", 
