@@ -12,17 +12,11 @@ window.LexNova = window.LexNova || {};
 // 2. Safe Property Assignment (Prevents wiping out Ingestion, Ops, or UI modules)
 Object.assign(window.LexNova, {
     State: window.LexNova.State || {
-        allProspects: [], // The single source of truth
+        allProspects: [], 
         metrics: {
-            total: 0,
-            inSequence: 0,
-            v5Intel: 0,
-            unscheduled: 0,
-            archived: 0,
-            bottleneck: 0,
-            scansClicked: 0,
-            scansDropped: 0,
-            scansCompleted: 0
+            total: 0, inSequence: 0, v5Intel: 0, unscheduled: 0, 
+            archived: 0, bottleneck: 0, scansClicked: 0, 
+            scansDropped: 0, scansCompleted: 0
         }
     },
     Core: window.LexNova.Core || {},
@@ -31,14 +25,6 @@ Object.assign(window.LexNova, {
     Export: window.LexNova.Export || {},
     UI: window.LexNova.UI || {}
 });
-
-    // 2. Module Namespaces
-    Core: {},       // State and Firebase Listeners (This file)
-    Ingestion: {},  // V5 JSON Parser and Hydration Dictionary
-    Ops: {},        // Database routing, saving, deleting, date math
-    Export: {},     // Spear Copy and Dossier Compilers
-    UI: {}          // DOM rendering and modal execution
-};
 
 /**
  * ==========================================
