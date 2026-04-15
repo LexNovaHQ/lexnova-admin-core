@@ -138,3 +138,33 @@ LexNova.Export.copyDossier = async function(pid) {
         if(typeof window.toast === 'function') window.toast("Clipboard copy failed. Check console.", "error");
     }
 };
+
+};
+
+/**
+ * ==========================================
+ * 3. PIPELINE LIST EXPORT
+ * ==========================================
+ * Copies a summary list of the currently filtered view to the clipboard.
+ */
+LexNova.Export.copyList = async function() {
+    const tab = LexNova.UI?.State?.currentTab || 'SEQUENCE';
+    const prospects = LexNova.State.allProspects.filter(p => p.status === tab);
+
+    if (prospects.length === 0) {
+        if(typeof window.toast === 'function') window.toast("No targets in this view to copy.", "error");
+        return;
+    }
+
+    let text = `=== LEX NOVA PIPELINE: ${tab} (${prospects.length} Targets) ===\n\n`;
+    prospects.forEach((p, i) => {
+        text += `${i + 1}. ${p.company || 'Unknown'} | ${p.founderName || 'Unknown'} | ${p.id}\n`;
+    });
+
+    try {
+        await navigator.clipboard.writeText(text);
+        if(typeof window.toast === 'function') window.toast(`Copied ${prospects.length} targets.`, "success");
+    } catch (err) {
+        if(typeof window.toast === 'function') window.toast("Clipboard copy failed.", "error");
+    }
+};
