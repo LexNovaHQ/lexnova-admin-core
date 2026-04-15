@@ -203,27 +203,24 @@ LexNova.UI.renderTables = function() {
                 <option value="date_added" ${LexNova.UI.State.sortCol === 'date_added' ? 'selected' : ''}>Sort: Date Added</option>
                 <option value="batch" ${LexNova.UI.State.sortCol === 'batch' ? 'selected' : ''}>Sort: Batch</option>
                 <option value="company" ${LexNova.UI.State.sortCol === 'company' ? 'selected' : ''}>Sort: Company</option>
-             <option value="confidence" ${LexNova.UI.State.sortCol === 'confidence' ? 'selected' : ''}>Sort: Confidence Score</option>
+                <option value="confidence" ${LexNova.UI.State.sortCol === 'confidence' ? 'selected' : ''}>Sort: Confidence Score</option>
             </select>
 
             <button class="adv-toggle" onclick="window.toggleAdvFilters(this)">▾ Advanced Filters</button>
         </div>
 
-        <div id="adv-filters-inner" class="adv-filters-inner hidden" style="margin-top:10px; border-top:1px dashed var(--border); padding-top:10px; gap:10px; flex-wrap:wrap; display: none;">
-            
+        <div id="adv-filters-inner" class="adv-filters-inner hidden" style="border-top:1px dashed var(--border); margin-top:10px; padding-top:10px; gap:10px; flex-wrap:wrap; display: none;">
             <select class="fi" id="adv-pain" onchange="LexNova.UI.renderTables()">
                 <option value="">All Pain Tiers</option>
                 <option value="T1_T2">T1 / T2 Only (Lethal)</option>
                 <option value="T3">T3 Only</option>
                 <option value="LEGACY">Legacy Mapped</option>
             </select>
-
             <select class="fi" id="adv-arch" onchange="LexNova.UI.renderTables()">
                 <option value="">All Archetypes</option>
                 <option value="INT">Any INT (Operational)</option>
                 <option value="EXT">Any EXT (Jurisdictional)</option>
             </select>
-
             <select class="fi" id="adv-scan" onchange="LexNova.UI.renderTables()">
                 <option value="">All Scan States</option>
                 <option value="COMPLETED">Completed</option>
@@ -231,7 +228,6 @@ LexNova.UI.renderTables = function() {
                 <option value="CLICKED">Clicked / Engaged</option>
                 <option value="NONE">No Scan</option>
             </select>
-
             <select class="fi" id="adv-fund" onchange="LexNova.UI.renderTables()">
                 <option value="">All Funding Stages</option>
                 <option value="Bootstrapped">Bootstrapped</option>
@@ -242,14 +238,12 @@ LexNova.UI.renderTables = function() {
                 <option value="Enterprise">Enterprise / Public</option>
                 <option value="Unverified">Unverified</option>
             </select>
-
             <select class="fi" id="adv-ready" onchange="LexNova.UI.renderTables()">
                 <option value="">All Readiness States</option>
                 <option value="INTEL_READY">Intel Ready (V5 Gaps)</option>
                 <option value="SCHEDULED">Scheduled (Has CE Date)</option>
                 <option value="ACTION_NEEDED">Unverified / Action Needed</option>
             </select>
-
             <select class="fi" id="adv-conf" onchange="LexNova.UI.renderTables()">
                 <option value="">All Confidence Tiers</option>
                 <option value="HIGH">HIGH (0.7 - 1.0)</option>
@@ -257,8 +251,10 @@ LexNova.UI.renderTables = function() {
                 <option value="LOW">LOW (0.0 - 0.3)</option>
                 <option value="MAPPED">MAPPED (Legacy)</option>
             </select>
-
         </div>
+    </div>
+
+    <div class="card" style="overflow-x:auto; padding:0; margin-top:15px;">
         <table style="width:100%; text-align:left; border-collapse:collapse; font-size:11px;">
             <thead style="background:var(--surface2);">
                 <tr style="border-bottom:1px solid var(--border); color:var(--marble-dim); font-size:9px; letter-spacing:0.1em; text-transform:uppercase;">
