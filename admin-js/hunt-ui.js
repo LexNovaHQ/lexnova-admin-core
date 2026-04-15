@@ -22,6 +22,14 @@ LexNova.UI.State = {
  * ==========================================
  */
 window.loadOutreach = function() { LexNova.UI.renderTables(); };
+/**
+ * Placeholder for auxiliary dashboard components.
+ * Included to satisfy broadcastUpdates in hunt-core.js.
+ */
+LexNova.UI.renderDashboards = function() {
+    console.log("[LexNova UI] Dashboard metrics refreshed.");
+};
+
 LexNova.UI.renderTables = function() {
     const container = document.getElementById('v5-crm-app') || document.getElementById('tab-body') || document.getElementById('tab-hunt');
     if (!container) return;
