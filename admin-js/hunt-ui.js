@@ -36,27 +36,34 @@ LexNova.UI.renderTables = function() {
     if (!container) return;
 
     // Pull metrics (defaulting to 0 if missing)
+    // Pull metrics (defaulting to 0 if missing)
     const m = LexNova.State.metrics || { total: 0, inSequence: 0, v5Intel: 0, unscheduled: 0, archived: 0, bottleneck: 0, scansClicked: 0, scansDropped: 0, scansCompleted: 0 };
     const pList = LexNova.State.allProspects ? [...LexNova.State.allProspects] : [];
 
-    // Filter by Tab Stage
-    let filtered = pList.filter(p => p.status === LexNova.UI.State.currentTab);
-    if (LexNova.UI.State.currentTab === 'QUEUED') {
-        filtered = pList.filter(p => p.status === 'QUEUED' || !p.ceDate);
-    }
-
-    // NEW: Apply Search & Status Filter
     // 1. CAPTURE ALL FILTER INPUTS
+    const statusVal = document.getElementById('cc-status-filter')?.value || '';
     const searchVal = document.getElementById('cc-search')?.value.toLowerCase().trim() || '';
     const batchVal  = document.getElementById('cc-batch-filter')?.value || '';
-    const statusVal = document.getElementById('cc-status-filter')?.value || '';
     const painVal   = document.getElementById('adv-pain')?.value || '';
     const archVal   = document.getElementById('adv-arch')?.value || '';
     const scanVal   = document.getElementById('adv-scan')?.value || '';
     const fundVal   = document.getElementById('adv-fund')?.value || '';
     const confVal   = document.getElementById('adv-conf')?.value || '';
 
-    // 2. APPLY OMNI-SEARCH (Free search across all flat text values)
+    // 2. PRIMARY FILTER (Dropdown Overrides Tab)
+    let filtered = pList;
+    if (statusVal) {
+        // If you select a specific status (like ARCHIVED), ignore the tabs completely.
+        filtered = filtered.filter(p => p.status === statusVal);
+    } else {
+        // Otherwise, obey the currently clicked Tab button.
+        filtered = filtered.filter(p => {
+            if (LexNova.UI.State.currentTab === 'QUEUED') return p.status === 'QUEUED' || !p.ceDate;
+            return p.status === LexNova.UI.State.currentTab;
+        });
+    }
+
+    // 3. APPLY OMNI-SEARCH (Free search across all flat text values)
     if (searchVal) {
         filtered = filtered.filter(p => {
             const allValues = Object.values(p).map(v => typeof v === 'string' ? v.toLowerCase() : '').join(' ');
@@ -64,9 +71,8 @@ LexNova.UI.renderTables = function() {
         });
     }
 
-    // 3. APPLY BATCH & STATUS FILTERS
+    // 4. APPLY BATCH FILTER (Status is already applied in step 2)
     if (batchVal) filtered = filtered.filter(p => (p.batch || p.batchNumber) === batchVal);
-    if (statusVal) filtered = filtered.filter(p => p.status === statusVal);
 
     // 4. APPLY ADVANCED FILTERS
     if (painVal) {
@@ -78,10 +84,13 @@ LexNova.UI.renderTables = function() {
     if (archVal) filtered = filtered.filter(p => (p.archetypes || []).some(a => a.includes(archVal)));
     if (scanVal) {
         filtered = filtered.filter(p => {
-            if (scanVal === 'COMPLETED') return p.scannerCompleted;
-            if (scanVal === 'DROPPED') return p.scannerClicked && !p.scannerCompleted;
-            if (scanVal === 'CLICKED') return p.scannerClicked;
-            if (scanVal === 'NONE') return !p.scannerClicked;
+            const isClicked = p.scannerClicked === true || p.scanner_clicked === true;
+            const isCompleted = p.scannerCompleted === true || p.scanner_completed === true;
+            
+            if (scanVal === 'COMPLETED') return isCompleted;
+            if (scanVal === 'DROPPED') return isClicked && !isCompleted;
+            if (scanVal === 'CLICKED') return isClicked;
+            if (scanVal === 'NONE') return !isClicked;
             return true;
         });
     }
