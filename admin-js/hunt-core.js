@@ -181,9 +181,9 @@ LexNova.Core.broadcastUpdates = function() {
         LexNova.UI.renderDashboards();
     }
 
-    // 2. Re-render Legacy Operations Dash
-    if (typeof window.populateCommandCenter === 'function') {
-        window.populateCommandCenter();
+   // 2. Re-render Legacy Operations Dash (loadDashboard in admin-core.js)
+    if (typeof window.loadDashboard === 'function') {
+        window.loadDashboard();
     }
 
     // 3. Re-render Batch Performance Math
