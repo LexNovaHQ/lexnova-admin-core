@@ -220,7 +220,14 @@ LexNova.UI.buildRow = function(p, index) {
             </td>
         `;
     } else if (LexNova.UI.State.currentTab === 'NEGOTIATING') {
-        const scanFlag = p.scanner_completed ? "✅ DUAL CONFIRMED" : (p.scanner_clicked ? "🟡 ENGAGED" : "⚪ NO SCAN");
+        let scanFlag = "⚪ NO SCAN";
+if (p.scannerCompleted) {
+    scanFlag = "✅ DUAL CONFIRMED";
+} else if (p.scannerClicked && p.scannerStep && p.scannerStep !== 'page_loaded') {
+    scanFlag = "🔴 DROPPED";
+} else if (p.scannerClicked) {
+    scanFlag = "🟡 ENGAGED";
+}
         
         dynamicCols = `
             <td style="padding:12px;">
@@ -238,7 +245,15 @@ LexNova.UI.buildRow = function(p, index) {
         `;
     } else {
         // DEFAULT IN SEQUENCE
-        const scanFlag = p.scanner_completed ? '✅ Completed' : (p.scanner_clicked ? '🟡 Clicked' : '⚪ Dropped/None');
+        let scanFlag = "⚪ None";
+if (p.scannerCompleted) {
+    scanFlag = "✅ Completed";
+} else if (p.scannerClicked && p.scannerStep && p.scannerStep !== 'page_loaded') {
+    // If they got past the initial page load but didn't complete
+    scanFlag = `🔴 Dropped (${p.scannerStep})`;
+} else if (p.scannerClicked) {
+    scanFlag = "🟡 Clicked";
+}
         
         dynamicCols = `
             <td style="padding:12px;">
