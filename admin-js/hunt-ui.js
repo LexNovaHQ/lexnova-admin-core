@@ -46,20 +46,47 @@ LexNova.UI.renderTables = function() {
     }
 
     // NEW: Apply Search & Status Filter
-    const searchVal = document.getElementById('cc-search')?.value.toLowerCase() || '';
+    // 1. CAPTURE ALL FILTER INPUTS
+    const searchVal = document.getElementById('cc-search')?.value.toLowerCase().trim() || '';
+    const batchVal  = document.getElementById('cc-batch-filter')?.value || '';
     const statusVal = document.getElementById('cc-status-filter')?.value || '';
+    const painVal   = document.getElementById('adv-pain')?.value || '';
+    const archVal   = document.getElementById('adv-arch')?.value || '';
+    const scanVal   = document.getElementById('adv-scan')?.value || '';
+    const fundVal   = document.getElementById('adv-fund')?.value || '';
+    const confVal   = document.getElementById('adv-conf')?.value || '';
 
+    // 2. APPLY OMNI-SEARCH (Free search across all flat text values)
     if (searchVal) {
-        filtered = filtered.filter(p => 
-            (p.founderName || p.name || '').toLowerCase().includes(searchVal) || 
-            (p.company || '').toLowerCase().includes(searchVal) ||
-            (p.batch || '').toLowerCase().includes(searchVal)
-        );
-    }
-    if (statusVal) {
-        filtered = filtered.filter(p => p.status === statusVal);
+        filtered = filtered.filter(p => {
+            const allValues = Object.values(p).map(v => typeof v === 'string' ? v.toLowerCase() : '').join(' ');
+            return allValues.includes(searchVal);
+        });
     }
 
+    // 3. APPLY BATCH & STATUS FILTERS
+    if (batchVal) filtered = filtered.filter(p => (p.batch || p.batchNumber) === batchVal);
+    if (statusVal) filtered = filtered.filter(p => p.status === statusVal);
+
+    // 4. APPLY ADVANCED FILTERS
+    if (painVal) {
+        filtered = filtered.filter(p => {
+            const pTier = p.ghost_protection_global?.pain_tier || 'T9';
+            return painVal === 'T1_T2' ? (pTier === 'T1' || pTier === 'T2') : pTier === painVal;
+        });
+    }
+    if (archVal) filtered = filtered.filter(p => (p.archetypes || []).some(a => a.includes(archVal)));
+    if (scanVal) {
+        filtered = filtered.filter(p => {
+            if (scanVal === 'COMPLETED') return p.scannerCompleted;
+            if (scanVal === 'DROPPED') return p.scannerClicked && !p.scannerCompleted;
+            if (scanVal === 'CLICKED') return p.scannerClicked;
+            if (scanVal === 'NONE') return !p.scannerClicked;
+            return true;
+        });
+    }
+    if (fundVal) filtered = filtered.filter(p => p.fundingStage === fundVal);
+    if (confVal) filtered = filtered.filter(p => (p.ghost_protection_global?.confidence_tier || 'N/A') === confVal);
     // NATIVE SORTING ENGINE (Driven by Central Dropdown, Directed by Header Toggle)
     filtered.sort((a, b) => {
         let valA = a[LexNova.UI.State.sortCol] || a[LexNova.UI.State.sortCol + 'Number'] || a[LexNova.UI.State.sortCol + 'Name'] || '';
@@ -76,6 +103,11 @@ LexNova.UI.renderTables = function() {
     });
 
     const scanPct = m.inSequence > 0 ? Math.round((m.scansClicked / m.inSequence) * 100) : 0;
+
+    // GENERATE DYNAMIC BATCH OPTIONS
+    const uniqueBatches = [...new Set(pList.map(p => p.batch || p.batchNumber).filter(Boolean))].sort();
+    const currentBatchFilter = document.getElementById('cc-batch-filter')?.value || '';
+    const batchOptionsHtml = uniqueBatches.map(b => `<option value="${b}" ${currentBatchFilter === b ? 'selected' : ''}>Batch: ${b}</option>`).join('');
 
     let html = `
     <div style="display:flex; gap:15px; margin-bottom: 15px;">
@@ -115,8 +147,13 @@ LexNova.UI.renderTables = function() {
         </div>
 
         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-            <input type="text" class="fi" id="cc-search" placeholder="Search Name or Batch..." style="width:200px;" oninput="LexNova.UI.renderTables()">
+            <input type="text" class="fi" id="cc-search" placeholder="Omni-Search..." style="width:200px;" oninput="LexNova.UI.renderTables()">
             
+            <select class="fi" id="cc-batch-filter" style="width:120px;" onchange="LexNova.UI.renderTables()">
+                <option value="">All Batches</option>
+                ${batchOptionsHtml}
+            </select>
+
             <select class="fi" id="cc-status-filter" style="width:140px;" onchange="LexNova.UI.renderTables()">
                 <option value="">All Statuses</option>
                 <option value="QUEUED">QUEUED</option>
