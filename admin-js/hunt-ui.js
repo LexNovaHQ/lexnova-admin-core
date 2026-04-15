@@ -50,13 +50,16 @@ LexNova.UI.renderTables = function() {
     const fundVal   = document.getElementById('adv-fund')?.value || '';
     const confVal   = document.getElementById('adv-conf')?.value || '';
 
-    // 2. PRIMARY FILTER (Dropdown Overrides Tab)
+    // 2. PRIMARY FILTER (Dropdown & Advanced Filters Override Tab)
     let filtered = pList;
     if (statusVal) {
-        // If you select a specific status (like ARCHIVED), ignore the tabs completely.
+        // Explicit status selected -> Search that status only
         filtered = filtered.filter(p => p.status === statusVal);
+    } else if (scanVal || painVal || archVal || fundVal || searchVal) {
+        // Using Advanced Filters or Omni-Search -> GLOBAL SEARCH (Bypasses the Tab bouncer)
+        // No filter applied here, it leaves the entire pList intact for the next steps
     } else {
-        // Otherwise, obey the currently clicked Tab button.
+        // Normal tab browsing -> Restrict to current tab
         filtered = filtered.filter(p => {
             if (LexNova.UI.State.currentTab === 'QUEUED') return p.status === 'QUEUED' || !p.ceDate;
             return p.status === LexNova.UI.State.currentTab;
@@ -246,10 +249,10 @@ LexNova.UI.renderTables = function() {
                     <th style="padding:12px;">Batch</th>
                     <th style="padding:12px;">Intel Status</th>
                     ${LexNova.UI.State.currentTab === 'QUEUED' ? `
-                        <th style="padding:12px;">Last Update</th>
                         <th style="padding:12px;">Aging / Days</th>
+                        <th style="padding:12px;">Scanner Status</th>
                         <th style="padding:12px; cursor:pointer; color:var(--gold);" onclick="LexNova.UI.toggleSortDir()">Toggle ASC/DSC ${LexNova.UI.getSortIcon()}</th>
-                    ` : LexNova.UI.State.currentTab === 'NEGOTIATING' ? `
+                    ` : LexNova.UI.State.currentTab === 'NEGOTIATING' ? ` `
                         <th style="padding:12px;">Scanner Score</th>
                         <th style="padding:12px;">Lethal Threat Summary</th>
                         <th style="padding:12px;">Last Touch</th>
@@ -321,12 +324,26 @@ LexNova.UI.buildRow = function(p, index) {
     if (LexNova.UI.State.currentTab === 'QUEUED') {
         const dateAdd = new Date(p.date_added || p.createdAt || Date.now());
         const daysInQueue = Math.floor((Date.now() - dateAdd) / (1000 * 60 * 60 * 24));
+
+        // UNIFIED NAMING CHECK
+        const isClicked = p.scannerClicked === true || p.scanner_clicked === true;
+        const isCompleted = p.scannerCompleted === true || p.scanner_completed === true;
+        const scanStep = p.scannerStep || p.scanner_step || '';
+
+        let scanFlag = "⚪ None";
+        if (isCompleted) {
+            scanFlag = "✅ Completed";
+        } else if (isClicked && scanStep && scanStep !== 'page_loaded') {
+            scanFlag = `🔴 Dropped (${scanStep})`;
+        } else if (isClicked) {
+            scanFlag = "🟡 Clicked";
+        }
         
         dynamicCols = `
-            <td style="padding:12px; color:var(--marble-dim);">${p.last_updated ? p.last_updated.split('T')[0] : 'N/A'}</td>
             <td style="padding:12px;">
                 <span style="color:${daysInQueue > 7 ? 'var(--red)' : 'var(--gold)'}; font-weight:bold;">${daysInQueue} Days Idle</span>
             </td>
+            <td style="padding:12px; font-size:10px;">${scanFlag}</td>
             <td style="padding:12px;" onclick="event.stopPropagation();">
                 <input type="date" class="fi" value="${p.ceDate || ''}" onchange="LexNova.Ops.updateInline('${pId}', 'ceDate', this.value)" style="width:120px; padding:4px;">
             </td>
