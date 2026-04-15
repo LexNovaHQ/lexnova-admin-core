@@ -102,10 +102,22 @@ LexNova.Core.computeMetrics = function() {
             m.v5Intel++;
         }
 
-        // Scanner Telemetry
-        if (target.scanner_clicked) m.scansClicked++;
-        if (target.scanner_dropped) m.scansDropped++;
-        if (target.scanner_completed) m.scansCompleted++;
+        // Scanner Telemetry (Dual-read for camelCase and snake_case)
+        const isClicked = target.scannerClicked === true || target.scanner_clicked === true;
+        const isCompleted = target.scannerCompleted === true || target.scanner_completed === true;
+
+        if (isClicked) {
+            m.scansClicked++;
+        }
+        
+        if (isCompleted) {
+            m.scansCompleted++;
+        }
+        
+        // DROPPED LOGIC: If they clicked but did NOT complete, they are dropped.
+        if (isClicked && !isCompleted) {
+            m.scansDropped++;
+        }
 
         // Bottleneck Detection (Overdue Actions or Unhandled Replies)
         let isBottleneck = false;
