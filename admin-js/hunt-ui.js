@@ -16,23 +16,26 @@ LexNova.UI.State = {
 };
 
 /**
+ /**
  * ==========================================
- * 1. THE MAIN DASHBOARD & TABLES
+ * SECTION 1: THE MAIN DASHBOARD & TABLES
  * ==========================================
  */
 LexNova.UI.renderTables = function() {
     const container = document.getElementById('v5-crm-app') || document.getElementById('tab-body') || document.getElementById('tab-hunt');
     if (!container) return;
 
-    const m = LexNova.State.metrics || { total: 0, inSequence: 0, v5Intel: 0, unscheduled: 0, bottleneck: 0, scansClicked: 0, scansDropped: 0, scansCompleted: 0 };
+    // Pull metrics (defaulting to 0 if missing)
+    const m = LexNova.State.metrics || { total: 0, inSequence: 0, v5Intel: 0, unscheduled: 0, archived: 0, bottleneck: 0, scansClicked: 0, scansDropped: 0, scansCompleted: 0 };
     const pList = LexNova.State.allProspects ? [...LexNova.State.allProspects] : [];
 
+    // Filter by Tab Stage
     let filtered = pList.filter(p => p.status === LexNova.UI.State.currentTab);
     if (LexNova.UI.State.currentTab === 'QUEUED') {
         filtered = pList.filter(p => p.status === 'QUEUED' || !p.ceDate);
     }
 
-    // NATIVE HEADER SORTING (Dual-Read compliant)
+    // NATIVE SORTING ENGINE (Driven by Central Dropdown, Directed by Header Toggle)
     filtered.sort((a, b) => {
         let valA = a[LexNova.UI.State.sortCol] || a[LexNova.UI.State.sortCol + 'Number'] || a[LexNova.UI.State.sortCol + 'Name'] || '';
         let valB = b[LexNova.UI.State.sortCol] || b[LexNova.UI.State.sortCol + 'Number'] || b[LexNova.UI.State.sortCol + 'Name'] || '';
@@ -50,18 +53,21 @@ LexNova.UI.renderTables = function() {
     const scanPct = m.inSequence > 0 ? Math.round((m.scansClicked / m.inSequence) * 100) : 0;
 
     let html = `
-    <div style="display:flex; gap:15px; margin-bottom: 20px;">
-        <div class="card" style="flex:1;">
-            <div style="font-size:10px; color:var(--gold);">PIPELINE HEALTH</div>
+    <div style="display:flex; gap:15px; margin-bottom: 15px;">
+        <div class="card" style="flex:2;">
+            <div style="font-size:10px; color:var(--gold); letter-spacing:0.1em; text-transform:uppercase;">PIPELINE HEALTH</div>
             <div style="display:flex; justify-content:space-between; margin-top:10px;">
                 <div><span style="font-size:24px;">${m.total}</span><br><span style="font-size:9px; color:var(--marble-dim);">Total Targets</span></div>
                 <div><span style="font-size:24px; color:var(--green);">${m.inSequence}</span><br><span style="font-size:9px; color:var(--marble-dim);">In Sequence</span></div>
                 <div><span style="font-size:24px;">${m.v5Intel}</span><br><span style="font-size:9px; color:var(--marble-dim);">V5.0 Intel</span></div>
-                <div><span style="font-size:24px; color:var(--red);">${m.bottleneck}</span><br><span style="font-size:9px; color:var(--marble-dim);">Bottlenecks</span></div>
+                <div><span style="font-size:24px;">${m.unscheduled}</span><br><span style="font-size:9px; color:var(--marble-dim);">Unscheduled</span></div>
+                <div><span style="font-size:24px;">${m.archived}</span><br><span style="font-size:9px; color:var(--marble-dim);">Archived</span></div>
+                <div><span style="font-size:24px; color:var(--red);">${m.bottleneck}</span><br><span style="font-size:9px; color:var(--marble-dim);">Bottleneck / Action Needed</span></div>
             </div>
         </div>
+        
         <div class="card" style="flex:1;">
-            <div style="font-size:10px; color:var(--gold);">SCANNER TELEMETRY</div>
+            <div style="font-size:10px; color:var(--gold); letter-spacing:0.1em; text-transform:uppercase;">SCANNER TELEMETRY</div>
             <div style="display:flex; justify-content:space-between; margin-top:10px;">
                 <div><span style="font-size:24px;">${m.scansClicked}</span> <span style="font-size:12px; color:var(--gold);">(${scanPct}%)</span><br><span style="font-size:9px; color:var(--marble-dim);">Clicked</span></div>
                 <div><span style="font-size:24px;">${m.scansDropped}</span><br><span style="font-size:9px; color:var(--marble-dim);">Dropped</span></div>
@@ -70,58 +76,106 @@ LexNova.UI.renderTables = function() {
         </div>
     </div>
 
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-        <div style="display:flex; gap:10px;">
-            <button class="btn ${LexNova.UI.State.currentTab === 'QUEUED' ? 'btn-primary' : 'btn-outline'}" onclick="LexNova.UI.setTab('QUEUED')">Unscheduled (${m.unscheduled})</button>
-            <button class="btn ${LexNova.UI.State.currentTab === 'SEQUENCE' ? 'btn-primary' : 'btn-outline'}" onclick="LexNova.UI.setTab('SEQUENCE')">In Sequence (${m.inSequence})</button>
-            <button class="btn ${LexNova.UI.State.currentTab === 'NEGOTIATING' ? 'btn-primary' : 'btn-outline'}" onclick="LexNova.UI.setTab('NEGOTIATING')">Negotiating</button>
+    <div class="card" style="margin-bottom:15px; padding:15px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:15px; flex-wrap:wrap; border-bottom:1px solid var(--border); padding-bottom:15px; margin-bottom:15px;">
+            <div style="display:flex; gap:0;">
+                <button class="view-btn ${LexNova.UI.State.currentTab === 'QUEUED' ? 'active' : ''}" onclick="LexNova.UI.setTab('QUEUED')">Unscheduled (${m.unscheduled})</button>
+                <button class="view-btn ${LexNova.UI.State.currentTab === 'SEQUENCE' ? 'active' : ''}" onclick="LexNova.UI.setTab('SEQUENCE')">In Sequence (${m.inSequence})</button>
+                <button class="view-btn ${LexNova.UI.State.currentTab === 'NEGOTIATING' ? 'active' : ''}" onclick="LexNova.UI.setTab('NEGOTIATING')">Negotiating</button>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-outline" onclick="LexNova.Export.copyList()">📋 Copy List</button>
+                <button class="btn btn-primary" onclick="LexNova.Ingestion.openV5Modal()">📥 Add New ICP</button>
+            </div>
         </div>
-        <div>
-            <button class="btn btn-primary" onclick="LexNova.Ingestion.openV5Modal()">📥 Add New V5.0 ICP</button>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <input type="text" class="fi" id="cc-search" placeholder="Search Name or Batch..." style="width:200px;">
+            
+            <select class="fi" id="cc-status-filter" style="width:140px;">
+                <option value="">All Statuses</option>
+                <option value="QUEUED">QUEUED</option>
+                <option value="SEQUENCE">SEQUENCE</option>
+                <option value="ENGAGED">ENGAGED</option>
+                <option value="NEGOTIATING">NEGOTIATING</option>
+                <option value="CONVERTED">CONVERTED</option>
+                <option value="ARCHIVED">ARCHIVED</option>
+                <option value="DEAD">DEAD</option>
+            </select>
+
+            <select class="fi" style="width:160px;" onchange="LexNova.UI.setSortCol(this.value)">
+                <option value="last_updated" ${LexNova.UI.State.sortCol === 'last_updated' ? 'selected' : ''}>Sort: Last Update Date</option>
+                <option value="ceDate" ${LexNova.UI.State.sortCol === 'ceDate' ? 'selected' : ''}>Sort: CE Date</option>
+                <option value="date_added" ${LexNova.UI.State.sortCol === 'date_added' ? 'selected' : ''}>Sort: Date Added</option>
+                <option value="batch" ${LexNova.UI.State.sortCol === 'batch' ? 'selected' : ''}>Sort: Batch</option>
+                <option value="company" ${LexNova.UI.State.sortCol === 'company' ? 'selected' : ''}>Sort: Company</option>
+                <option value="confidence" ${LexNova.UI.State.sortCol === 'confidence' ? 'selected' : ''}>Sort: Confidence Score</option>
+            </select>
+
+            <button class="adv-toggle" onclick="window.toggleAdvFilters(this)">▾ Advanced Filters</button>
+        </div>
+
+        <div id="adv-filters-inner" class="adv-filters-inner hidden" style="margin-top:10px; border-top:1px dashed var(--border); padding-top:10px;">
+            <select class="fi"><option value="">Pain Tier (T1/T2)</option></select>
+            <select class="fi"><option value="">Archetype</option></select>
+            <select class="fi"><option value="">Scanner Status</option></select>
+            <select class="fi"><option value="">Funding Stage</option></select>
+            <select class="fi"><option value="">Readiness</option></select>
+            <select class="fi"><option value="">Confidence Tier</option></select>
         </div>
     </div>
 
-    <div class="card" style="overflow-x:auto;">
+    <div class="card" style="overflow-x:auto; padding:0;">
         <table style="width:100%; text-align:left; border-collapse:collapse; font-size:11px;">
-            <thead>
-                <tr style="border-bottom:1px solid var(--border); color:var(--gold);">
-                    <th style="padding:10px; cursor:pointer;" onclick="LexNova.UI.setSort('id')">Target / PID ${LexNova.UI.getSortIcon('id')}</th>
-                    <th style="padding:10px; cursor:pointer;" onclick="LexNova.UI.setSort('batch')">Batch ${LexNova.UI.getSortIcon('batch')}</th>
-                    <th style="padding:10px; cursor:pointer;" onclick="LexNova.UI.setSort('confidence')">Intel Status ${LexNova.UI.getSortIcon('confidence')}</th>
+            <thead style="background:var(--surface2);">
+                <tr style="border-bottom:1px solid var(--border); color:var(--marble-dim); font-size:9px; letter-spacing:0.1em; text-transform:uppercase;">
+                    <th style="padding:12px;">S.No</th>
+                    <th style="padding:12px;">Target / PID</th>
+                    <th style="padding:12px;">Batch</th>
+                    <th style="padding:12px;">Intel Status</th>
                     ${LexNova.UI.State.currentTab === 'QUEUED' ? `
-                        <th style="padding:10px; cursor:pointer;" onclick="LexNova.UI.setSort('last_updated')">Last Update ${LexNova.UI.getSortIcon('last_updated')}</th>
-                        <th style="padding:10px;">Aging / Action</th>
+                        <th style="padding:12px;">Last Update</th>
+                        <th style="padding:12px;">Aging / Days</th>
+                        <th style="padding:12px; cursor:pointer; color:var(--gold);" onclick="LexNova.UI.toggleSortDir()">Toggle ASC/DSC ${LexNova.UI.getSortIcon()}</th>
                     ` : LexNova.UI.State.currentTab === 'NEGOTIATING' ? `
-                        <th style="padding:10px;">Lethal Threat</th>
-                        <th style="padding:10px; cursor:pointer;" onclick="LexNova.UI.setSort('last_touch')">Last Touch ${LexNova.UI.getSortIcon('last_touch')}</th>
-                        <th style="padding:10px;">Next Action / Deal Value</th>
+                        <th style="padding:12px;">Scanner Score</th>
+                        <th style="padding:12px;">Lethal Threat Summary</th>
+                        <th style="padding:12px;">Last Touch</th>
+                        <th style="padding:12px; cursor:pointer; color:var(--gold);" onclick="LexNova.UI.toggleSortDir()">Toggle ASC/DSC ${LexNova.UI.getSortIcon()}</th>
                     ` : `
-                        <th style="padding:10px;">Outreach & Scanner</th>
-                        <th style="padding:10px; cursor:pointer;" onclick="LexNova.UI.setSort('ceDate')">CE Date ${LexNova.UI.getSortIcon('ceDate')}</th>
+                        <th style="padding:12px;">Outreach Status</th>
+                        <th style="padding:12px;">Scanner Status</th>
+                        <th style="padding:12px; cursor:pointer; color:var(--gold);" onclick="LexNova.UI.toggleSortDir()">Toggle ASC/DSC ${LexNova.UI.getSortIcon()}</th>
                     `}
                 </tr>
             </thead>
             <tbody>
-                ${filtered.map(p => LexNova.UI.buildRow(p)).join('')}
+                ${filtered.map((p, index) => LexNova.UI.buildRow(p, index + 1)).join('')}
             </tbody>
         </table>
-        ${filtered.length === 0 ? '<div style="padding:20px; text-align:center; color:var(--marble-dim);">No targets in this view.</div>' : ''}
+        ${filtered.length === 0 ? '<div style="padding:40px; text-align:center; color:var(--marble-dim);">No targets in this pipeline stage.</div>' : ''}
     </div>
     `;
 
     container.innerHTML = html;
 };
 
-LexNova.UI.buildRow = function(p) {
-    // DUAL-READ IDENTITY
+/**
+ * ==========================================
+ * SECTION 2: TABLE ROW GENERATOR (DUAL-READ)
+ * ==========================================
+ */
+LexNova.UI.buildRow = function(p, index) {
+    // 1. Dual-Read Identity
     const pId = p.id || p.prospectId || 'UNKNOWN_PID';
     const fName = p.founderName || p.name || 'Unknown';
+    const fRole = p.founderRole || p.jobTitle || 'Unknown';
     const coName = p.company || p.companyName || 'Unknown';
     const batchVal = p.batch || p.batchNumber || 'N/A';
     
-    // INTEL STATUS & MIGRATION
+    // 2. Intel Status & Legacy Migration Mapping
     const isV5 = p.true_gaps && p.true_gaps.length > 0;
-    const intelBadge = isV5 ? `<span style="color:var(--green);">V5.0</span>` : `<span style="color:var(--red);">LEGACY</span>`;
+    const intelBadge = isV5 ? `<span style="color:var(--green); font-weight:bold;">V5.0</span>` : `<span style="background:rgba(212,122,122,0.15); color:var(--red); padding:2px 4px; border-radius:3px;">LEGACY</span>`;
     
     let confTier = p.ghost_protection_global?.confidence_tier || 'N/A';
     let liaColor = "var(--marble)";
@@ -149,72 +203,96 @@ LexNova.UI.buildRow = function(p) {
         }
     }
 
-    // COLUMN RENDER BY TAB
+    // 3. Conditional Column Rendering (By Tab)
     let dynamicCols = '';
     
     if (LexNova.UI.State.currentTab === 'QUEUED') {
-        // Unscheduled Tab specific
         const dateAdd = new Date(p.date_added || p.createdAt || Date.now());
         const daysInQueue = Math.floor((Date.now() - dateAdd) / (1000 * 60 * 60 * 24));
+        
         dynamicCols = `
-            <td style="padding:10px; color:var(--marble-dim);">${p.last_updated ? p.last_updated.split('T')[0] : 'N/A'}</td>
-            <td style="padding:10px;">
-                <span style="color:${daysInQueue > 7 ? 'var(--red)' : 'var(--gold)'};">${daysInQueue} Days Idle</span><br>
-                <span style="font-size:9px; color:var(--marble-dim);">Action Required</span>
+            <td style="padding:12px; color:var(--marble-dim);">${p.last_updated ? p.last_updated.split('T')[0] : 'N/A'}</td>
+            <td style="padding:12px;">
+                <span style="color:${daysInQueue > 7 ? 'var(--red)' : 'var(--gold)'}; font-weight:bold;">${daysInQueue} Days Idle</span>
+            </td>
+            <td style="padding:12px;" onclick="event.stopPropagation();">
+                <input type="date" class="fi" value="${p.ceDate || ''}" onchange="LexNova.Ops.updateInline('${pId}', 'ceDate', this.value)" style="width:120px; padding:4px;">
             </td>
         `;
     } else if (LexNova.UI.State.currentTab === 'NEGOTIATING') {
-        // NEG Tab specific
-        const scanFlag = p.scanner_completed ? "COMPLETED" : (p.scanner_clicked ? "ENGAGED" : "NO SCAN");
+        const scanFlag = p.scanner_completed ? "✅ DUAL CONFIRMED" : (p.scanner_clicked ? "🟡 ENGAGED" : "⚪ NO SCAN");
+        
         dynamicCols = `
-            <td style="padding:10px; color:var(--marble); font-size:10px;">${lethalThreat}</td>
-            <td style="padding:10px;">
-                <span style="color:var(--gold);">${p.last_touch || 'N/A'}</span><br>
-                <span style="font-size:9px;">Scan: ${scanFlag}</span>
+            <td style="padding:12px;">
+                <span style="font-family:'Cormorant Garamond',serif; font-size:16px; color:var(--gold);">Score: ${p.scanner_score || 'N/A'}</span><br>
+                <span style="font-size:9px; color:var(--marble-dim);">${scanFlag}</span>
             </td>
-            <td style="padding:10px; color:var(--marble-dim); font-style:italic;">${p.deal_friction || 'Awaiting update...'}</td>
+            <td style="padding:12px; color:var(--marble); font-weight:bold;">${lethalThreat}</td>
+            <td style="padding:12px; color:var(--gold);">${p.last_touch || 'N/A'}</td>
+            <td style="padding:12px;" onclick="event.stopPropagation();">
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                    <input type="text" class="fi" value="${p.deal_friction || ''}" placeholder="Next action / friction..." onchange="LexNova.Ops.updateInline('${pId}', 'deal_friction', this.value)" style="width:160px; padding:4px;">
+                    <span style="font-size:10px; color:var(--marble-dim);">Value: ${p.deal_value || 'TBD'}</span>
+                </div>
+            </td>
         `;
     } else {
-        // Default In Sequence Tab
+        // DEFAULT IN SEQUENCE
+        const scanFlag = p.scanner_completed ? '✅ Completed' : (p.scanner_clicked ? '🟡 Clicked' : '⚪ Dropped/None');
+        
         dynamicCols = `
-            <td style="padding:10px;">
-                <span class="b-ghost">${p.status || 'SEQUENCE'}</span><br>
-                <span style="font-size:9px; color:var(--marble-dim);">Scan: ${p.scanner_completed ? '✅ Comp' : (p.scanner_clicked ? 'Clicked' : 'Sent')}</span>
+            <td style="padding:12px;">
+                <span class="badge b-seq-active">${p.outreach_step || 'FU1'}</span><br>
+                <span style="font-size:9px; color:var(--marble-dim);">${p.days_until_next || 'Due in 3 days'}</span>
             </td>
-            <td style="padding:10px;">
-                ${p.ceDate ? p.ceDate : '<span style="color:var(--red);">Unscheduled</span>'}<br>
-                <span style="font-size:9px; color:var(--gold);">FU Target: ${p.next_action_date || 'N/A'}</span>
-            </td>
+            <td style="padding:12px; font-size:10px;">${scanFlag}</td>
+            <td style="padding:12px; color:var(--marble);">${p.ceDate ? p.ceDate : '<span style="color:var(--red);">Unscheduled</span>'}</td>
         `;
     }
 
     return `
-    <tr style="border-bottom:1px solid var(--surface2); cursor:pointer;" onclick="LexNova.UI.openProspectPanel('${pId}')">
-        <td style="padding:10px;">
-            <strong style="color:var(--marble); font-size:12px;">${fName}</strong><br>
-            <span style="color:var(--marble-dim);">${coName} | ${pId}</span>
+    <tr style="border-bottom:1px solid var(--surface2); cursor:pointer; transition: background 0.2s;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='transparent'" onclick="LexNova.UI.openProspectPanel('${pId}')">
+        <td style="padding:12px; color:var(--marble-dim);">${index}</td>
+        <td style="padding:12px;">
+            <strong style="color:var(--marble); font-size:12px;">${fName} &mdash; ${fRole}</strong><br>
+            <span style="color:var(--gold); font-size:10px;">${coName}</span> <span style="color:var(--marble-faint); font-size:9px;">| ${pId}</span>
         </td>
-        <td style="padding:10px;">${batchVal}</td>
-        <td style="padding:10px;">
-            <span style="font-weight:bold; color:${liaColor};">● ${confTier}</span><br>
-            <span style="font-size:9px;">${intelBadge}</span>
+        <td style="padding:12px; font-family:monospace; color:var(--marble-dim);">${batchVal}</td>
+        <td style="padding:12px;">
+            <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${liaColor};"></span>
+                <span style="font-weight:bold; font-size:10px; color:var(--marble);">${confTier}</span>
+            </div>
+            ${intelBadge}
         </td>
         ${dynamicCols}
     </tr>
     `;
 };
 
-LexNova.UI.setTab = function(tab) { LexNova.UI.State.currentTab = tab; LexNova.UI.renderTables(); };
-LexNova.UI.setSort = function(col) {
-    if (LexNova.UI.State.sortCol === col) LexNova.UI.State.sortDesc = !LexNova.UI.State.sortDesc;
-    else { LexNova.UI.State.sortCol = col; LexNova.UI.State.sortDesc = true; }
+/**
+ * ==========================================
+ * SECTION 3: STATE HELPERS
+ * ==========================================
+ */
+LexNova.UI.setTab = function(tab) {
+    LexNova.UI.State.currentTab = tab;
     LexNova.UI.renderTables();
 };
-LexNova.UI.getSortIcon = function(col) {
-    if (LexNova.UI.State.sortCol !== col) return '';
-    return LexNova.UI.State.sortDesc ? '↓' : '↑';
+
+LexNova.UI.setSortCol = function(col) {
+    LexNova.UI.State.sortCol = col;
+    LexNova.UI.renderTables();
 };
 
+LexNova.UI.toggleSortDir = function() {
+    LexNova.UI.State.sortDesc = !LexNova.UI.State.sortDesc;
+    LexNova.UI.renderTables();
+};
+
+LexNova.UI.getSortIcon = function() {
+    return LexNova.UI.State.sortDesc ? '↓' : '↑';
+};
 
 /**
  * ==========================================
