@@ -254,9 +254,9 @@ tbody td.dim{color:var(--marble-dim)}
 /* ═════════════════════════════════════════════════════════ */
 /* ═════════ 10. MODALS & TOASTS ═══════════════════════════ */
 /* ═════════════════════════════════════════════════════════ */
-#overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:250}
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index: 10000;}
 #overlay.open{display:block}
-#modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border2);width:900px;max-width:95vw;max-height:90vh;display:none;z-index:260;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.8)}
+#modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border2);width:900px;max-width:95vw;max-height:90vh;display:none;z-index: 10001;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.8)}
 #modal.open{display:flex}
 .modal-header{padding:20px 20px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;flex-wrap:wrap;gap:10px}
 .modal-title{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--marble)}
@@ -264,7 +264,7 @@ tbody td.dim{color:var(--marble-dim)}
 .modal-footer{padding:16px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0;flex-wrap:wrap}
 .modal-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:32px}
 
-#toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;font-size:11px;border:1px solid;display:none;z-index:999;letter-spacing:.05em;max-width:300px;word-break:break-word}
+#toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;font-size:11px;border:1px solid;display:none;z-index: 10002;letter-spacing:.05em;max-width:300px;word-break:break-word}
 #toast.success{background:rgba(90,138,106,.1);border-color:var(--green);color:#7ab88a}
 #toast.error{background:rgba(138,58,58,.1);border-color:var(--red);color:#d47a7a}
 
