@@ -35,6 +35,21 @@ LexNova.UI.renderTables = function() {
         filtered = pList.filter(p => p.status === 'QUEUED' || !p.ceDate);
     }
 
+    // NEW: Apply Search & Status Filter
+    const searchVal = document.getElementById('cc-search')?.value.toLowerCase() || '';
+    const statusVal = document.getElementById('cc-status-filter')?.value || '';
+
+    if (searchVal) {
+        filtered = filtered.filter(p => 
+            (p.founderName || p.name || '').toLowerCase().includes(searchVal) || 
+            (p.company || '').toLowerCase().includes(searchVal) ||
+            (p.batch || '').toLowerCase().includes(searchVal)
+        );
+    }
+    if (statusVal) {
+        filtered = filtered.filter(p => p.status === statusVal);
+    }
+
     // NATIVE SORTING ENGINE (Driven by Central Dropdown, Directed by Header Toggle)
     filtered.sort((a, b) => {
         let valA = a[LexNova.UI.State.sortCol] || a[LexNova.UI.State.sortCol + 'Number'] || a[LexNova.UI.State.sortCol + 'Name'] || '';
@@ -90,9 +105,9 @@ LexNova.UI.renderTables = function() {
         </div>
 
         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-            <input type="text" class="fi" id="cc-search" placeholder="Search Name or Batch..." style="width:200px;">
+            <input type="text" class="fi" id="cc-search" placeholder="Search Name or Batch..." style="width:200px;" oninput="LexNova.UI.renderTables()">
             
-            <select class="fi" id="cc-status-filter" style="width:140px;">
+            <select class="fi" id="cc-status-filter" style="width:140px;" onchange="LexNova.UI.renderTables()">
                 <option value="">All Statuses</option>
                 <option value="QUEUED">QUEUED</option>
                 <option value="SEQUENCE">SEQUENCE</option>
