@@ -104,6 +104,9 @@ LexNova.Ops.saveProspect = async function(payload, existingPid = null) {
         payload.id = targetPid;
         payload.date_added = new Date().toISOString();
         isNew = true;
+    } else {
+        // Ensure existing records maintain their ID tag in the document during a merge
+        payload.id = targetPid;
     }
 
     // 2. Schedule Calculator (If CE Date was updated in the Ops panel later)
@@ -170,7 +173,33 @@ LexNova.Ops.executeFactoryHandoff = async function(pid, updatedPayload) {
 
 /**
  * ==========================================
- * 5. DESTRUCTIVE OPERATIONS
+ * 5. INLINE TABLE UPDATER
+ * ==========================================
+ * Handles direct field edits from the dashboard tables (e.g., CE Date, Friction).
+ */
+LexNova.Ops.updateInline = async function(pid, field, value) {
+    if (!pid || !field || !window.db) return;
+
+    let payload = { [field]: value, last_updated: new Date().toISOString() };
+
+    // If they changed the CE Date from the table, auto-calculate the follow-ups
+    if (field === 'ceDate' && value) {
+        const schedule = LexNova.Ops.calculateSequence(value);
+        Object.assign(payload, schedule);
+    }
+
+    try {
+        await window.db.collection('prospects').doc(pid).set(payload, { merge: true });
+        if (typeof window.toast === 'function') window.toast(`Updated ${field}`, "success");
+    } catch (error) {
+        console.error("[LexNova Ops] Inline Update Error:", error);
+        if (typeof window.toast === 'function') window.toast("Failed to update.", "error");
+    }
+};
+
+/**
+ * ==========================================
+ * 6. DESTRUCTIVE OPERATIONS
  * ==========================================
  */
 LexNova.Ops.deleteProspect = async function(pid) {
