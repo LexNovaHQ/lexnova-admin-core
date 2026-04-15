@@ -115,15 +115,56 @@ LexNova.UI.renderTables = function() {
             <button class="adv-toggle" onclick="window.toggleAdvFilters(this)">▾ Advanced Filters</button>
         </div>
 
-        <div id="adv-filters-inner" class="adv-filters-inner hidden" style="margin-top:10px; border-top:1px dashed var(--border); padding-top:10px;">
-            <select class="fi"><option value="">Pain Tier (T1/T2)</option></select>
-            <select class="fi"><option value="">Archetype</option></select>
-            <select class="fi"><option value="">Scanner Status</option></select>
-            <select class="fi"><option value="">Funding Stage</option></select>
-            <select class="fi"><option value="">Readiness</option></select>
-            <select class="fi"><option value="">Confidence Tier</option></select>
+       <div id="adv-filters-inner" class="adv-filters-inner hidden" style="margin-top:10px; border-top:1px dashed var(--border); padding-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+            
+            <select class="fi" id="adv-pain" onchange="LexNova.UI.renderTables()">
+                <option value="">All Pain Tiers</option>
+                <option value="T1_T2">T1 / T2 Only (Lethal)</option>
+                <option value="T3">T3 Only</option>
+                <option value="LEGACY">Legacy Mapped</option>
+            </select>
+
+            <select class="fi" id="adv-arch" onchange="LexNova.UI.renderTables()">
+                <option value="">All Archetypes</option>
+                <option value="INT">Any INT (Operational)</option>
+                <option value="EXT">Any EXT (Jurisdictional)</option>
+            </select>
+
+            <select class="fi" id="adv-scan" onchange="LexNova.UI.renderTables()">
+                <option value="">All Scan States</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="DROPPED">Dropped</option>
+                <option value="CLICKED">Clicked / Engaged</option>
+                <option value="NONE">No Scan</option>
+            </select>
+
+            <select class="fi" id="adv-fund" onchange="LexNova.UI.renderTables()">
+                <option value="">All Funding Stages</option>
+                <option value="Bootstrapped">Bootstrapped</option>
+                <option value="Seed">Seed / Pre-Seed</option>
+                <option value="Series A">Series A</option>
+                <option value="Series B">Series B</option>
+                <option value="Series C+">Series C+ / Growth</option>
+                <option value="Enterprise">Enterprise / Public</option>
+                <option value="Unverified">Unverified</option>
+            </select>
+
+            <select class="fi" id="adv-ready" onchange="LexNova.UI.renderTables()">
+                <option value="">All Readiness States</option>
+                <option value="INTEL_READY">Intel Ready (V5 Gaps)</option>
+                <option value="SCHEDULED">Scheduled (Has CE Date)</option>
+                <option value="ACTION_NEEDED">Unverified / Action Needed</option>
+            </select>
+
+            <select class="fi" id="adv-conf" onchange="LexNova.UI.renderTables()">
+                <option value="">All Confidence Tiers</option>
+                <option value="HIGH">HIGH (0.7 - 1.0)</option>
+                <option value="MEDIUM">MEDIUM (0.4 - 0.6)</option>
+                <option value="LOW">LOW (0.0 - 0.3)</option>
+                <option value="MAPPED">MAPPED (Legacy)</option>
+            </select>
+
         </div>
-    </div>
 
     <div class="card" style="overflow-x:auto; padding:0;">
         <table style="width:100%; text-align:left; border-collapse:collapse; font-size:11px;">
