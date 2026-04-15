@@ -139,8 +139,6 @@ LexNova.Export.copyDossier = async function(pid) {
     }
 };
 
-};
-
 /**
  * ==========================================
  * 3. PIPELINE LIST EXPORT
