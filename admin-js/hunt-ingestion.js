@@ -1387,8 +1387,9 @@ LexNova.Ingestion.validateV5JSON = function() {
         const parsed = JSON.parse(rawText);
         
         // V5.0 Structural Check
-        if (!parsed.true_gaps || !parsed.ghost_protection_global || !parsed.primaryProduct) {
-            throw new Error("Missing required V5.0 core objects (true_gaps, ghost_protection_global, or primaryProduct).");
+        const ghostObject = parsed.ghost_protection_profile || parsed.ghost_protection_global;
+        if (!parsed.true_gaps || !ghostObject || !parsed.primaryProduct) {
+            throw new Error("Missing required V5.0 core objects (true_gaps, ghost_protection_profile, or primaryProduct).");
         }
 
         const gapCount = Array.isArray(parsed.true_gaps) ? parsed.true_gaps.length : 0;
@@ -1502,12 +1503,17 @@ LexNova.Ingestion.executeIngest = function(existingPid) {
             payload.featureMap = parsed.featureMap || null;
             payload.archetypes = parsed.archetypes || [];
             payload.jurisdictional_surface = parsed.jurisdictional_surface || [];
-            payload.ghost_protection_global = parsed.ghost_protection_global || null;
+            payload.ghost_protection_global = parsed.ghost_protection_profile || parsed.ghost_protection_global || null;
             payload.true_gaps = hydratedGaps;
             
-            if(parsed.G1_category) payload.G1_category = parsed.G1_category;
-            if(parsed.G2_reason) payload.G2_reason = parsed.G2_reason;
-
+            if (parsed.legal_viability) {
+                if(parsed.legal_viability.G1_category) payload.G1_category = parsed.legal_viability.G1_category;
+                if(parsed.legal_viability.G2_reason) payload.G2_reason = parsed.legal_viability.G2_reason;
+            } else {
+                // Fallback just in case older JSONs had it at the root
+                if(parsed.G1_category) payload.G1_category = parsed.G1_category;
+                if(parsed.G2_reason) payload.G2_reason = parsed.G2_reason;
+            }
         } catch (e) {
             if(typeof window.toast === 'function') window.toast("Cannot save: Invalid JSON payload.", "error");
             return;
