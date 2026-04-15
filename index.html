@@ -1067,6 +1067,44 @@ window.setDashView = function(view, el) {
     window.renderAnalytics();
   }
 };
+
+  // Function to actually show the Modals defined in hunt-ingestion.js
+window.openModal = function(title, body, footer) {
+    const modal = document.getElementById('modal');
+    const overlay = document.getElementById('overlay');
+    if (!modal || !overlay) return;
+    
+    document.getElementById('modalTitle').innerText = title;
+    document.getElementById('modalBody').innerHTML = body;
+    document.getElementById('modalFooter').innerHTML = footer;
+    
+    modal.style.display = 'flex';
+    modal.classList.add('open');
+    overlay.style.display = 'block';
+    overlay.classList.add('open');
+};
+
+window.closeModal = function() {
+    document.getElementById('modal').style.display = 'none';
+    document.getElementById('overlay').style.display = 'none';
+};
+
+// Function to handle the "Copied!" feedback and error messages
+window.toast = function(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    if (!t) return;
+    t.innerText = msg;
+    t.className = type; 
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 3000);
+};
+
+// Required by the "Save Dossier" button to close the full-page panel
+window.closePP = function() {
+    const panel = document.getElementById('prospectPanel');
+    if (panel) panel.classList.remove('open');
+};
+
 // Utility: Open/Close Modals
 window.openModal = function(title, body, footer) {
     document.getElementById('modalTitle').innerText = title;
