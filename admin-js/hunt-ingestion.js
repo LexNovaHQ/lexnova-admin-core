@@ -1264,7 +1264,16 @@ LexNova.Ingestion.openV5Modal = function(existingPid = null) {
         isUpdate = true;
     }
 
-    const title = isUpdate ? `Update V5.0 ICP: ${p.company || existingPid}` : "📥 Add New V5.0 ICP";
+    // DUAL-READ LOGIC: Safeguard legacy data mapping
+    const coName = p.company || p.companyName || '';
+    const fName = p.founderName || p.name || '';
+    const fRole = p.founderRole || p.jobTitle || '';
+    const batchVal = p.batch || p.batchNumber || '';
+    const jHQ = p.jurisdiction_hq || p.jurisdiction || p.registrationJurisdiction || p.geography || '';
+    const jData = p.jurisdiction_dp || '';
+    const jServ = p.jurisdiction_svc || '';
+
+    const title = isUpdate ? `Update V5.0 ICP: ${coName || existingPid}` : "📥 Add New V5.0 ICP";
 
     const bodyHtml = `
     <div class="modal-grid">
@@ -1280,28 +1289,42 @@ LexNova.Ingestion.openV5Modal = function(existingPid = null) {
             <div class="card-label">2. Target Logistics</div>
             <div class="fg">
                 <label class="fl">Company Name</label>
-                <input type="text" id="v5-company" class="fi" value="${p.company || ''}" placeholder="e.g. Deal Engine">
-            </div>
-            <div class="fg">
-                <label class="fl">Founder / Target Name</label>
-                <input type="text" id="v5-founder" class="fi" value="${p.founderName || ''}">
-            </div>
-            <div class="fg">
-                <label class="fl">Role / Title</label>
-                <input type="text" id="v5-role" class="fi" value="${p.founderRole || ''}" placeholder="e.g. Chief Executive Officer">
-            </div>
-            <div class="fg">
-                <label class="fl">Email</label>
-                <input type="email" id="v5-email" class="fi" value="${p.email || ''}">
+                <input type="text" id="v5-company" class="fi" value="${coName}" placeholder="e.g. Deal Engine">
             </div>
             <div class="fi-row">
+                <div class="fg">
+                    <label class="fl">Founder Name</label>
+                    <input type="text" id="v5-founder" class="fi" value="${fName}">
+                </div>
+                <div class="fg">
+                    <label class="fl">Role / Title</label>
+                    <input type="text" id="v5-role" class="fi" value="${fRole}" placeholder="e.g. CEO">
+                </div>
+            </div>
+            <div class="fi-row">
+                <div class="fg">
+                    <label class="fl">Email</label>
+                    <input type="email" id="v5-email" class="fi" value="${p.email || ''}">
+                </div>
                 <div class="fg">
                     <label class="fl">Funding Stage</label>
                     <input type="text" id="v5-funding" class="fi" value="${p.fundingStage || 'Unverified'}">
                 </div>
+            </div>
+            <hr style="border-color:var(--border); margin: 15px 0;">
+            <div class="card-label" style="font-size: 8px;">Tri-Jurisdiction Split</div>
+            <div class="fg">
+                <label class="fl">HQ Jurisdiction</label>
+                <input type="text" id="v5-jur-hq" class="fi" value="${jHQ}">
+            </div>
+            <div class="fi-row">
                 <div class="fg">
-                    <label class="fl">HQ Jurisdiction</label>
-                    <input type="text" id="v5-jurisdiction" class="fi" value="${p.jurisdiction || ''}">
+                    <label class="fl">Data Processing</label>
+                    <input type="text" id="v5-jur-dp" class="fi" value="${jData}">
+                </div>
+                <div class="fg">
+                    <label class="fl">Servicing</label>
+                    <input type="text" id="v5-jur-svc" class="fi" value="${jServ}">
                 </div>
             </div>
         </div>
@@ -1310,7 +1333,7 @@ LexNova.Ingestion.openV5Modal = function(existingPid = null) {
             <div class="card-label">3. Pipeline Routing</div>
             <div class="fg">
                 <label class="fl">Campaign Batch (Requires 3 chars)</label>
-                <input type="text" id="v5-batch" class="fi" value="${p.batch || ''}" placeholder="e.g. 04A" maxlength="3">
+                <input type="text" id="v5-batch" class="fi" value="${batchVal}" placeholder="e.g. 04A" maxlength="3">
             </div>
             <div class="fg">
                 <label class="fl">Pipeline Status</label>
@@ -1327,11 +1350,8 @@ LexNova.Ingestion.openV5Modal = function(existingPid = null) {
             ${isUpdate ? `<div class="fg"><label class="fl">Locked PID</label><input type="text" class="fi" value="${p.id}" disabled style="opacity: 0.5;"></div>` : ''}
             
             <div style="margin-top: 24px; padding: 12px; background: rgba(197,160,89,0.05); border: 1px solid var(--border);">
-                <div style="font-size: 9px; color: var(--gold); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px;">Scanner Dash Status</div>
-                <div class="fi-row">
-                    <label style="font-size: 10px; color: var(--marble); display: flex; align-items: center; gap: 6px;"><input type="checkbox" id="v5-scan-click" ${p.scanner_clicked ? 'checked' : ''}> Clicked</label>
-                    <label style="font-size: 10px; color: var(--marble); display: flex; align-items: center; gap: 6px;"><input type="checkbox" id="v5-scan-comp" ${p.scanner_completed ? 'checked' : ''}> Completed</label>
-                </div>
+                <div style="font-size: 9px; color: var(--gold); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px;">Telemetry Protection Active</div>
+                <div style="font-size: 10px; color: var(--marble-dim);">Scanner timestamps are locked to the live Firebase stream and cannot be manually overwritten here.</div>
             </div>
         </div>
     </div>
@@ -1382,18 +1402,17 @@ LexNova.Ingestion.validateV5JSON = function() {
             const co = document.getElementById('v5-company');
             const f = document.getElementById('v5-founder');
             const r = document.getElementById('v5-role');
-            const j = document.getElementById('v5-jurisdiction');
+            const jHQ = document.getElementById('v5-jur-hq');
             
             if(co && !co.value) co.value = parsed.prospect_meta.company_name || '';
             if(f && !f.value) f.value = parsed.prospect_meta.founder_name || '';
             if(r && !r.value) r.value = parsed.prospect_meta.founder_role || '';
-            if(j && !j.value) j.value = parsed.prospect_meta.hq_jurisdiction || '';
+            if(jHQ && !jHQ.value) jHQ.value = parsed.prospect_meta.hq_jurisdiction || '';
         }
 
     } catch (e) {
         msgEl.innerHTML = `⚠️ Invalid JSON Structure: ${e.message}`;
         msgEl.style.color = "var(--red)";
-        // DO NOT disable save button completely if updating an existing profile and just fixing logistics
     }
 };
 
@@ -1401,58 +1420,41 @@ LexNova.Ingestion.validateV5JSON = function() {
  * ==========================================
  * 3. THE HYDRATION MERGE ENGINE
  * ==========================================
- * Merges dynamic Gemini fields with static CSV fields verbatim.
  */
 LexNova.Ingestion.hydrateGaps = function(rawGaps) {
     if (!Array.isArray(rawGaps)) return [];
 
     return rawGaps.map(gap => {
-        // 1. Check Migration Map for Legacy IDs
         let targetId = gap.Threat_ID;
         if (LexNova.Ingestion.MIGRATION_MAP[targetId]) {
             console.log(`[Hydration] Migrating Legacy ID: ${targetId} -> ${LexNova.Ingestion.MIGRATION_MAP[targetId]}`);
             targetId = LexNova.Ingestion.MIGRATION_MAP[targetId];
         }
 
-        // 2. Fetch Static Dictionary Entry
         const staticData = LexNova.Ingestion.REGISTRY[targetId];
 
         if (!staticData) {
             console.warn(`[Hydration] Warning: Threat_ID ${targetId} not found in REGISTRY.`);
-            // Return what we have, but it will be missing the 12 static fields
             return { ...gap, Threat_ID: targetId, _hydration_error: true };
         }
 
-        // 3. Execute 20-Field Verbatim Merge
         return {
             Threat_ID: targetId,
             Threat_Name: staticData.Threat_Name,
             Pain_Tier: staticData.Pain_Tier,
             Velocity: staticData.Velocity,
-            
-            // Dynamic JSON Fields
             feature_ref: gap.feature_ref,
             feature_type: gap.feature_type,
-            
-            // Static Coffee-Test Fields
             FP_Mechanism: staticData.FP_Mechanism,
             FP_Trigger: staticData.FP_Trigger,
-            
-            // Dynamic Hooks
             structural_absence: gap.structural_absence,
             predator_signature: gap.predator_signature,
-            
-            // Static Pain & Impacts
             Legal_Pain: staticData.Legal_Pain,
             FP_Impact: staticData.FP_Impact,
             FP_Stakes: staticData.FP_Stakes,
-            
-            // Dynamic Evidence
             governance_artifact_type: gap.governance_artifact_type,
             evidence_source: gap.evidence_source,
             proof_citation: gap.proof_citation,
-            
-            // Static Fix & Metadata
             Lex_Nova_Fix: staticData.Lex_Nova_Fix,
             Status: staticData.Status,
             Effective_Date: staticData.Effective_Date,
@@ -1465,7 +1467,6 @@ LexNova.Ingestion.hydrateGaps = function(rawGaps) {
  * ==========================================
  * 4. THE EXECUTION ROUTER
  * ==========================================
- * Gathers UI data, parses JSON, runs hydration, and routes to Ops.
  */
 LexNova.Ingestion.executeIngest = function(existingPid) {
     const rawJson = document.getElementById('v5-json-input').value.trim();
@@ -1476,30 +1477,26 @@ LexNova.Ingestion.executeIngest = function(existingPid) {
         return;
     }
 
-    // Build Logistics Payload
+    // Build Logistics Payload (Telemetry omitted explicitly to protect live timestamps)
     let payload = {
         company: document.getElementById('v5-company').value.trim(),
         founderName: document.getElementById('v5-founder').value.trim(),
         founderRole: document.getElementById('v5-role').value.trim(),
         email: document.getElementById('v5-email').value.trim(),
         fundingStage: document.getElementById('v5-funding').value.trim(),
-        jurisdiction: document.getElementById('v5-jurisdiction').value.trim(),
+        jurisdiction_hq: document.getElementById('v5-jur-hq').value.trim(),
+        jurisdiction_dp: document.getElementById('v5-jur-dp').value.trim(),
+        jurisdiction_svc: document.getElementById('v5-jur-svc').value.trim(),
         batch: batch,
         status: document.getElementById('v5-status').value,
-        scanner_clicked: document.getElementById('v5-scan-click').checked,
-        scanner_completed: document.getElementById('v5-scan-comp').checked,
         last_updated: new Date().toISOString()
     };
 
-    // If JSON is provided, process the V5.0 Architecture
     if (rawJson) {
         try {
             const parsed = JSON.parse(rawJson);
-            
-            // Hydrate the Matrix
             const hydratedGaps = LexNova.Ingestion.hydrateGaps(parsed.true_gaps || []);
 
-            // Inject the V5.0 Blueprint into payload
             payload.primaryProduct = parsed.primaryProduct || null;
             payload.primary_claim = parsed.primary_claim || null;
             payload.featureMap = parsed.featureMap || null;
@@ -1508,8 +1505,8 @@ LexNova.Ingestion.executeIngest = function(existingPid) {
             payload.ghost_protection_global = parsed.ghost_protection_global || null;
             payload.true_gaps = hydratedGaps;
             
-            // Map legacy G1 classification if present in JSON for the UI badges
             if(parsed.G1_category) payload.G1_category = parsed.G1_category;
+            if(parsed.G2_reason) payload.G2_reason = parsed.G2_reason;
 
         } catch (e) {
             if(typeof window.toast === 'function') window.toast("Cannot save: Invalid JSON payload.", "error");
@@ -1517,7 +1514,6 @@ LexNova.Ingestion.executeIngest = function(existingPid) {
         }
     }
 
-    // Pass to Ops module for PID generation and Firestore write
     if (LexNova.Ops && typeof LexNova.Ops.saveProspect === 'function') {
         LexNova.Ops.saveProspect(payload, existingPid);
         if(typeof window.closeModal === 'function') window.closeModal();
