@@ -1067,7 +1067,34 @@ window.setDashView = function(view, el) {
     window.renderAnalytics();
   }
 };
+// Utility: Open/Close Modals
+window.openModal = function(title, body, footer) {
+    document.getElementById('modalTitle').innerText = title;
+    document.getElementById('modalBody').innerHTML = body;
+    document.getElementById('modalFooter').innerHTML = footer;
+    document.getElementById('modal').style.display = 'flex';
+    document.getElementById('overlay').style.display = 'block';
+};
+window.closeModal = function() {
+    document.getElementById('modal').style.display = 'none';
+    document.getElementById('overlay').style.display = 'none';
+};
 
+// Utility: Feedback Toast
+window.toast = function(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    if (!t) return;
+    t.innerText = msg;
+    t.className = type; // 'success' or 'error'
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 3000);
+};
+
+// Utility: Close Prospect Panel
+window.closePP = function() {
+    const pp = document.getElementById('prospectPanel');
+    if (pp) pp.classList.remove('open');
+};
 // ── Advanced filters toggle (used by Hunt tab JS) ────────────
 window.toggleAdvFilters = function(btn) {
   const inner = document.getElementById('adv-filters-inner');
