@@ -332,49 +332,58 @@ LexNova.UI.buildRow = function(p, index) {
             </td>
         `;
     } else if (LexNova.UI.State.currentTab === 'NEGOTIATING') {
+        // UNIFIED NAMING CHECK
+        const isClicked = p.scannerClicked === true || p.scanner_clicked === true;
+        const isCompleted = p.scannerCompleted === true || p.scanner_completed === true;
+        const scanStep = p.scannerStep || p.scanner_step || '';
+
         let scanFlag = "⚪ NO SCAN";
-if (p.scannerCompleted) {
-    scanFlag = "✅ DUAL CONFIRMED";
-} else if (p.scannerClicked && p.scannerStep && p.scannerStep !== 'page_loaded') {
-    scanFlag = "🔴 DROPPED";
-} else if (p.scannerClicked) {
-    scanFlag = "🟡 ENGAGED";
-}
-        
-        dynamicCols = `
-            <td style="padding:12px;">
-                <span style="font-family:'Cormorant Garamond',serif; font-size:16px; color:var(--gold);">Score: ${p.scanner_score || 'N/A'}</span><br>
-                <span style="font-size:9px; color:var(--marble-dim);">${scanFlag}</span>
-            </td>
-            <td style="padding:12px; color:var(--marble); font-weight:bold;">${lethalThreat}</td>
-            <td style="padding:12px; color:var(--gold);">${p.last_touch || 'N/A'}</td>
-            <td style="padding:12px;" onclick="event.stopPropagation();">
-                <div style="display:flex; flex-direction:column; gap:4px;">
-                    <input type="text" class="fi" value="${p.deal_friction || ''}" placeholder="Next action / friction..." onchange="LexNova.Ops.updateInline('${pId}', 'deal_friction', this.value)" style="width:160px; padding:4px;">
-                    <span style="font-size:10px; color:var(--marble-dim);">Value: ${p.deal_value || 'TBD'}</span>
-                </div>
-            </td>
-        `;
+        if (isCompleted) {
+            scanFlag = "✅ DUAL CONFIRMED";
+        } else if (isClicked && scanStep && scanStep !== 'page_loaded') {
+            scanFlag = "🔴 DROPPED";
+        } else if (isClicked) {
+            scanFlag = "🟡 ENGAGED";
+        }
+        
+        dynamicCols = `
+            <td style="padding:12px;">
+                <span style="font-family:'Cormorant Garamond',serif; font-size:16px; color:var(--gold);">Score: ${p.scanner_score || p.scannerScore || 'N/A'}</span><br>
+                <span style="font-size:9px; color:var(--marble-dim);">${scanFlag}</span>
+            </td>
+            <td style="padding:12px; color:var(--marble); font-weight:bold;">${lethalThreat}</td>
+            <td style="padding:12px; color:var(--gold);">${p.last_touch || 'N/A'}</td>
+            <td style="padding:12px;" onclick="event.stopPropagation();">
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                    <input type="text" class="fi" value="${p.deal_friction || ''}" placeholder="Next action / friction..." onchange="LexNova.Ops.updateInline('${pId}', 'deal_friction', this.value)" style="width:160px; padding:4px;">
+                    <span style="font-size:10px; color:var(--marble-dim);">Value: ${p.deal_value || 'TBD'}</span>
+                </div>
+            </td>
+        `;
     } else {
         // DEFAULT IN SEQUENCE
+        // UNIFIED NAMING CHECK
+        const isClicked = p.scannerClicked === true || p.scanner_clicked === true;
+        const isCompleted = p.scannerCompleted === true || p.scanner_completed === true;
+        const scanStep = p.scannerStep || p.scanner_step || '';
+
         let scanFlag = "⚪ None";
-if (p.scannerCompleted) {
-    scanFlag = "✅ Completed";
-} else if (p.scannerClicked && p.scannerStep && p.scannerStep !== 'page_loaded') {
-    // If they got past the initial page load but didn't complete
-    scanFlag = `🔴 Dropped (${p.scannerStep})`;
-} else if (p.scannerClicked) {
-    scanFlag = "🟡 Clicked";
-}
-        
-        dynamicCols = `
-            <td style="padding:12px;">
-                <span class="badge b-seq-active">${p.outreach_step || 'FU1'}</span><br>
-                <span style="font-size:9px; color:var(--marble-dim);">${p.days_until_next || 'Due in 3 days'}</span>
-            </td>
-            <td style="padding:12px; font-size:10px;">${scanFlag}</td>
-            <td style="padding:12px; color:var(--marble);">${p.ceDate ? p.ceDate : '<span style="color:var(--red);">Unscheduled</span>'}</td>
-        `;
+        if (isCompleted) {
+            scanFlag = "✅ Completed";
+        } else if (isClicked && scanStep && scanStep !== 'page_loaded') {
+            scanFlag = `🔴 Dropped (${scanStep})`;
+        } else if (isClicked) {
+            scanFlag = "🟡 Clicked";
+        }
+        
+        dynamicCols = `
+            <td style="padding:12px;">
+                <span class="badge b-seq-active">${p.outreach_step || 'FU1'}</span><br>
+                <span style="font-size:9px; color:var(--marble-dim);">${p.days_until_next || 'Due in 3 days'}</span>
+            </td>
+            <td style="padding:12px; font-size:10px;">${scanFlag}</td>
+            <td style="padding:12px; color:var(--marble);">${p.ceDate ? p.ceDate : '<span style="color:var(--red);">Unscheduled</span>'}</td>
+        `;
     }
 
     return `
