@@ -5,7 +5,14 @@
  * Handles the Main Dash tables (with native header sorting) and 
  * the massive Full-Page ICP Intelligence Dossier.
  */
-
+window.toggleAdvFilters = function(btn) {
+    const panel = document.getElementById('adv-filters-inner');
+    if (!panel) return;
+    const isHidden = panel.style.display === 'none';
+    panel.style.display = isHidden ? 'flex' : 'none';
+    panel.classList.toggle('hidden', !isHidden);
+    btn.innerText = isHidden ? '▴ Hide Filters' : '▾ Advanced Filters';
+};
 window.LexNova = window.LexNova || {};
 LexNova.UI = LexNova.UI || {};
 
@@ -196,21 +203,13 @@ LexNova.UI.renderTables = function() {
                 <option value="date_added" ${LexNova.UI.State.sortCol === 'date_added' ? 'selected' : ''}>Sort: Date Added</option>
                 <option value="batch" ${LexNova.UI.State.sortCol === 'batch' ? 'selected' : ''}>Sort: Batch</option>
                 <option value="company" ${LexNova.UI.State.sortCol === 'company' ? 'selected' : ''}>Sort: Company</option>
-                <option value="confidence" ${LexNova.UI.State.sortCol === 'confidence' ? 'selected' : ''}>Sort: Confidence Score</option>
+             <option value="confidence" ${LexNova.UI.State.sortCol === 'confidence' ? 'selected' : ''}>Sort: Confidence Score</option>
             </select>
 
-            window.toggleAdvFilters = function(btn) {
-    const panel = document.getElementById('adv-filters-inner');
-    if (!panel) return;
-    
-    const isHidden = panel.style.display === 'none';
-    panel.style.display = isHidden ? 'flex' : 'none';
-    panel.classList.toggle('hidden', !isHidden);
-    btn.innerText = isHidden ? '▴ Hide Filters' : '▾ Advanced Filters';
-};
+            <button class="adv-toggle" onclick="window.toggleAdvFilters(this)">▾ Advanced Filters</button>
         </div>
 
-       <div id="adv-filters-inner" class="adv-filters-inner hidden" style="margin-top:10px; border-top:1px dashed var(--border); padding-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+        <div id="adv-filters-inner" class="adv-filters-inner hidden" style="margin-top:10px; border-top:1px dashed var(--border); padding-top:10px; gap:10px; flex-wrap:wrap; display: none;">
             
             <select class="fi" id="adv-pain" onchange="LexNova.UI.renderTables()">
                 <option value="">All Pain Tiers</option>
@@ -260,8 +259,6 @@ LexNova.UI.renderTables = function() {
             </select>
 
         </div>
-
-    </div><div class="card" style="overflow-x:auto; padding:0;">
         <table style="width:100%; text-align:left; border-collapse:collapse; font-size:11px;">
             <thead style="background:var(--surface2);">
                 <tr style="border-bottom:1px solid var(--border); color:var(--marble-dim); font-size:9px; letter-spacing:0.1em; text-transform:uppercase;">
