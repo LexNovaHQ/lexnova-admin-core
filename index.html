@@ -1056,19 +1056,27 @@ window.auth.onAuthStateChanged(async u => {
 });
 
 // ── Command Center view toggle ───────────────────────────────
+/**
+ * ═════════════════════════════════════════════════════════════
+ * MASTER UI CONTROLLERS
+ * ═════════════════════════════════════════════════════════════
+ * These functions bridge the UI modules with the main DOM.
+ */
+
+// 1. Command Center View Toggle
 window.setDashView = function(view, el) {
-  document.querySelectorAll('#tab-dashboard .view-btn').forEach(b => b.classList.remove('active'));
-  if (el) el.classList.add('active');
-  const ops = document.getElementById('cc-operations');
-  const anl = document.getElementById('cc-analytics');
-  if (ops) ops.classList.toggle('hidden', view !== 'operations');
-  if (anl) anl.classList.toggle('hidden', view !== 'analytics');
-  if (view === 'analytics' && typeof window.renderAnalytics === 'function') {
-    window.renderAnalytics();
-  }
+    document.querySelectorAll('#tab-dashboard .view-btn').forEach(b => b.classList.remove('active'));
+    if (el) el.classList.add('active');
+    const ops = document.getElementById('cc-operations');
+    const anl = document.getElementById('cc-analytics');
+    if (ops) ops.classList.toggle('hidden', view !== 'operations');
+    if (anl) anl.classList.toggle('hidden', view !== 'analytics');
+    if (view === 'analytics' && typeof window.renderAnalytics === 'function') {
+        window.renderAnalytics();
+    }
 };
 
-  // Function to actually show the Modals defined in hunt-ingestion.js
+// 2. Global Modal Controller (Required for Add/Update ICP)
 window.openModal = function(title, body, footer) {
     const modal = document.getElementById('modal');
     const overlay = document.getElementById('overlay');
@@ -1085,11 +1093,13 @@ window.openModal = function(title, body, footer) {
 };
 
 window.closeModal = function() {
-    document.getElementById('modal').style.display = 'none';
-    document.getElementById('overlay').style.display = 'none';
+    const modal = document.getElementById('modal');
+    const overlay = document.getElementById('overlay');
+    if (modal) modal.style.display = 'none';
+    if (overlay) overlay.style.display = 'none';
 };
 
-// Function to handle the "Copied!" feedback and error messages
+// 3. Feedback Toast (Required for Copy Spear feedback)
 window.toast = function(msg, type = 'success') {
     const t = document.getElementById('toast');
     if (!t) return;
@@ -1099,49 +1109,24 @@ window.toast = function(msg, type = 'success') {
     setTimeout(() => { t.style.display = 'none'; }, 3000);
 };
 
-// Required by the "Save Dossier" button to close the full-page panel
+// 4. Prospect Panel Controller (Required for Save/Delete Dossier)
 window.closePP = function() {
     const panel = document.getElementById('prospectPanel');
     if (panel) panel.classList.remove('open');
 };
 
-// Utility: Open/Close Modals
-window.openModal = function(title, body, footer) {
-    document.getElementById('modalTitle').innerText = title;
-    document.getElementById('modalBody').innerHTML = body;
-    document.getElementById('modalFooter').innerHTML = footer;
-    document.getElementById('modal').style.display = 'flex';
-    document.getElementById('overlay').style.display = 'block';
-};
-window.closeModal = function() {
-    document.getElementById('modal').style.display = 'none';
-    document.getElementById('overlay').style.display = 'none';
-};
-
-// Utility: Feedback Toast
-window.toast = function(msg, type = 'success') {
-    const t = document.getElementById('toast');
-    if (!t) return;
-    t.innerText = msg;
-    t.className = type; // 'success' or 'error'
-    t.style.display = 'block';
-    setTimeout(() => { t.style.display = 'none'; }, 3000);
-};
-
-// Utility: Close Prospect Panel
-window.closePP = function() {
-    const pp = document.getElementById('prospectPanel');
-    if (pp) pp.classList.remove('open');
-};
-// ── Advanced filters toggle (used by Hunt tab JS) ────────────
+// 5. Advanced Filters Toggle
 window.toggleAdvFilters = function(btn) {
-  const inner = document.getElementById('adv-filters-inner');
-  if (!inner) return;
-  const isOpen = !inner.classList.contains('hidden');
-  inner.classList.toggle('hidden', isOpen);
-  if (btn) btn.classList.toggle('open', !isOpen);
-  if (btn) btn.textContent = isOpen ? '▾ Advanced Filters' : '▴ Hide Filters';
+    const inner = document.getElementById('adv-filters-inner');
+    if (!inner) return;
+    const isOpen = !inner.classList.contains('hidden');
+    inner.classList.toggle('hidden', isOpen);
+    if (btn) {
+        btn.classList.toggle('open', !isOpen);
+        btn.textContent = isOpen ? '▾ Advanced Filters' : '▴ Hide Filters';
+    }
 };
+
 </script>
 
 <!-- ══════════════════════════════════════════════════════════ -->
