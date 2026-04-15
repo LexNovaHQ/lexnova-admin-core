@@ -24,32 +24,66 @@ LexNova.Export.copySpearReport = async function(pid) {
         return;
     }
 
-    // Default fallbacks for deeply nested objects
-    const profile = p.ghost_protection_global || {};
+    // Default fallbacks with the naming fix applied
+    const profile = p.ghost_protection_global || p.ghost_protection_profile || {};
     const indictments = profile.self_indictments || [];
     const gaps = p.true_gaps || [];
+    const legalStack = p.legal_stack || [];
     const scannerLink = `https://lexnovahq.com/scanner.html?pid=${p.id}`;
 
     let text = "";
 
     // ── PART I: TARGET LOGISTICS ──────────────────────────────
     text += `=== TARGET LOGISTICS ===\n`;
-    text += `Company: ${p.company || 'Unknown'}\n`;
+    text += `Company: ${p.company || p.companyName || 'Unknown'}\n`;
     text += `PID: ${p.id}\n`;
     text += `Founder: ${p.founderName || 'Unknown'}\n`;
     text += `Role: ${p.founderRole || 'Unknown'}\n`;
     text += `Email: ${p.email || 'Unknown'}\n`;
-    text += `HQ Jurisdiction: ${p.jurisdiction || 'Unknown'}\n`;
+    text += `HQ Jurisdiction: ${p.jurisdiction_hq || p.jurisdiction || 'Unknown'}\n`;
     text += `Funding Stage: ${p.fundingStage || 'Unverified'}\n`;
     text += `Scanner Link: ${scannerLink}\n\n`;
 
-    // ── PART II: PRODUCT ARCHITECTURE (Raw JSON Dumps) ────────
+    // ── PART II: PRODUCT ARCHITECTURE ────────
     text += `=== PRODUCT ARCHITECTURE ===\n`;
     text += `primary_claim: ${p.primary_claim || 'N/A'}\n`;
-    text += `primaryProduct: ${p.primaryProduct ? JSON.stringify(p.primaryProduct, null, 2) : 'N/A'}\n`;
-    text += `primaryArchetype: ${p.archetypes ? JSON.stringify(p.archetypes, null, 2) : 'N/A'}\n`;
-    text += `featureMap: ${p.featureMap ? JSON.stringify(p.featureMap, null, 2) : 'N/A'}\n`;
-    text += `jurisdictional_surface: ${p.jurisdictional_surface ? JSON.stringify(p.jurisdictional_surface, null, 2) : 'N/A'}\n\n`;
+    
+    // Un-stringified primaryProduct
+    if (p.primaryProduct) {
+        text += `primaryProduct_name: ${p.primaryProduct.product_name || 'N/A'}\n`;
+        text += `primaryProduct_user: ${p.primaryProduct.user || 'N/A'}\n`;
+        text += `primaryProduct_function: ${p.primaryProduct.function || 'N/A'}\n`;
+        text += `primaryProduct_mechanism: ${p.primaryProduct.mechanism || 'N/A'}\n`;
+        text += `primaryProduct_agent_actor: ${p.primaryProduct.agent_actor || 'N/A'}\n`;
+    } else {
+        text += `primaryProduct: N/A\n`;
+    }
+
+    text += `primaryArchetype: ${(p.archetypes || []).join(', ') || 'N/A'}\n`;
+    
+    // Un-stringified featureMap
+    if (p.featureMap && p.featureMap.core && p.featureMap.core.length > 0) {
+        p.featureMap.core.forEach((f, i) => {
+            text += `featureMap_core_${i+1}_name: ${f.feature_name}\n`;
+            text += `featureMap_core_${i+1}_archetype: ${f.archetype}\n`;
+            text += `featureMap_core_${i+1}_description: ${f.feature_description}\n`;
+            text += `featureMap_core_${i+1}_evidence: "${f.evidence_quote}"\n`;
+        });
+    } else {
+        text += `featureMap: N/A\n`;
+    }
+
+    text += `jurisdictional_surface: ${(p.jurisdictional_surface || []).join(', ') || 'N/A'}\n\n`;
+
+    // ── MISSING DATA ADDED: LEGAL STACK ───────────────────────────
+    if (legalStack.length > 0) {
+        text += `=== LEGAL STACK FORENSICS ===\n`;
+        legalStack.forEach(doc => {
+            text += `Document: ${doc.document_type} (Exists: ${doc.exists})\n`;
+            text += `covers: ${doc.covers || 'N/A'}\n`;
+            text += `misses: ${doc.misses || 'N/A'}\n\n`;
+        });
+    }
 
     // ── PART III: GLOBAL FORENSICS & ALIBIS ───────────────────
     text += `=== GLOBAL FORENSICS ===\n`;
