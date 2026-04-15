@@ -1247,7 +1247,7 @@ LexNova.Ingestion.REGISTRY = {
         "Legal_Ammo": "California AB 325 / Sherman Act §1 / DOJ AI Pricing Coordination Guidance"
     }
 }
-};
+
 
 /**
  * ==========================================
