@@ -352,14 +352,14 @@ LexNova.UI.getSortIcon = function() {
 
 /**
  * ==========================================
- * 2. THE FULL-PAGE ICP DOSSIER 
+ * SECTION 4: THE FULL-PAGE ICP DOSSIER 
  * ==========================================
  */
 LexNova.UI.openProspectPanel = function(pid) {
     const p = LexNova.State.allProspects.find(x => x.id === pid || x.prospectId === pid);
     if (!p) return;
 
-    // DUAL-READ EXHAUSTIVE LOGISTICS
+    // 1. DUAL-READ IDENTITY & LOGISTICS
     const isLegacy = !p.true_gaps || p.true_gaps.length === 0;
     const pId = p.id || p.prospectId;
     const scannerUrl = `https://lexnovahq.com/scanner.html?pid=${pId}`;
@@ -376,7 +376,7 @@ LexNova.UI.openProspectPanel = function(pid) {
     const jDP = p.jurisdiction_dp || '';
     const jSvc = p.jurisdiction_svc || '';
 
-    // MIGRATION MAPPING FOR THREAT MATRIX
+    // 2. MIGRATION MAPPING FOR THREAT MATRIX
     let displayGaps = [];
     if (isLegacy) {
         displayGaps = (p.forensicGaps || []).map(g => {
@@ -388,16 +388,50 @@ LexNova.UI.openProspectPanel = function(pid) {
     } else {
         displayGaps = [...(p.true_gaps || [])];
     }
+    
+    // Sort strictly T1 > T2 > T3
     displayGaps.sort((a, b) => (a.Pain_Tier || 'T9').localeCompare(b.Pain_Tier || 'T9'));
 
-    const indictments = p.ghost_protection_global?.self_indictments || [];
-    
-    // LIVE TELEMETRY DASHBOARD (No Checkboxes)
-    const tClick = p.scanner_clicked ? `<span style="color:var(--green)">Clicked: ${new Date(p.scanner_clicked).toLocaleString()}</span>` : '<span style="color:var(--marble-dim)">Awaiting Action</span>';
-    const tDrop = p.scanner_dropped_time ? `<span style="color:var(--red)">Abandoned (${p.scanner_dropped_level || 'Unknown Point'}): ${new Date(p.scanner_dropped_time).toLocaleString()}</span>` : '<span style="color:var(--marble-dim)">None</span>';
-    const tComp = p.scanner_completed ? `<span style="color:var(--green)">Completed: ${new Date(p.scanner_completed).toLocaleString()}</span>` : '<span style="color:var(--marble-dim)">Pending</span>';
+    const t1t2Count = displayGaps.filter(g => g.Pain_Tier === 'T1' || g.Pain_Tier === 'T2').length;
+    const intCount = displayGaps.filter(g => (g.Threat_ID || '').startsWith('INT')).length;
+    const uniCount = displayGaps.filter(g => (g.Threat_ID || '').startsWith('UNI') || (g.Threat_ID || '').startsWith('I0')).length;
 
-    // FEATURE MAP FORMATTING
+    // 3. LEGAL STACK CHECKLIST PARSER
+    const gapsText = JSON.stringify(displayGaps);
+    const renderStackStatus = (docCode) => {
+        return gapsText.includes(docCode) 
+            ? `<span style="color:var(--red); font-weight:bold;">🔴 MISS</span>` 
+            : `<span style="color:var(--green);">🟢 Exists</span>`;
+    };
+
+    // 4. LIVE TELEMETRY DASHBOARD (Aborted State Mapping)
+    const stepMap = {
+        'page_loaded': 'Hit Landing Page',
+        'config_complete': 'Started Diagnostic',
+        'quiz_midpoint': 'Midpoint / Q5',
+        'quiz_complete': 'Finished Questions',
+        'dashboard_viewed': 'Viewed Dashboard'
+    };
+    
+    const isClicked = p.scannerClicked === true || p.scanner_clicked === true;
+    const isCompleted = p.scannerCompleted === true || p.scanner_completed === true;
+    
+    let tClick = '<span style="color:var(--marble-dim)">Awaiting Action</span>';
+    let tDrop = '<span style="color:var(--marble-dim)">None</span>';
+    let tComp = '<span style="color:var(--marble-dim)">Pending</span>';
+
+    if (isClicked) {
+        tClick = `<span style="color:var(--green)">Clicked: ${p.scannerStepAt ? new Date(p.scannerStepAt.seconds ? p.scannerStepAt.toDate() : p.scannerStepAt).toLocaleString() : 'Yes'}</span>`;
+        
+        if (isCompleted) {
+            tComp = `<span style="color:var(--green)">Completed: ${p.scannerStepAt ? new Date(p.scannerStepAt.seconds ? p.scannerStepAt.toDate() : p.scannerStepAt).toLocaleString() : 'Yes'}</span>`;
+        } else if (p.scannerStep && p.scannerStep !== 'page_loaded') {
+            const humanStep = stepMap[p.scannerStep] || p.scannerStep;
+            tDrop = `<span style="color:var(--red)">Abandoned (${humanStep}): ${p.scannerStepAt ? new Date(p.scannerStepAt.seconds ? p.scannerStepAt.toDate() : p.scannerStepAt).toLocaleString() : ''}</span>`;
+        }
+    }
+
+    // 5. FEATURE MAP FORMATTING
     let featureHtml = '<span style="color:var(--marble-dim);">No features mapped.</span>';
     if (p.featureMap) {
         featureHtml = '';
@@ -409,130 +443,168 @@ LexNova.UI.openProspectPanel = function(pid) {
         });
     }
 
+    const indictments = p.ghost_protection_global?.self_indictments || [];
     const panelContainer = document.getElementById('prospectPanel');
     if (!panelContainer) return;
 
     const bodyHtml = `
     <div style="display:flex; justify-content:space-between; align-items:center; padding:15px 24px; border-bottom:1px solid var(--border); background:var(--surface); flex-shrink:0;">
-        <div style="flex:1;">
-            <div style="font-family:'Cormorant Garamond',serif; font-size:24px; color:var(--marble);">${coName}</div>
-            <div style="font-size:11px; color:var(--gold);">${pId} | ${fName} - ${fRole}</div>
+        <div style="flex:1; display:flex; gap:20px; align-items:center;">
+            <div>
+                <div style="font-family:'Cormorant Garamond',serif; font-size:24px; color:var(--marble); line-height:1;">${coName}</div>
+                <div style="font-size:11px; color:var(--gold); margin-top:4px;">${pId}</div>
+            </div>
+            <div style="border-left:1px solid var(--border2); padding-left:20px; font-size:12px; color:var(--marble-dim); line-height:1.4;">
+                <strong style="color:var(--marble);">${fName}</strong> — ${fRole}<br>
+                ${email} | HQ: ${jHQ || 'Unknown'}
+            </div>
         </div>
-        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-            <div style="background:var(--void); padding:6px 12px; border:1px solid var(--border); display:flex; align-items:center; gap:8px;">
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 24px; border-bottom:1px solid var(--border); background:var(--surface2); flex-shrink:0;">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <div style="background:var(--void); padding:4px 10px; border:1px solid var(--border); display:flex; align-items:center; gap:8px;">
                 <span style="font-size:9px; color:var(--marble-dim);">Scanner:</span>
-                <input type="text" id="pp-scan-link" value="${scannerUrl}" readonly style="width:200px; font-size:10px; background:transparent; border:none; color:var(--marble); outline:none;">
+                <input type="text" id="pp-scan-link" value="${scannerUrl}" readonly style="width:220px; font-size:10px; background:transparent; border:none; color:var(--marble); outline:none;">
                 <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('pp-scan-link').value); window.toast('Copied!', 'success');">📋 Copy</button>
             </div>
-            
-            <div style="border-right:1px solid var(--border); height:30px; margin:0 5px;"></div>
-            
-            <button class="btn btn-primary" onclick="LexNova.Ingestion.openV5Modal('${pId}')">🔄 V5.0 Update</button>
+            <div style="font-size:9px; color:var(--marble-dim); margin-left:10px;">
+                Added: ${p.date_added ? new Date(p.date_added).toLocaleDateString() : 'N/A'} <br>
+                Updated: ${p.last_updated ? new Date(p.last_updated).toLocaleString() : 'N/A'}
+            </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn btn-primary" onclick="LexNova.Ingestion.openV5Modal('${pId}')">🔄 Hunter 5.0 JSON Update</button>
             <button class="btn btn-outline" onclick="LexNova.Export.copySpearReport('${pId}')">🎯 Copy Spear</button>
-            <button class="btn btn-outline" onclick="LexNova.Export.copyDossier('${pId}')">📁 Dossier</button>
-            <button class="btn btn-primary" style="background:#5a8a6a;" onclick="LexNova.UI.saveLogisticsFromPanel('${pId}')">💾 Save Ops</button>
-            <button class="btn btn-outline" style="border-color:var(--red); color:var(--red);" onclick="LexNova.Ops.deleteProspect('${pId}')">🗑️</button>
+            <button class="btn btn-outline" onclick="LexNova.Export.copyDossier('${pId}')">📁 Full Dossier</button>
+            <button class="btn btn-primary" style="background:#5a8a6a;" onclick="LexNova.UI.saveLogisticsFromPanel('${pId}')">💾 Save Dossier</button>
+            <button class="btn btn-outline" style="border-color:var(--red); color:var(--red);" onclick="LexNova.Ops.deleteProspect('${pId}')">🗑️ Purge</button>
             <button class="btn btn-ghost" onclick="document.getElementById('prospectPanel').classList.remove('open')">✕ Close</button>
         </div>
     </div>
 
-    <div style="display:flex; flex-direction:row; height:calc(100vh - 85px);">
+    <div style="display:flex; flex-direction:row; height:calc(100vh - 140px);">
         
         <div style="flex:65; padding:24px; overflow-y:auto; border-right:1px solid var(--border);">
-            ${isLegacy ? `<div style="background:rgba(138,58,58,0.15); border:1px solid var(--red); color:#d47a7a; padding:10px; font-weight:bold; font-size:11px; text-align:center; margin-bottom:20px;">⚠️ LEGACY V6/V7 DATA DETECTED. FULL V5.0 SCAN REQUIRED.</div>` : ''}
+            ${isLegacy ? `<div style="background:rgba(138,58,58,0.15); border:1px solid var(--red); color:#d47a7a; padding:10px; font-weight:bold; font-size:11px; text-align:center; margin-bottom:20px; animation: pulse 2s infinite;">⚠️ LEGACY V6/V7 DATA DETECTED. FULL V5.0 SCAN REQUIRED.</div>` : ''}
             
             <div class="card" style="margin-bottom:20px;">
-                <div class="card-label">Product Architecture</div>
+                <div class="card-label">1. Product Architecture</div>
                 <div style="font-size:12px; color:var(--marble); line-height:1.6;">
                     <div style="font-size:14px; color:var(--gold); margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid var(--border);"><strong>"${p.primary_claim || 'N/A'}"</strong></div>
-                    <strong>Product:</strong> ${p.primaryProduct?.product_name || 'N/A'} (Agent Brand: ${p.primaryProduct?.agent_brand_name || 'None'})<br>
-                    <strong>Archetypes:</strong> ${(p.archetypes || []).join(', ')}<br>
-                    <strong>Jurisdictions:</strong> ${(p.jurisdictional_surface || []).join(', ')}<br><br>
+                    <strong>Product:</strong> ${p.primaryProduct?.product_name || '[Requires V5.0 Update]'} (Agent Brand: ${p.primaryProduct?.agent_brand_name || 'None'})<br>
+                    <strong>Archetypes:</strong> ${(p.archetypes || []).join(', ') || '[Requires V5.0 Update]'}<br>
+                    <strong>Jurisdictions:</strong> ${(p.jurisdictional_surface || []).join(', ') || '[Requires V5.0 Update]'}<br><br>
                     <div style="font-size:10px; color:var(--gold); text-transform:uppercase; margin-bottom:4px;">Feature Map</div>
                     <div style="background:var(--void); padding:10px; border:1px solid var(--border2);">${featureHtml}</div>
                 </div>
             </div>
 
-            <div class="card" style="margin-bottom:20px; border-left: 4px solid ${p.G1_category === 'DIRECT_LIABILITY' ? 'var(--red)' : 'var(--gold)'};">
-                <div class="card-label">Global Forensics</div>
-                <div style="font-size:12px; color:var(--marble); display:flex; flex-direction:column; gap:10px;">
-                    <div style="font-weight:bold; font-size:14px;">Classification: ${p.G1_category || 'N/A'} <span style="font-weight:normal; font-size:11px; color:var(--marble-dim);">- ${p.G2_reason || ''}</span></div>
-                    <div><strong>Confidence:</strong> ${p.ghost_protection_global?.confidence_tier || 'N/A'} (${p.ghost_protection_global?.confidence_score || '0'})</div>
+            <div class="card" style="margin-bottom:20px; border-left: 4px solid ${p.G1_category === 'DIRECT_LIABILITY' ? 'var(--red)' : p.G1_category === 'DUAL_EXPOSURE' ? 'var(--gold)' : 'var(--marble-dim)'};">
+                <div class="card-label">2. Forensic Details</div>
+                <div style="font-size:12px; color:var(--marble); display:flex; flex-direction:column; gap:12px;">
                     
-                    <div style="display:flex; gap:20px; font-size:11px;">
-                        <div style="flex:1;"><strong>Posture Alibi Defeat:</strong><br><span style="color:var(--marble-dim);">${p.ghost_protection_global?.posture_alibi?.argument || '[Requires V5.0 Update]'}</span></div>
-                        <div style="flex:1;"><strong>Legal Stack Failure:</strong><br><span style="color:var(--marble-dim);">${p.ghost_protection_global?.legal_stack_alibi?.overall_inadequacy || 'N/A'}</span></div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:var(--void); padding:10px; border:1px solid var(--border2);">
+                        <div style="font-weight:bold; font-size:14px;">Liability Gate: ${p.G1_category || '[Requires V5.0 Update]'} <br><span style="font-weight:normal; font-size:11px; color:var(--marble-dim);">${p.G2_reason || ''}</span></div>
+                        <div style="text-align:right;">
+                            <strong>Confidence:</strong> ${p.ghost_protection_global?.confidence_tier || 'N/A'} <br>
+                            <span style="font-size:11px; color:var(--gold);">Score: ${p.ghost_protection_global?.confidence_score || '0'}</span>
+                        </div>
+                    </div>
+                    
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; font-size:11px;">
+                        <div>
+                            <div style="font-size:10px; color:var(--gold); text-transform:uppercase; margin-bottom:6px;">Legal Stack Forensics</div>
+                            <div style="background:var(--surface2); padding:10px; border:1px solid var(--border); display:flex; flex-direction:column; gap:4px;">
+                                <div style="display:flex; justify-content:space-between;"><span>Terms of Service (TOS):</span> ${renderStackStatus('DOC_TOS')}</div>
+                                <div style="display:flex; justify-content:space-between;"><span>Privacy Policy (PP):</span> ${renderStackStatus('DOC_PP')}</div>
+                                <div style="display:flex; justify-content:space-between;"><span>Data Proc. Agreement (DPA):</span> ${renderStackStatus('DOC_DPA')}</div>
+                                <div style="display:flex; justify-content:space-between;"><span>Acceptable Use (AUP):</span> ${renderStackStatus('DOC_AUP')}</div>
+                                <div style="display:flex; justify-content:space-between;"><span>Service Level (SLA):</span> ${renderStackStatus('DOC_SLA')}</div>
+                                <div style="margin-top:6px; pt-2; border-top:1px solid var(--border2); color:var(--marble-dim);"><em>Analysis: ${p.ghost_protection_global?.legal_stack_alibi?.overall_inadequacy || 'N/A'}</em></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-size:10px; color:var(--gold); text-transform:uppercase; margin-bottom:6px;">Ghost Protection Vector</div>
+                            <div style="background:var(--void); padding:10px; border:1px solid var(--border2);">
+                                <span style="color:var(--gold); font-size:14px; font-family:'Cormorant Garamond',serif;">"${p.ghost_protection_global?.ghost_protection_vector || '[Requires V5.0 Update]'}"</span>
+                                <div style="margin-top:8px; color:var(--marble-dim);"><strong>Posture Defeat:</strong> ${p.ghost_protection_global?.posture_alibi?.argument || 'N/A'}</div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div style="background:var(--void); padding:12px; border:1px solid var(--border2);">
-                        <div style="font-size:9px; color:var(--gold); text-transform:uppercase; margin-bottom:4px;">Cold Hook (Ghost Protection Vector)</div>
-                        <span style="color:var(--gold); font-size:14px; font-family:'Cormorant Garamond',serif;">${p.ghost_protection_global?.ghost_protection_vector || '[Requires V5.0 Update]'}</span>
-                    </div>
+                    ${indictments.length > 0 ? `
+                    <div style="margin-top:10px;">
+                        <div style="font-size:10px; color:var(--gold); text-transform:uppercase; margin-bottom:6px;">Self-Indictments</div>
+                        <div style="display:grid; gap:8px;">
+                            ${indictments.map((ind, i) => `
+                                <div style="font-size:11px; background:var(--void); padding:10px; border-left:2px solid var(--gold);">
+                                    <div style="color:var(--marble-dim); margin-bottom:4px;"><strong>Quote:</strong> "${ind.quote}"</div>
+                                    <div style="color:var(--red);"><strong>Contradicts:</strong> ${ind.contradicts}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>` : ''}
                 </div>
             </div>
 
-            ${indictments.length > 0 ? `
-            <div class="card" style="margin-bottom:20px; border-left: 4px solid var(--gold);">
-                <div class="card-label">Self-Indictments</div>
-                ${indictments.map((ind, i) => `
-                    <div style="margin-bottom:12px; font-size:11px; background:var(--void); padding:10px;">
-                        <div style="color:var(--marble-dim); margin-bottom:6px;"><strong>Quote ${i+1}:</strong> "${ind.quote}"</div>
-                        <div style="color:var(--red);"><strong>Contradicts:</strong> ${ind.contradicts}</div>
-                    </div>
-                `).join('')}
-            </div>` : ''}
-
-            <div class="section-title">Threat Matrix (${displayGaps.length} Found)</div>
+            <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
+                3. Threat Matrix
+                <div style="font-size:10px; font-weight:normal; display:flex; gap:10px;">
+                    <span style="color:var(--red);">T1/T2: ${t1t2Count}</span>
+                    <span style="color:var(--gold);">INT: ${intCount}</span>
+                    <span style="color:var(--marble);">UNI: ${uniCount}</span>
+                </div>
+            </div>
+            
             ${displayGaps.map((g, i) => {
                 const isT1 = g.Pain_Tier === 'T1' || g.Pain_Tier === 'T2';
                 const cardColor = isT1 ? 'var(--red)' : 'var(--gold)';
                 return `
-                <div class="card" style="margin-bottom:15px; border-left:3px solid ${cardColor};">
-                    <div style="font-size:14px; font-weight:bold; color:var(--marble); margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px;">
-                        <span style="color:${cardColor};">[${g.Pain_Tier || 'LEG'}]</span> ${g.Threat_Name || 'Unknown Threat'} 
-                        <span style="font-size:10px; float:right; color:var(--marble-dim);">${g.Threat_ID} | ${g.Velocity || 'N/A'}</span>
-                    </div>
-                    <div style="font-size:11px; color:var(--marble); display:grid; gap:8px; line-height:1.5;">
+                <details class="card" style="margin-bottom:10px; border-left:3px solid ${cardColor}; padding:0;">
+                    <summary style="padding:15px; cursor:pointer; font-size:14px; font-weight:bold; color:var(--marble); display:flex; justify-content:space-between; align-items:center;">
+                        <div><span style="color:${cardColor}; margin-right:8px;">[${g.Pain_Tier || 'LEG'}]</span> ${g.Threat_Name || 'Unknown Threat'}</div>
+                        <div style="font-size:10px; color:var(--marble-dim); font-weight:normal;">${g.Threat_ID} | ${g.Velocity || 'N/A'} ▾</div>
+                    </summary>
+                    <div style="padding:0 15px 15px 15px; font-size:11px; color:var(--marble); display:grid; gap:10px; line-height:1.5;">
                         ${g._isLegacy ? `
                             <div style="color:var(--marble-dim);"><em>Legacy Trace detected. Required mapping applied.</em></div>
                             <div><strong>Old Remediation:</strong> ${g.remediationPlan || 'N/A'}</div>
                         ` : `
-                            <div style="display:flex; justify-content:space-between; background:var(--surface2); padding:6px;">
+                            <div style="display:flex; justify-content:space-between; background:var(--surface2); padding:8px; border:1px solid var(--border2);">
                                 <span><strong>Feature Ref:</strong> ${g.feature_ref} (${g.feature_type})</span>
-                                <span><strong>Depth:</strong> ${g.Pain_Depth} | <strong>Status:</strong> ${g.Status}</span>
+                                <span><strong>Depth:</strong> ${g.Pain_Depth}</span>
                             </div>
                             
-                            <div style="background:var(--void); padding:8px; border-left:2px solid var(--gold);"><strong>Coffee-Test Mechanism:</strong> ${g.FP_Mechanism}</div>
-                            <div style="background:var(--void); padding:8px;"><strong>Coffee-Test Trigger:</strong> ${g.FP_Trigger}</div>
+                            <div style="background:var(--void); padding:10px; border-left:2px solid var(--gold);"><strong>Mechanism:</strong> ${g.FP_Mechanism}</div>
                             
                             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                                 <div><strong style="color:#d4a840;">Structural Absence:</strong><br>${g.structural_absence}</div>
                                 <div><strong style="color:#d4a840;">Predator Signature:</strong><br>${g.predator_signature}</div>
                             </div>
                             
-                            <div style="color:#d47a7a;">
-                                <strong>Legal Doctrine:</strong> ${g.Legal_Pain}<br>
-                                <strong>Impact:</strong> ${g.FP_Impact}<br>
+                            <div style="color:#d47a7a; padding:10px; background:rgba(212,122,122,0.05); border:1px solid rgba(212,122,122,0.2);">
+                                <strong>Impact:</strong> ${g.FP_Impact}<br><br>
                                 <strong>Stakes:</strong> ${g.FP_Stakes}
                             </div>
                             
-                            <div style="background:var(--void); padding:8px; border-left:2px solid var(--red);">
+                            <div style="background:var(--void); padding:10px; border-left:2px solid var(--red);">
                                 <strong>Evidence (${g.governance_artifact_type}):</strong> 
                                 ${g.proof_citation === 'NULL' ? '<em>NULL FLAG (No Quote)</em>' : `"${g.proof_citation}"`}<br>
-                                <a href="${g.evidence_source}" target="_blank" style="color:var(--gold);">Source Link</a>
+                                <a href="${g.evidence_source}" target="_blank" style="color:var(--gold); text-decoration:underline;">Source Link</a>
                             </div>
                             
-                            <div><strong>Lex Nova Fix:</strong> <span style="color:var(--green); font-family:monospace; font-size:12px;">${g.Lex_Nova_Fix}</span></div>
+                            <div style="padding:10px; background:var(--surface2);"><strong>Lex Nova Fix:</strong> <span style="color:var(--green); font-family:monospace; font-size:12px;">${g.Lex_Nova_Fix}</span></div>
                         `}
                     </div>
-                </div>
+                </details>
                 `;
             }).join('')}
         </div>
 
         <div style="flex:35; padding:24px; overflow-y:auto; background:var(--surface2);">
             
-            <div class="section-title" style="margin-top:0;">Profile Data</div>
+            <div class="section-title" style="margin-top:0;">1A. Profile Data</div>
             <div class="card" style="margin-bottom:15px; padding:15px;">
                 <div class="fg"><label class="fl">Company Name</label><input type="text" id="pp-co" class="fi" value="${coName}"></div>
                 <div class="fi-row">
@@ -547,8 +619,8 @@ LexNova.UI.openProspectPanel = function(pid) {
                 <div class="fg"><label class="fl">Funding Stage</label><input type="text" id="pp-funding" class="fi" value="${p.fundingStage || ''}"></div>
             </div>
 
-            <div class="section-title">Tri-Jurisdiction</div>
             <div class="card" style="margin-bottom:15px; padding:15px;">
+                <div class="card-label">Tri-Jurisdiction</div>
                 <div class="fg"><label class="fl">HQ (Incorporation)</label><input type="text" id="pp-jur-hq" class="fi" value="${jHQ}"></div>
                 <div class="fi-row">
                     <div class="fg"><label class="fl">Data Processing</label><input type="text" id="pp-jur-dp" class="fi" value="${jDP}"></div>
@@ -556,12 +628,12 @@ LexNova.UI.openProspectPanel = function(pid) {
                 </div>
             </div>
 
-            <div class="section-title">Pipeline Routing</div>
+            <div class="section-title">1B. Lex Nova Index</div>
             <div class="card" style="margin-bottom:15px; padding:15px; border-color:var(--gold-mid);">
                 <div class="fi-row">
                     <div class="fg"><label class="fl">Campaign Batch</label><input type="text" id="pp-batch" class="fi" value="${batchVal}" maxlength="3"></div>
                     <div class="fg">
-                        <label class="fl">Status</label>
+                        <label class="fl">Pipeline Status</label>
                         <select id="pp-status" class="fi">
                             <option value="QUEUED" ${p.status === 'QUEUED' ? 'selected' : ''}>QUEUED</option>
                             <option value="SEQUENCE" ${p.status === 'SEQUENCE' ? 'selected' : ''}>SEQUENCE</option>
@@ -575,9 +647,22 @@ LexNova.UI.openProspectPanel = function(pid) {
                 </div>
             </div>
 
-            <div class="section-title">Sequencing Engine</div>
+            <div class="section-title">1C. Sequencing Engine</div>
             <div class="card" style="margin-bottom:15px; background:var(--void); padding:15px;">
-                <div class="fg"><label class="fl" style="color:var(--gold);">CE Date (Launch)</label><input type="date" id="pp-cedate" class="fi" value="${p.ceDate || ''}"></div>
+                <div class="fi-row" style="margin-bottom:10px;">
+                    <div class="fg"><label class="fl" style="color:var(--gold);">CE Date (Launch)</label><input type="date" id="pp-cedate" class="fi" value="${p.ceDate || ''}"></div>
+                    <div class="fg">
+                        <label class="fl">Outreach Mode</label>
+                        <select id="pp-outreach-mode" class="fi">
+                            <option value="COLD" ${p.outreach_mode === 'COLD' ? 'selected' : ''}>COLD</option>
+                            <option value="NEGOTIATING" ${p.outreach_mode === 'NEGOTIATING' ? 'selected' : ''}>NEGOTIATING</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="fg" style="margin-bottom:10px;">
+                    <label class="fl">Last Prospect Response</label>
+                    <input type="datetime-local" id="pp-last-response" class="fi" value="${p.last_response_date ? new Date(p.last_response_date).toISOString().slice(0,16) : ''}">
+                </div>
                 <div style="font-size:11px; color:var(--marble-dim); line-height:1.8; display:flex; justify-content:space-between; border-top:1px solid var(--border); padding-top:10px;">
                     <div><strong>FU1:</strong> ${p.fu1_date || '...'}</div>
                     <div><strong>FU2:</strong> ${p.fu2_date || '...'}</div>
@@ -586,22 +671,22 @@ LexNova.UI.openProspectPanel = function(pid) {
                 </div>
             </div>
 
-            <div class="section-title">Live Telemetry Dashboard</div>
-            <div class="card" style="background:var(--void); padding:15px;">
+            <div class="section-title">1D. Scanner Tracking (Telemetry)</div>
+            <div class="card" style="background:var(--void); padding:15px; margin-bottom:15px;">
                 <div style="font-size:11px; color:var(--marble); line-height:2;">
                     <div style="border-bottom:1px solid var(--border2); padding-bottom:5px;"><strong>Scan Opened:</strong><br>${tClick}</div>
-                    <div style="border-bottom:1px solid var(--border2); padding:5px 0;"><strong>Scan Dropped:</strong><br>${tDrop}</div>
+                    <div style="border-bottom:1px solid var(--border2); padding:5px 0;"><strong>Left Before Completion:</strong><br>${tDrop}</div>
                     <div style="padding-top:5px;"><strong>Scan Submitted:</strong><br>${tComp}</div>
                 </div>
             </div>
             
-            <div class="section-title" style="margin-top:15px;">Client Scanner View</div>
+            <div class="section-title">1E. Scanner Dash (Client View)</div>
             <div class="card" style="background:var(--void); padding:15px;">
                 <div style="font-size:11px; color:var(--marble); display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                    <div><strong>Final Score:</strong> <span style="color:var(--gold); font-size:14px;">${p.scanner_score || 'N/A'}</span></div>
-                    <div><strong>Client Tier:</strong> ${p.client_liability_tier || 'N/A'}</div>
+                    <div><strong>Final Score:</strong> <span style="color:var(--gold); font-size:14px;">${p.scannerScore || p.scanner_score || 'N/A'}</span></div>
+                    <div><strong>Liability Tier:</strong> ${p.client_liability_tier || 'N/A'}</div>
                     <div><strong>Dual Confirmed:</strong> ${p.dual_confirmed_count || '0'}</div>
-                    <div><strong>New Found:</strong> ${p.new_threats_count || '0'}</div>
+                    <div><strong>New Threats:</strong> ${p.new_threats_count || '0'}</div>
                 </div>
             </div>
 
@@ -615,7 +700,7 @@ LexNova.UI.openProspectPanel = function(pid) {
 
 /**
  * ==========================================
- * 3. LOGISTICS SAVER
+ * SECTION 5: LOGISTICS SAVER
  * ==========================================
  */
 LexNova.UI.saveLogisticsFromPanel = function(pid) {
@@ -630,6 +715,8 @@ LexNova.UI.saveLogisticsFromPanel = function(pid) {
         batch: document.getElementById('pp-batch').value.trim().toUpperCase(),
         status: document.getElementById('pp-status').value,
         ceDate: document.getElementById('pp-cedate').value,
+        outreach_mode: document.getElementById('pp-outreach-mode').value,
+        last_response_date: document.getElementById('pp-last-response').value ? new Date(document.getElementById('pp-last-response').value).toISOString() : null,
         jurisdiction_hq: document.getElementById('pp-jur-hq').value.trim(),
         jurisdiction_dp: document.getElementById('pp-jur-dp').value.trim(),
         jurisdiction_svc: document.getElementById('pp-jur-svc').value.trim(),
@@ -638,7 +725,8 @@ LexNova.UI.saveLogisticsFromPanel = function(pid) {
 
     if (LexNova.Ops && typeof LexNova.Ops.saveProspect === 'function') {
         LexNova.Ops.saveProspect(payload, pid);
+        if (typeof window.toast === 'function') window.toast("Dossier Saved Successfully", "success");
     } else {
-        console.error("Ops.saveProspect not found.");
+        console.error("[LexNova UI] Ops.saveProspect not found.");
     }
 };
