@@ -12,8 +12,8 @@ LexNova.UI = LexNova.UI || {};
 LexNova.UI.State = {
     currentTab: 'SEQUENCE',
     sortCol: 'last_updated',
-    sortDesc: true
-    batchFilter: ''
+    sortDesc: true,
+    batchFilter: '' 
 };
 
 /**
