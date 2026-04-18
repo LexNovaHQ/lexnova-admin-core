@@ -39,25 +39,15 @@ LexNova.UI.renderDashboards = function() {
 
 window.loadOutreach = function() { LexNova.UI.renderTables(); };
 LexNova.UI.renderTables = function() {
-    
+
     const container = document.getElementById('v5-crm-app') || document.getElementById('tab-body') || document.getElementById('tab-hunt');
     if (!container) return;
 
-    // --- ADD THIS TO SAVE CURSOR FOCUS ---
-    const activeEl = document.activeElement;
-    const activeId = activeEl ? activeEl.id : null;
-    let cursorStart = null, cursorEnd = null;
-    if (activeId && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
-        cursorStart = activeEl.selectionStart;
-        cursorEnd = activeEl.selectionEnd;
-    }
-    // -------------------------------------
-
-    // Pull metrics (defaulting to 0 if missing)
+    // Pull metrics
     const m = LexNova.State.metrics || { total: 0, inSequence: 0, v5Intel: 0, unscheduled: 0, archived: 0, bottleneck: 0, scansClicked: 0, scansDropped: 0, scansCompleted: 0 };
     const pList = LexNova.State.allProspects ? [...LexNova.State.allProspects] : [];
 
-    // 1. CAPTURE ALL FILTER INPUTS
+    // CAPTURE ALL FILTER INPUTS (reads from persistent shell — survives re-renders)
     const statusVal = document.getElementById('cc-status-filter')?.value || '';
     const searchVal = document.getElementById('cc-search')?.value.toLowerCase().trim() || '';
     const batchVal  = document.getElementById('cc-batch-filter')?.value || '';
@@ -67,36 +57,38 @@ LexNova.UI.renderTables = function() {
     const fundVal   = document.getElementById('adv-fund')?.value || '';
     const confVal   = document.getElementById('adv-conf')?.value || '';
 
-    // 2. PRIMARY FILTER (Dropdown & Advanced Filters Override Tab)
+    // FILTERING
     let filtered = pList;
     if (statusVal) {
-        // Explicit status selected -> Search that status only
         filtered = filtered.filter(p => p.status === statusVal);
     } else if (scanVal || painVal || archVal || fundVal || searchVal) {
-        // Using Advanced Filters or Omni-Search -> GLOBAL SEARCH (Bypasses the Tab bouncer)
-        // Leaves the entire pList intact for the next steps
+        // global search — no tab restriction
     } else {
-        // Normal tab browsing -> Restrict to current tab
         filtered = filtered.filter(p => {
             if (LexNova.UI.State.currentTab === 'QUEUED') return p.status === 'QUEUED' || !p.ceDate;
-            // MERGE ENGAGED TARGETS INTO THE SEQUENCE TAB SO THEY DON'T VANISH
             if (LexNova.UI.State.currentTab === 'SEQUENCE') return p.status === 'SEQUENCE' || p.status === 'ENGAGED';
             return p.status === LexNova.UI.State.currentTab;
         });
     }
 
-    // 3. APPLY OMNI-SEARCH
     if (searchVal) {
         filtered = filtered.filter(p => {
-            const allValues = Object.values(p).map(v => typeof v === 'string' ? v.toLowerCase() : '').join(' ');
-            return allValues.includes(searchVal);
+            const flat = [
+                p.company, p.companyName, p.founderName, p.name,
+                p.email, p.id, p.prospectId, p.batch, p.batchNumber,
+                p.primaryProduct?.product_name,
+                p.primaryProduct?.agent_brand_name,
+                p.founderRole, p.jobTitle,
+                ...(p.archetypes || []),
+                ...(p.true_gaps || []).map(g => g.Threat_Name || ''),
+                ...(p.true_gaps || []).map(g => g.Threat_ID || '')
+            ].map(v => (v || '').toString().toLowerCase()).join(' ');
+            return flat.includes(searchVal);
         });
     }
 
-    // 4. APPLY BATCH FILTER
     if (batchVal) filtered = filtered.filter(p => (p.batch || p.batchNumber) === batchVal);
 
-    // 5. APPLY ADVANCED FILTERS
     if (painVal) {
         filtered = filtered.filter(p => {
             const pTier = p.ghost_protection_global?.pain_tier || 'T9';
@@ -108,7 +100,6 @@ LexNova.UI.renderTables = function() {
         filtered = filtered.filter(p => {
             const isClicked = p.scannerClicked === true || p.scanner_clicked === true;
             const isCompleted = p.scannerCompleted === true || p.scanner_completed === true;
-            
             if (scanVal === 'COMPLETED') return isCompleted;
             if (scanVal === 'DROPPED') return isClicked && !isCompleted;
             if (scanVal === 'CLICKED') return isClicked;
@@ -119,189 +110,199 @@ LexNova.UI.renderTables = function() {
     if (fundVal) filtered = filtered.filter(p => p.fundingStage === fundVal);
     if (confVal) filtered = filtered.filter(p => (p.ghost_protection_global?.confidence_tier || 'N/A') === confVal);
 
-    // NATIVE SORTING ENGINE
+    // SORTING
     filtered.sort((a, b) => {
-        let valA = a[LexNova.UI.State.sortCol] || a[LexNova.UI.State.sortCol + 'Number'] || a[LexNova.UI.State.sortCol + 'Name'] || '';
-        let valB = b[LexNova.UI.State.sortCol] || b[LexNova.UI.State.sortCol + 'Number'] || b[LexNova.UI.State.sortCol + 'Name'] || '';
-        
+        let valA = a[LexNova.UI.State.sortCol] || '';
+        let valB = b[LexNova.UI.State.sortCol] || '';
         if (LexNova.UI.State.sortCol === 'confidence') {
             valA = a.ghost_protection_global?.confidence_score || 0;
             valB = b.ghost_protection_global?.confidence_score || 0;
         }
-
         if (valA < valB) return LexNova.UI.State.sortDesc ? 1 : -1;
         if (valA > valB) return LexNova.UI.State.sortDesc ? -1 : 1;
         return 0;
     });
 
     const scanPct = m.inSequence > 0 ? Math.round((m.scansClicked / m.inSequence) * 100) : 0;
-
-    // GENERATE DYNAMIC BATCH OPTIONS
     const uniqueBatches = [...new Set(pList.map(p => p.batch || p.batchNumber).filter(Boolean))].sort();
-    const currentBatchFilter = document.getElementById('cc-batch-filter')?.value || '';
-    const batchOptionsHtml = uniqueBatches.map(b => `<option value="${b}" ${currentBatchFilter === b ? 'selected' : ''}>Batch: ${b}</option>`).join('');
 
-    let html = `
-    <div style="display:flex; gap:15px; margin-bottom: 15px;">
-        <div class="card" style="flex:2;">
-            <div style="font-size:10px; color:var(--gold); letter-spacing:0.1em; text-transform:uppercase;">PIPELINE HEALTH</div>
-            <div style="display:flex; justify-content:space-between; margin-top:10px;">
-                <div><span style="font-size:24px;">${m.total}</span><br><span style="font-size:9px; color:var(--marble-dim);">Total Targets</span></div>
-                <div><span style="font-size:24px; color:var(--green);">${m.inSequence}</span><br><span style="font-size:9px; color:var(--marble-dim);">In Sequence</span></div>
-                <div><span style="font-size:24px;">${m.v5Intel}</span><br><span style="font-size:9px; color:var(--marble-dim);">V5.0 Intel</span></div>
-                <div><span style="font-size:24px;">${m.unscheduled}</span><br><span style="font-size:9px; color:var(--marble-dim);">Unscheduled</span></div>
-                <div><span style="font-size:24px;">${m.archived}</span><br><span style="font-size:9px; color:var(--marble-dim);">Archived</span></div>
-                <div><span style="font-size:24px; color:var(--red);">${m.bottleneck}</span><br><span style="font-size:9px; color:var(--marble-dim);">Bottleneck / Action Needed</span></div>
-            </div>
-        </div>
-        
-        <div class="card" style="flex:1;">
-            <div style="font-size:10px; color:var(--gold); letter-spacing:0.1em; text-transform:uppercase;">SCANNER TELEMETRY</div>
-            <div style="display:flex; justify-content:space-between; margin-top:10px;">
-                <div><span style="font-size:24px;">${m.scansClicked}</span> <span style="font-size:12px; color:var(--gold);">(${scanPct}%)</span><br><span style="font-size:9px; color:var(--marble-dim);">Clicked</span></div>
-                <div><span style="font-size:24px;">${m.scansDropped}</span><br><span style="font-size:9px; color:var(--marble-dim);">Dropped</span></div>
-                <div><span style="font-size:24px; color:var(--green);">${m.scansCompleted}</span><br><span style="font-size:9px; color:var(--marble-dim);">Completed</span></div>
-            </div>
-        </div>
-    </div>
-
-    <div class="card" style="margin-bottom:15px; padding:15px;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:15px; flex-wrap:wrap; border-bottom:1px solid var(--border); padding-bottom:15px; margin-bottom:15px;">
-            <div style="display:flex; gap:0;">
-                <button class="view-btn ${LexNova.UI.State.currentTab === 'QUEUED' ? 'active' : ''}" onclick="LexNova.UI.setTab('QUEUED')">Unscheduled (${m.unscheduled})</button>
-                <button class="view-btn ${LexNova.UI.State.currentTab === 'SEQUENCE' ? 'active' : ''}" onclick="LexNova.UI.setTab('SEQUENCE')">In Sequence (${m.inSequence})</button>
-                <button class="view-btn ${LexNova.UI.State.currentTab === 'NEGOTIATING' ? 'active' : ''}" onclick="LexNova.UI.setTab('NEGOTIATING')">Negotiating</button>
-            </div>
-            <div style="display:flex; gap:10px;">
-                <button class="btn btn-outline" onclick="LexNova.Export.copyList()">📋 Copy List</button>
-                <button class="btn btn-primary" onclick="LexNova.Ingestion.openV5Modal()">📥 Add New ICP</button>
-            </div>
-        </div>
-
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-            <input type="text" class="fi" id="cc-search" placeholder="Omni-Search..." style="width:200px;" oninput="LexNova.UI.renderTables()">
-            
-            <select class="fi" id="cc-batch-filter" style="width:120px;" onchange="LexNova.UI.renderTables()">
-                <option value="">All Batches</option>
-                ${batchOptionsHtml}
-            </select>
-
-            <select class="fi" id="cc-status-filter" style="width:140px;" onchange="LexNova.UI.renderTables()">
-                <option value="">All Statuses</option>
-                <option value="QUEUED">QUEUED</option>
-                <option value="SEQUENCE">SEQUENCE</option>
-                <option value="ENGAGED">ENGAGED</option>
-                <option value="NEGOTIATING">NEGOTIATING</option>
-                <option value="CONVERTED">CONVERTED</option>
-                <option value="ARCHIVED">ARCHIVED</option>
-                <option value="DEAD">DEAD</option>
-            </select>
-
-            <select class="fi" style="width:160px;" onchange="LexNova.UI.setSortCol(this.value)">
-                <option value="last_updated" ${LexNova.UI.State.sortCol === 'last_updated' ? 'selected' : ''}>Sort: Last Update Date</option>
-                <option value="ceDate" ${LexNova.UI.State.sortCol === 'ceDate' ? 'selected' : ''}>Sort: CE Date</option>
-                <option value="date_added" ${LexNova.UI.State.sortCol === 'date_added' ? 'selected' : ''}>Sort: Date Added</option>
-                <option value="batch" ${LexNova.UI.State.sortCol === 'batch' ? 'selected' : ''}>Sort: Batch</option>
-                <option value="company" ${LexNova.UI.State.sortCol === 'company' ? 'selected' : ''}>Sort: Company</option>
-                <option value="confidence" ${LexNova.UI.State.sortCol === 'confidence' ? 'selected' : ''}>Sort: Confidence Score</option>
-            </select>
-
-            <button class="adv-toggle" onclick="window.toggleAdvFilters(this)">▾ Advanced Filters</button>
-        </div>
-
-        <div id="adv-filters-inner" class="adv-filters-inner hidden" style="border-top:1px dashed var(--border); margin-top:10px; padding-top:10px; gap:10px; flex-wrap:wrap; display: none;">
-            <select class="fi" id="adv-pain" onchange="LexNova.UI.renderTables()">
-                <option value="">All Pain Tiers</option>
-                <option value="T1_T2">T1 / T2 Only (Lethal)</option>
-                <option value="T3">T3 Only</option>
-                <option value="LEGACY">Legacy Mapped</option>
-            </select>
-            <select class="fi" id="adv-arch" onchange="LexNova.UI.renderTables()">
-                <option value="">All Archetypes</option>
-                <option value="INT">Any INT (Operational)</option>
-                <option value="EXT">Any EXT (Jurisdictional)</option>
-            </select>
-            <select class="fi" id="adv-scan" onchange="LexNova.UI.renderTables()">
-                <option value="">All Scan States</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="DROPPED">Dropped</option>
-                <option value="CLICKED">Clicked / Engaged</option>
-                <option value="NONE">No Scan</option>
-            </select>
-            <select class="fi" id="adv-fund" onchange="LexNova.UI.renderTables()">
-                <option value="">All Funding Stages</option>
-                <option value="Bootstrapped">Bootstrapped</option>
-                <option value="Seed">Seed / Pre-Seed</option>
-                <option value="Series A">Series A</option>
-                <option value="Series B">Series B</option>
-                <option value="Series C+">Series C+ / Growth</option>
-                <option value="Enterprise">Enterprise / Public</option>
-                <option value="Unverified">Unverified</option>
-            </select>
-            <select class="fi" id="adv-ready" onchange="LexNova.UI.renderTables()">
-                <option value="">All Readiness States</option>
-                <option value="INTEL_READY">Intel Ready (V5 Gaps)</option>
-                <option value="SCHEDULED">Scheduled (Has CE Date)</option>
-                <option value="ACTION_NEEDED">Unverified / Action Needed</option>
-            </select>
-            <select class="fi" id="adv-conf" onchange="LexNova.UI.renderTables()">
-                <option value="">All Confidence Tiers</option>
-                <option value="HIGH">HIGH (0.7 - 1.0)</option>
-                <option value="MEDIUM">MEDIUM (0.4 - 0.6)</option>
-                <option value="LOW">LOW (0.0 - 0.3)</option>
-                <option value="MAPPED">MAPPED (Legacy)</option>
-            </select>
-        </div>
-    </div>
-
-    <div class="card" style="overflow-x:auto; padding:0; margin-top:15px;">
-        <table style="width:100%; text-align:left; border-collapse:collapse; font-size:11px;">
-            <thead style="background:var(--surface2);">
-                <tr style="border-bottom:1px solid var(--border); color:var(--marble-dim); font-size:9px; letter-spacing:0.1em; text-transform:uppercase;">
-                    <th style="padding:12px;">S.No</th>
-                    <th style="padding:12px;">Target / PID</th>
-                    <th style="padding:12px;">Batch</th>
-                    <th style="padding:12px;">Intel Status</th>
-                    ${LexNova.UI.State.currentTab === 'QUEUED' ? `
-                        <th style="padding:12px;">Aging / Days</th>
-                        <th style="padding:12px;">Scanner Status</th>
-                        <th style="padding:12px; cursor:pointer; color:var(--gold);" onclick="LexNova.UI.toggleSortDir()">Toggle ASC/DSC ${LexNova.UI.getSortIcon()}</th>
-                    ` : LexNova.UI.State.currentTab === 'NEGOTIATING' ? `
-                        <th style="padding:12px;">Scanner Score</th>
-                        <th style="padding:12px;">Lethal Threat Summary</th>
-                        <th style="padding:12px;">Last Touch</th>
-                        <th style="padding:12px; cursor:pointer; color:var(--gold);" onclick="LexNova.UI.toggleSortDir()">Toggle ASC/DSC ${LexNova.UI.getSortIcon()}</th>
-                    ` : `
-                        <th style="padding:12px;">Outreach Status</th>
-                        <th style="padding:12px;">Scanner Status</th>
-                        <th style="padding:12px; cursor:pointer; color:var(--gold);" onclick="LexNova.UI.toggleSortDir()">Toggle ASC/DSC ${LexNova.UI.getSortIcon()}</th>
-                    `}
-                </tr>
-            </thead>
-            <tbody>
-                ${filtered.map((p, index) => LexNova.UI.buildRow(p, index + 1)).join('')}
-            </tbody>
-        </table>
-        ${filtered.length === 0 ? '<div style="padding:40px; text-align:center; color:var(--marble-dim);">No targets in this pipeline stage.</div>' : ''}
-    </div>
-    `;
-
-    container.innerHTML = html;
-
-    // --- ADD THIS TO RESTORE CURSOR FOCUS ---
-    if (activeId) {
-        const restoredEl = document.getElementById(activeId);
-        if (restoredEl) {
-            restoredEl.focus();
-            if (cursorStart !== null && cursorEnd !== null && (restoredEl.tagName === 'INPUT' || restoredEl.tagName === 'TEXTAREA')) {
-                restoredEl.setSelectionRange(cursorStart, cursorEnd);
-            }
-        }
+    // ── SEARCH SHELL: build once, never wipe ──────────────────
+    if (!document.getElementById('ln-search-shell')) {
+        const shell = document.createElement('div');
+        shell.id = 'ln-search-shell';
+        container.insertBefore(shell, container.firstChild);
     }
-    // ----------------------------------------
+    if (!document.getElementById('ln-table-shell')) {
+        const tshell = document.createElement('div');
+        tshell.id = 'ln-table-shell';
+        container.appendChild(tshell);
+    }
+
+    // Update batch options without rebuilding the input
+    const batchSel = document.getElementById('cc-batch-filter');
+    if (batchSel) {
+        const currentVal = batchSel.value;
+        const newOpts = '<option value="">All Batches</option>' + uniqueBatches.map(b => `<option value="${b}">${b}</option>`).join('');
+        batchSel.innerHTML = newOpts;
+        batchSel.value = currentVal;
+    }
+
+    // Build the search shell HTML only on first render
+    const searchShell = document.getElementById('ln-search-shell');
+    if (searchShell && !searchShell.hasAttribute('data-built')) {
+        searchShell.setAttribute('data-built', '1');
+        const batchOptionsHtml = '<option value="">All Batches</option>' + uniqueBatches.map(b => `<option value="${b}">${b}</option>`).join('');
+        searchShell.innerHTML = `
+        <div style="display:flex; gap:15px; margin-bottom: 15px;">
+            <div class="card" style="flex:2;">
+                <div style="font-size:10px; color:var(--gold); letter-spacing:0.1em; text-transform:uppercase;">PIPELINE HEALTH</div>
+                <div id="ln-metrics-bar" style="display:flex; justify-content:space-between; margin-top:10px;"></div>
+            </div>
+            <div class="card" style="flex:1;">
+                <div style="font-size:10px; color:var(--gold); letter-spacing:0.1em; text-transform:uppercase;">SCANNER TELEMETRY</div>
+                <div id="ln-scanner-bar" style="display:flex; justify-content:space-between; margin-top:10px;"></div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom:15px; padding:15px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:15px; flex-wrap:wrap; border-bottom:1px solid var(--border); padding-bottom:15px; margin-bottom:15px;">
+                <div style="display:flex; gap:0;" id="ln-tab-btns"></div>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-outline" onclick="LexNova.Export.copyList()">📋 Copy List</button>
+                    <button class="btn btn-primary" onclick="LexNova.Ingestion.openV5Modal()">📥 Add New ICP</button>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                <input type="text" class="fi" id="cc-search" placeholder="Search company, founder, email, threat..." style="width:260px;" oninput="LexNova.UI.renderTableOnly()">
+                <select class="fi" id="cc-batch-filter" style="width:120px;" onchange="LexNova.UI.renderTableOnly()">${batchOptionsHtml}</select>
+                <select class="fi" id="cc-status-filter" style="width:140px;" onchange="LexNova.UI.renderTableOnly()">
+                    <option value="">All Statuses</option>
+                    <option value="QUEUED">QUEUED</option>
+                    <option value="SEQUENCE">SEQUENCE</option>
+                    <option value="ENGAGED">ENGAGED</option>
+                    <option value="NEGOTIATING">NEGOTIATING</option>
+                    <option value="CONVERTED">CONVERTED</option>
+                    <option value="ARCHIVED">ARCHIVED</option>
+                    <option value="DEAD">DEAD</option>
+                </select>
+                <select class="fi" style="width:160px;" onchange="LexNova.UI.setSortCol(this.value)">
+                    <option value="last_updated">Sort: Last Update Date</option>
+                    <option value="ceDate">Sort: CE Date</option>
+                    <option value="date_added">Sort: Date Added</option>
+                    <option value="batch">Sort: Batch</option>
+                    <option value="company">Sort: Company</option>
+                    <option value="confidence">Sort: Confidence Score</option>
+                </select>
+                <button class="adv-toggle" onclick="window.toggleAdvFilters(this)">▾ Advanced Filters</button>
+            </div>
+            <div id="adv-filters-inner" class="adv-filters-inner hidden" style="border-top:1px dashed var(--border); margin-top:10px; padding-top:10px; gap:10px; flex-wrap:wrap; display:none;">
+                <select class="fi" id="adv-pain" onchange="LexNova.UI.renderTableOnly()">
+                    <option value="">All Pain Tiers</option>
+                    <option value="T1_T2">T1 / T2 Only (Lethal)</option>
+                    <option value="T3">T3 Only</option>
+                    <option value="LEGACY">Legacy Mapped</option>
+                </select>
+                <select class="fi" id="adv-arch" onchange="LexNova.UI.renderTableOnly()">
+                    <option value="">All Archetypes</option>
+                    <option value="INT">Any INT (Operational)</option>
+                    <option value="EXT">Any EXT (Jurisdictional)</option>
+                </select>
+                <select class="fi" id="adv-scan" onchange="LexNova.UI.renderTableOnly()">
+                    <option value="">All Scan States</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="DROPPED">Dropped</option>
+                    <option value="CLICKED">Clicked / Engaged</option>
+                    <option value="NONE">No Scan</option>
+                </select>
+                <select class="fi" id="adv-fund" onchange="LexNova.UI.renderTableOnly()">
+                    <option value="">All Funding Stages</option>
+                    <option value="Bootstrapped">Bootstrapped</option>
+                    <option value="Seed">Seed / Pre-Seed</option>
+                    <option value="Series A">Series A</option>
+                    <option value="Series B">Series B</option>
+                    <option value="Series C+">Series C+ / Growth</option>
+                    <option value="Enterprise">Enterprise / Public</option>
+                    <option value="Unverified">Unverified</option>
+                </select>
+                <select class="fi" id="adv-conf" onchange="LexNova.UI.renderTableOnly()">
+                    <option value="">All Confidence Tiers</option>
+                    <option value="HIGH">HIGH (0.7 - 1.0)</option>
+                    <option value="MEDIUM">MEDIUM (0.4 - 0.6)</option>
+                    <option value="LOW">LOW (0.0 - 0.3)</option>
+                    <option value="MAPPED">MAPPED (Legacy)</option>
+                </select>
+            </div>
+        </div>`;
+    }
+
+    // ── METRICS: update without rebuilding inputs ──────────────
+    const metricsBar = document.getElementById('ln-metrics-bar');
+    if (metricsBar) {
+        metricsBar.innerHTML = `
+            <div><span style="font-size:24px;">${m.total}</span><br><span style="font-size:9px; color:var(--marble-dim);">Total Targets</span></div>
+            <div><span style="font-size:24px; color:var(--green);">${m.inSequence}</span><br><span style="font-size:9px; color:var(--marble-dim);">In Sequence</span></div>
+            <div><span style="font-size:24px;">${m.v5Intel}</span><br><span style="font-size:9px; color:var(--marble-dim);">V5.0 Intel</span></div>
+            <div><span style="font-size:24px;">${m.unscheduled}</span><br><span style="font-size:9px; color:var(--marble-dim);">Unscheduled</span></div>
+            <div><span style="font-size:24px;">${m.archived}</span><br><span style="font-size:9px; color:var(--marble-dim);">Archived</span></div>
+            <div><span style="font-size:24px; color:var(--red);">${m.bottleneck}</span><br><span style="font-size:9px; color:var(--marble-dim);">Bottleneck</span></div>`;
+    }
+    const scannerBar = document.getElementById('ln-scanner-bar');
+    if (scannerBar) {
+        scannerBar.innerHTML = `
+            <div><span style="font-size:24px;">${m.scansClicked}</span> <span style="font-size:12px; color:var(--gold);">(${scanPct}%)</span><br><span style="font-size:9px; color:var(--marble-dim);">Clicked</span></div>
+            <div><span style="font-size:24px;">${m.scansDropped}</span><br><span style="font-size:9px; color:var(--marble-dim);">Dropped</span></div>
+            <div><span style="font-size:24px; color:var(--green);">${m.scansCompleted}</span><br><span style="font-size:9px; color:var(--marble-dim);">Completed</span></div>`;
+    }
+
+    // Update tab buttons
+    const tabBtns = document.getElementById('ln-tab-btns');
+    if (tabBtns) {
+        tabBtns.innerHTML = `
+            <button class="view-btn ${LexNova.UI.State.currentTab === 'QUEUED' ? 'active' : ''}" onclick="LexNova.UI.setTab('QUEUED')">Unscheduled (${m.unscheduled})</button>
+            <button class="view-btn ${LexNova.UI.State.currentTab === 'SEQUENCE' ? 'active' : ''}" onclick="LexNova.UI.setTab('SEQUENCE')">In Sequence (${m.inSequence})</button>
+            <button class="view-btn ${LexNova.UI.State.currentTab === 'NEGOTIATING' ? 'active' : ''}" onclick="LexNova.UI.setTab('NEGOTIATING')">Negotiating</button>`;
+    }
+
+    // ── TABLE ONLY: safe to wipe ───────────────────────────────
+    const tableShell = document.getElementById('ln-table-shell');
+    if (tableShell) {
+        tableShell.innerHTML = `
+        <div class="card" style="overflow-x:auto; padding:0; margin-top:15px;">
+            <table style="width:100%; text-align:left; border-collapse:collapse; font-size:11px;">
+                <thead style="background:var(--surface2);">
+                    <tr style="border-bottom:1px solid var(--border); color:var(--marble-dim); font-size:9px; letter-spacing:0.1em; text-transform:uppercase;">
+                        <th style="padding:12px;">S.No</th>
+                        <th style="padding:12px;">Target / PID</th>
+                        <th style="padding:12px;">Batch</th>
+                        <th style="padding:12px;">Intel Status</th>
+                        ${LexNova.UI.State.currentTab === 'QUEUED' ? `
+                            <th style="padding:12px;">Aging / Days</th>
+                            <th style="padding:12px;">Scanner Status</th>
+                            <th style="padding:12px; cursor:pointer; color:var(--gold);" onclick="LexNova.UI.toggleSortDir()">Toggle ASC/DSC ${LexNova.UI.getSortIcon()}</th>
+                        ` : LexNova.UI.State.currentTab === 'NEGOTIATING' ? `
+                            <th style="padding:12px;">Scanner Score</th>
+                            <th style="padding:12px;">Lethal Threat Summary</th>
+                            <th style="padding:12px;">Last Touch</th>
+                            <th style="padding:12px; cursor:pointer; color:var(--gold);" onclick="LexNova.UI.toggleSortDir()">Toggle ASC/DSC ${LexNova.UI.getSortIcon()}</th>
+                        ` : `
+                            <th style="padding:12px;">Outreach Status</th>
+                            <th style="padding:12px;">Scanner Status</th>
+                            <th style="padding:12px; cursor:pointer; color:var(--gold);" onclick="LexNova.UI.toggleSortDir()">Toggle ASC/DSC ${LexNova.UI.getSortIcon()}</th>
+                        `}
+                    </tr>
+                </thead>
+                <tbody>
+                    ${filtered.map((p, index) => LexNova.UI.buildRow(p, index + 1)).join('')}
+                </tbody>
+            </table>
+            ${filtered.length === 0 ? '<div style="padding:40px; text-align:center; color:var(--marble-dim);">No targets match.</div>' : ''}
+        </div>`;
+    }
 };
-
-
+// Called by search/filter inputs — skips shell rebuild, just re-filters the table
+LexNova.UI.renderTableOnly = function() {
+    LexNova.UI.renderTables();
+};
 /**
  * ==========================================
  * SECTION 2: TABLE ROW GENERATOR (DUAL-READ)
@@ -436,7 +437,6 @@ LexNova.UI.setTab = function(tab) {
     LexNova.UI.State.currentTab = tab;
     LexNova.UI.renderTables();
 };
-
 LexNova.UI.setSortCol = function(col) {
     LexNova.UI.State.sortCol = col;
     LexNova.UI.renderTables();
